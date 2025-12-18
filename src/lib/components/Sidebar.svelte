@@ -41,9 +41,12 @@
     onOpen: () => void;
     onExport: () => void;
     onSettings: () => void;
+    onNewCanvas?: () => void;
+    canvasName?: string;
+    vaultName?: string;
   }
 
-  let { onHome, onSave, onOpen, onExport, onSettings }: Props = $props();
+  let { onHome, onSave, onOpen, onExport, onSettings, onNewCanvas, canvasName, vaultName }: Props = $props();
 
   let addMenuOpen = $state(false);
   let exportMenuOpen = $state(false);

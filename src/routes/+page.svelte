@@ -3,16 +3,16 @@
   import Canvas from '$lib/components/Canvas.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import PropertiesPanel from '$lib/components/PropertiesPanel.svelte';
-  import Landing from '$lib/components/Landing.svelte';
+  import VaultPicker from '$lib/components/VaultPicker.svelte';
+  import CanvasList from '$lib/components/CanvasList.svelte';
+  import CanvasHeader from '$lib/components/CanvasHeader.svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
-  import { appConfig } from '$lib/stores/appConfig.svelte';
-  import { saveWorkspace, loadWorkspace, exportAsZip, createWorkspace } from '$lib/services/fileOperations';
-  import { open, save, message } from '@tauri-apps/plugin-dialog';
+  import { vaultStore } from '$lib/stores/vault.svelte';
+  import { saveWorkspace, loadWorkspace } from '$lib/services/fileOperations';
+  import { message } from '@tauri-apps/plugin-dialog';
   
   let showProperties = $state(false);
-  let currentWorkspacePath = $state<string | null>(null);
-  let showCreateDialog = $state(false);
-  let newWorkspaceName = $state('');
+  let canvasLoaded = $state(false);
   
   // Show properties when a node is selected
   $effect(() => {
@@ -21,107 +21,98 @@
     }
   });
 
-  onMount(async () => {
-    await appConfig.initialize();
+  // Load canvas when current canvas changes
+  $effect(() => {
+    if (vaultStore.currentCanvas && !canvasLoaded) {
+      loadCurrentCanvas();
+    }
   });
 
-  async function handleOpenWorkspace(path: string) {
-    try {
-      workspace.workspacePath = path;
-      const success = await loadWorkspace(path);
-      if (success) {
-        currentWorkspacePath = path;
-        // Add to recent workspaces
-        const name = path.split(/[\\/]/).pop() || 'Workspace';
-        appConfig.addRecentWorkspace(name, path);
-      }
-    } catch (err) {
-      console.error('Failed to open workspace:', err);
-      await message('Failed to open workspace', { title: 'Error', kind: 'error' });
-    }
-  }
+  onMount(async () => {
+    // Initialize vault store on mount
+    await vaultStore.initialize();
+  });
 
-  async function handleCreateWorkspace() {
-    if (!appConfig.containerPath) {
-      await message('Please select a workspace folder first', { title: 'Error', kind: 'error' });
-      return;
-    }
-    
-    // Prompt for workspace name
-    const name = prompt('Enter workspace name:');
-    if (!name) return;
-    
-    const path = `${appConfig.containerPath}/${name.replace(/[^a-zA-Z0-9-_]/g, '_')}`;
+  async function loadCurrentCanvas() {
+    if (!vaultStore.currentCanvas) return;
     
     try {
-      const success = await createWorkspace(path, name);
+      const success = await loadWorkspace(vaultStore.currentCanvas.path);
       if (success) {
-        currentWorkspacePath = path;
-        appConfig.addRecentWorkspace(name, path);
-        await message('Workspace created successfully!', { title: 'Created', kind: 'info' });
-      } else {
-        await message('Failed to create workspace', { title: 'Error', kind: 'error' });
+        workspace.workspacePath = vaultStore.currentCanvas.path;
+        canvasLoaded = true;
       }
     } catch (err) {
-      console.error('Failed to create workspace:', err);
-      await message('Failed to create workspace', { title: 'Error', kind: 'error' });
+      console.error('Failed to load canvas:', err);
     }
   }
   
   async function handleHome() {
-    // Go back to landing
-    currentWorkspacePath = null;
-    workspace.workspacePath = null;
+    // Save current canvas first
+    if (workspace.isModified) {
+      await handleSave();
+    }
+    
+    // Go back to canvas list or vault picker
+    canvasLoaded = false;
+    workspace.clear();
+    vaultStore.closeCanvas();
   }
 
   async function handleSave() {
     try {
       const success = await saveWorkspace();
       if (success) {
-        await message('Workspace saved successfully!', { title: 'Saved', kind: 'info' });
+        await message('Canvas saved successfully!', { title: 'Saved', kind: 'info' });
       } else {
-        await message('Failed to save workspace', { title: 'Error', kind: 'error' });
+        await message('Failed to save canvas', { title: 'Error', kind: 'error' });
       }
     } catch (err) {
       console.error('Failed to save:', err);
-      await message('Failed to save workspace', { title: 'Error', kind: 'error' });
+      await message('Failed to save canvas', { title: 'Error', kind: 'error' });
     }
   }
 
   async function handleOpen() {
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      title: 'Open Workspace'
-    });
-    
-    if (selected && typeof selected === 'string') {
-      await handleOpenWorkspace(selected);
+    // Save current, then go to canvas list
+    if (workspace.isModified) {
+      await handleSave();
     }
+    canvasLoaded = false;
+    workspace.clear();
+    vaultStore.closeCanvas();
   }
 
   async function handleExport() {
-    try {
-      const success = await exportAsZip();
-      if (success) {
-        await message('Workspace exported successfully!', { title: 'Exported', kind: 'info' });
-      } else {
-        await message('Failed to export workspace', { title: 'Error', kind: 'error' });
-      }
-    } catch (err) {
-      console.error('Failed to export:', err);
-      await message('Failed to export workspace', { title: 'Error', kind: 'error' });
-    }
+    // TODO: Implement export
+    await message('Export feature coming soon!', { title: 'Info', kind: 'info' });
   }
 
   function handleSettings() {
     showProperties = !showProperties;
   }
+
+  async function handleNewCanvas() {
+    // Save current, then create new
+    if (workspace.isModified) {
+      await handleSave();
+    }
+    canvasLoaded = false;
+    workspace.clear();
+    await vaultStore.createCanvas('Untitled');
+  }
 </script>
 
-{#if !appConfig.initialized || !currentWorkspacePath}
-  <Landing onOpenWorkspace={handleOpenWorkspace} onCreateWorkspace={handleCreateWorkspace} />
-{:else}
+{#if !vaultStore.isInitialized || vaultStore.isLoading}
+  <div class="loading-screen">
+    <div class="loader"></div>
+    <p>Loading MosaicFlow...</p>
+  </div>
+{:else if vaultStore.appView === 'vault-picker'}
+  <VaultPicker />
+{:else if vaultStore.appView === 'canvas-list'}
+  <CanvasList />
+{:else if vaultStore.appView === 'canvas' && vaultStore.currentCanvas}
   <div class="app">
     <Sidebar 
       onHome={handleHome}
@@ -129,10 +120,14 @@
       onOpen={handleOpen}
       onExport={handleExport}
       onSettings={handleSettings}
+      onNewCanvas={handleNewCanvas}
+      canvasName={vaultStore.currentCanvas.name}
+      vaultName={vaultStore.currentVault?.name}
     />
     
     <div class="main-content">
       <div class="canvas-container">
+        <CanvasHeader />
         <Canvas />
       </div>
       
@@ -141,6 +136,8 @@
       {/if}
     </div>
   </div>
+{:else}
+  <VaultPicker />
 {/if}
 
 <style>
@@ -155,6 +152,33 @@
     background-color: #0a0a0f;
     color: #fafafa;
     overflow: hidden;
+  }
+  
+  .loading-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    gap: 1rem;
+  }
+
+  .loader {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #2a2a3a;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .loading-screen p {
+    color: #888;
+    font-size: 0.875rem;
   }
   
   .app {
