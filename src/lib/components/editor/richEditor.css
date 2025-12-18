@@ -5,15 +5,34 @@
   height: 100%;
   color: #d4d4d4;
   background: transparent;
+  /* Fix blurry text rendering */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 .rich-markdown-editor .cm-editor {
   height: 100%;
   background: transparent;
+  /* Ensure crisp text at any zoom level */
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .rich-markdown-editor .cm-editor.cm-focused {
   outline: none;
+}
+
+/* Fix text sharpness in CodeMirror */
+.rich-markdown-editor .cm-scroller {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.rich-markdown-editor .cm-content {
+  /* Prevent subpixel rendering issues */
+  will-change: auto;
+  transform: translateZ(0);
 }
 
 /* Hide markdown syntax when not editing */

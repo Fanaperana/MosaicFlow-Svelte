@@ -147,5 +147,18 @@
   body {
     @apply bg-background text-foreground;
     font-family: 'Space Mono', 'Monaco', 'Consolas', monospace;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
+}
+
+/* Crisp text rendering for canvas nodes at all zoom levels */
+.svelte-flow .svelte-flow__node {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform;
 }

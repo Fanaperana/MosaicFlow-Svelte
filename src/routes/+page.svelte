@@ -6,6 +6,7 @@
   import VaultPicker from '$lib/components/VaultPicker.svelte';
   import CanvasList from '$lib/components/CanvasList.svelte';
   import CanvasHeader from '$lib/components/CanvasHeader.svelte';
+  import QuickToolbar from '$lib/components/QuickToolbar.svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
   import { saveWorkspace, loadWorkspace } from '$lib/services/fileOperations';
@@ -128,6 +129,7 @@
     <div class="main-content">
       <div class="canvas-container">
         <CanvasHeader />
+        <QuickToolbar />
         <Canvas />
       </div>
       

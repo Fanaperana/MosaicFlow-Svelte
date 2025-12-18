@@ -175,6 +175,12 @@
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
+    /* Fix blurry text at different zoom levels */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    transform: translateZ(0);
+    backface-visibility: hidden;
   }
 
   .note-node.selected:not(.customizing) {
