@@ -8,7 +8,6 @@
     BackgroundVariant,
     type Node,
     type Edge,
-    useSvelteFlow,
     ConnectionLineType,
   } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
@@ -21,6 +20,7 @@
   import { calculateSnapGuides, calculateSelectionSnapGuides, type SnapGuide } from '$lib/utils/snap-guides';
   import SnapGuides from '$lib/components/SnapGuides.svelte';
   import * as ContextMenu from '$lib/components/ui/context-menu';
+  import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   import { 
     MousePointer2, 
     Hand, 
@@ -49,12 +49,29 @@
     Trash2,
     ZoomIn,
     ZoomOut,
-    Maximize
+    Maximize,
+    LayoutGrid
   } from 'lucide-svelte';
 
   // Two-way binding with workspace state - using $state.raw for better performance
   let nodes = $state.raw(workspace.nodes as Node[]);
   let edges = $state.raw(workspace.edges as Edge[]);
+  
+  // Viewport state for coordinate conversion
+  let viewport = $state({ x: 0, y: 0, zoom: 1 });
+  let flowContainer: HTMLDivElement | undefined;
+  
+  // Helper function to convert screen coordinates to flow coordinates
+  function screenToFlowPosition(screenPos: { x: number; y: number }) {
+    if (!flowContainer) {
+      return { x: screenPos.x, y: screenPos.y };
+    }
+    const bounds = flowContainer.getBoundingClientRect();
+    return {
+      x: (screenPos.x - bounds.left - viewport.x) / viewport.zoom,
+      y: (screenPos.y - bounds.top - viewport.y) / viewport.zoom,
+    };
+  }
   
   // Context menu state
   let contextMenuPosition = $state({ x: 0, y: 0 });
@@ -63,6 +80,11 @@
   // Snap guides state
   let snapGuides = $state<SnapGuide[]>([]);
   const SNAP_THRESHOLD = 8; // Distance in pixels to show guides
+  
+  // Edge drop menu state - for creating nodes when dropping connection on empty canvas
+  let edgeDropMenuOpen = $state(false);
+  let edgeDropMenuPosition = $state({ x: 0, y: 0 });
+  let pendingConnectionSource = $state<{ nodeId: string; handleId: string | null; handleType: 'source' | 'target' } | null>(null);
   
   // Sync workspace changes to local state
   $effect(() => {
@@ -85,15 +107,112 @@
       workspace.edges = edges as MosaicEdge[];
     }
   });
-  
-  // Store reference for drop position calculation
-  let flowContainer: HTMLDivElement;
 
   // Handle edge connection
   function handleConnect(params: { source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }) {
     if (params.source && params.target) {
       workspace.createEdge(params.source, params.target, undefined, params.sourceHandle, params.targetHandle);
     }
+  }
+
+  // Handle connection start - track the source for edge drop
+  function handleConnectStart(event: MouseEvent | TouchEvent, params: { nodeId: string | null; handleId: string | null; handleType: 'source' | 'target' | null }) {
+    if (params.nodeId && params.handleType) {
+      pendingConnectionSource = {
+        nodeId: params.nodeId,
+        handleId: params.handleId,
+        handleType: params.handleType,
+      };
+    }
+  }
+
+  // Handle connection end - show menu if dropped on empty canvas
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function handleConnectEnd(event: MouseEvent | TouchEvent, connectionState: any) {
+    // If connection was successful (connected to a node), do nothing
+    if (connectionState.isValid) {
+      pendingConnectionSource = null;
+      return;
+    }
+    
+    // If dropped on empty canvas (no target node), show the node creation menu
+    // connectionState.toNode is the target node (null if dropped on empty canvas)
+    if (pendingConnectionSource && !connectionState.toNode) {
+      const clientX = 'clientX' in event ? event.clientX : event.touches?.[0]?.clientX ?? 0;
+      const clientY = 'clientY' in event ? event.clientY : event.touches?.[0]?.clientY ?? 0;
+      
+      edgeDropMenuPosition = { x: clientX, y: clientY };
+      edgeDropMenuOpen = true;
+    } else {
+      pendingConnectionSource = null;
+    }
+  }
+
+  // Create node from edge drop and connect it
+  function createNodeFromEdgeDrop(type: NodeType) {
+    if (!pendingConnectionSource) return;
+    
+    // Convert screen position to flow position
+    const flowPosition = screenToFlowPosition({
+      x: edgeDropMenuPosition.x,
+      y: edgeDropMenuPosition.y,
+    });
+    
+    // Get default node size
+    const nodeSize = getNodeSizeForType(type);
+    
+    // Offset position to center the node on the drop point
+    const position = {
+      x: flowPosition.x - nodeSize.width / 2,
+      y: flowPosition.y - nodeSize.height / 2,
+    };
+    
+    // Find non-overlapping position
+    const finalPosition = findNonOverlappingPosition(position, nodeSize, nodes, 20);
+    
+    // Create the node
+    const newNode = workspace.createNode(type, finalPosition);
+    
+    // Create edge based on which handle type was used
+    if (pendingConnectionSource.handleType === 'source') {
+      // Dragged from source, so new node is target
+      workspace.createEdge(
+        pendingConnectionSource.nodeId,
+        newNode.id,
+        undefined,
+        pendingConnectionSource.handleId,
+        'left' // Default target handle
+      );
+    } else {
+      // Dragged from target, so new node is source
+      workspace.createEdge(
+        newNode.id,
+        pendingConnectionSource.nodeId,
+        undefined,
+        'right', // Default source handle
+        pendingConnectionSource.handleId
+      );
+    }
+    
+    // Run collision resolution
+    setTimeout(() => {
+      nodes = resolveCollisions(nodes, { 
+        maxIterations: 100, 
+        overlapThreshold: 0.5, 
+        margin: 15 
+      });
+      
+      // Select the new node
+      nodes = nodes.map(n => ({
+        ...n,
+        selected: n.id === newNode.id
+      }));
+      workspace.setSelectedNodes([newNode.id]);
+    }, 50);
+    
+    // Clean up
+    pendingConnectionSource = null;
+    edgeDropMenuOpen = false;
   }
 
   // Handle selection changes
@@ -271,6 +390,7 @@
       linkList: List,
       snapshot: Camera,
       action: CheckSquare,
+      iframe: LayoutGrid,
     };
     return icons[type];
   }
@@ -355,8 +475,11 @@
       <SvelteFlow
         bind:nodes
         bind:edges
+        bind:viewport
         {nodeTypes}
         onconnect={handleConnect}
+        onconnectstart={handleConnectStart}
+        onconnectend={handleConnectEnd}
         onselectionchange={handleSelectionChange}
         onnodedrag={handleNodeDrag}
         onnodedragstop={handleNodeDragStop}
@@ -425,6 +548,10 @@
           <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('timestamp')}>
             <Clock size={14} />
             <span>Timestamp</span>
+          </ContextMenu.Item>
+          <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('iframe')}>
+            <LayoutGrid size={14} />
+            <span>Iframe</span>
           </ContextMenu.Item>
         </ContextMenu.Group>
 
@@ -548,6 +675,77 @@
     </ContextMenu.Group>
   </ContextMenu.Content>
 </ContextMenu.Root>
+
+<!-- Edge Drop Menu - appears when dropping connection on empty canvas -->
+{#if edgeDropMenuOpen}
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div 
+    class="edge-drop-overlay"
+    role="presentation"
+    onclick={() => { edgeDropMenuOpen = false; pendingConnectionSource = null; }}
+  ></div>
+  <div 
+    class="edge-drop-menu"
+    style="left: {edgeDropMenuPosition.x}px; top: {edgeDropMenuPosition.y}px;"
+  >
+    <div class="edge-drop-header">
+      <Plus size={14} />
+      <span>Add & Connect Node</span>
+    </div>
+    
+    <div class="edge-drop-section">
+      <div class="edge-drop-section-title">Content</div>
+      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('note')}>
+        <StickyNote size={14} /> Note
+      </button>
+      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('image')}>
+        <Image size={14} /> Image
+      </button>
+      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('link')}>
+        <Link size={14} /> Link
+      </button>
+      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('code')}>
+        <Code size={14} /> Code
+      </button>
+      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('iframe')}>
+        <LayoutGrid size={14} /> Iframe
+      </button>
+    </div>
+    
+    <div class="edge-drop-section">
+      <div class="edge-drop-section-title">Entity</div>
+      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('person')}>
+        <User size={14} /> Person
+      </button>
+      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('organization')}>
+        <Building2 size={14} /> Organization
+      </button>
+    </div>
+    
+    <div class="edge-drop-section">
+      <div class="edge-drop-section-title">OSINT</div>
+      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('domain')}>
+        <Globe size={14} /> Domain
+      </button>
+      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('hash')}>
+        <FileDigit size={14} /> Hash
+      </button>
+      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('credential')}>
+        <KeyRound size={14} /> Credential
+      </button>
+    </div>
+    
+    <div class="edge-drop-section">
+      <div class="edge-drop-section-title">Utility</div>
+      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('group')}>
+        <FolderOpen size={14} /> Group
+      </button>
+      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('timestamp')}>
+        <Clock size={14} /> Timestamp
+      </button>
+    </div>
+  </div>
+{/if}
 
 <style>
   :global(.canvas-context-trigger) {
@@ -718,5 +916,77 @@
   /* Make selection outline more subtle */
   :global(.svelte-flow__node.selected) {
     outline: none !important;
+  }
+
+  /* Edge Drop Menu Styles */
+  .edge-drop-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 999;
+  }
+
+  .edge-drop-menu {
+    position: fixed;
+    z-index: 1000;
+    background: #1a1d21;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    min-width: 180px;
+    max-height: 400px;
+    overflow-y: auto;
+    transform: translate(-50%, 0);
+  }
+
+  .edge-drop-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    color: #3b82f6;
+    font-size: 12px;
+    font-weight: 600;
+    border-bottom: 1px solid #333;
+    margin-bottom: 8px;
+  }
+
+  .edge-drop-section {
+    margin-bottom: 8px;
+  }
+
+  .edge-drop-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .edge-drop-section-title {
+    padding: 4px 12px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .edge-drop-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    color: #e0e0e0;
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 4px;
+    text-align: left;
+  }
+
+  .edge-drop-item:hover {
+    background: rgba(59, 130, 246, 0.2);
   }
 </style>

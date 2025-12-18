@@ -122,6 +122,8 @@ class WorkspaceStore {
         return { ...baseData, url: '' };
       case 'action':
         return { ...baseData, action: '', status: 'pending', priority: 'medium' };
+      case 'iframe':
+        return { ...baseData, url: '' };
       default:
         return baseData as MosaicNodeData;
     }
@@ -146,6 +148,7 @@ class WorkspaceStore {
       linkList: 'Link List',
       snapshot: 'Snapshot',
       action: 'Action',
+      iframe: 'Embed',
     };
     return titles[type] || 'Node';
   }
@@ -159,6 +162,7 @@ class WorkspaceStore {
       linkList: 300,
       socialPost: 350,
       timestamp: 160,
+      iframe: 400,
     };
     return widths[type] || 250;
   }
@@ -171,6 +175,7 @@ class WorkspaceStore {
       group: 300,
       linkList: 200,
       timestamp: 36,
+      iframe: 300,
     };
     return heights[type] || 150;
   }

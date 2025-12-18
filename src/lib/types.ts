@@ -20,7 +20,8 @@ export type NodeType =
   | 'router'
   | 'linkList'
   | 'snapshot'
-  | 'action';
+  | 'action'
+  | 'iframe';
 
 // Base node data interface with index signature for xyflow compatibility
 export interface BaseNodeData {
@@ -188,6 +189,12 @@ export interface ActionNodeData extends BaseNodeData {
   assignee?: string;
 }
 
+export interface IframeNodeData extends BaseNodeData {
+  url: string;
+  allowFullscreen?: boolean;
+  sandbox?: string;
+}
+
 // Union type for all node data
 export type MosaicNodeData = 
   | NoteNodeData
@@ -206,7 +213,8 @@ export type MosaicNodeData =
   | RouterNodeData
   | LinkListNodeData
   | SnapshotNodeData
-  | ActionNodeData;
+  | ActionNodeData
+  | IframeNodeData;
 
 // Custom node type extending xyflow Node
 export interface MosaicNode extends Node {
@@ -346,4 +354,5 @@ export const NODE_TYPE_INFO: NodeTypeInfo[] = [
   { type: 'map', label: 'Map', icon: 'MapPin', category: 'utility', description: 'Geographic location display' },
   { type: 'linkList', label: 'Link List', icon: 'List', category: 'utility', description: 'Collection of related links' },
   { type: 'action', label: 'Action', icon: 'CheckSquare', category: 'utility', description: 'Task/action items' },
+  { type: 'iframe', label: 'Iframe', icon: 'Globe', category: 'content', description: 'Embed external webpages' },
 ];

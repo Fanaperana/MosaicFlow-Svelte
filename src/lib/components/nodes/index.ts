@@ -16,6 +16,7 @@ export { default as RouterNode } from './RouterNode.svelte';
 export { default as LinkListNode } from './LinkListNode.svelte';
 export { default as SnapshotNode } from './SnapshotNode.svelte';
 export { default as ActionNode } from './ActionNode.svelte';
+export { default as IframeNode } from './IframeNode.svelte';
 
 // Node types map for SvelteFlow
 import NoteNode from './NoteNode.svelte';
@@ -35,6 +36,7 @@ import RouterNode from './RouterNode.svelte';
 import LinkListNode from './LinkListNode.svelte';
 import SnapshotNode from './SnapshotNode.svelte';
 import ActionNode from './ActionNode.svelte';
+import IframeNode from './IframeNode.svelte';
 
 export const nodeTypes = {
   note: NoteNode,
@@ -54,4 +56,5 @@ export const nodeTypes = {
   linkList: LinkListNode,
   snapshot: SnapshotNode,
   action: ActionNode,
+  iframe: IframeNode,
 };

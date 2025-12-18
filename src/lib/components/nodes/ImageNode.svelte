@@ -2,13 +2,17 @@
   import { Handle, Position, NodeResizer, type NodeProps, type Node } from '@xyflow/svelte';
   import type { ImageNodeData } from '$lib/types';
   import { workspace } from '$lib/stores/workspace.svelte';
-  import { Image, Camera } from 'lucide-svelte';
+  import { Image, Camera, Upload, Link } from 'lucide-svelte';
+  import { open } from '@tauri-apps/plugin-dialog';
+  import { convertFileSrc } from '@tauri-apps/api/core';
 
   type ImageNode = Node<ImageNodeData, 'image'>;
 
   let { data, selected, id }: NodeProps<ImageNode> = $props();
   
   let isDraggingOver = $state(false);
+  let showUrlInput = $state(false);
+  let urlInputValue = $state('');
 
   // Border styling
   const borderWidth = $derived((data.borderWidth as number) ?? 1);
@@ -45,13 +49,57 @@
     if (files && files.length > 0) {
       const file = files[0];
       if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const imageUrl = event.target?.result as string;
-          workspace.updateNodeData(id, { imageUrl });
-        };
-        reader.readAsDataURL(file);
+        // Check for Tauri file path
+        const filePath = (file as any).path;
+        if (filePath) {
+          // Convert local path to asset URL for Tauri
+          const assetUrl = convertFileSrc(filePath);
+          workspace.updateNodeData(id, { imageUrl: assetUrl });
+        } else {
+          // Fallback: read as data URL for browser-based drops
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const imageUrl = event.target?.result as string;
+            workspace.updateNodeData(id, { imageUrl });
+          };
+          reader.readAsDataURL(file);
+        }
       }
+    }
+  }
+
+  async function handlePickImage() {
+    try {
+      const file = await open({
+        multiple: false,
+        filters: [{
+          name: 'Images',
+          extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg']
+        }]
+      });
+      if (file) {
+        const assetUrl = convertFileSrc(file as string);
+        workspace.updateNodeData(id, { imageUrl: assetUrl });
+      }
+    } catch (err) {
+      console.error('Failed to pick image:', err);
+    }
+  }
+
+  function handleUrlSubmit() {
+    if (urlInputValue.trim()) {
+      workspace.updateNodeData(id, { imageUrl: urlInputValue.trim() });
+      showUrlInput = false;
+      urlInputValue = '';
+    }
+  }
+
+  function handleUrlKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      handleUrlSubmit();
+    } else if (e.key === 'Escape') {
+      showUrlInput = false;
+      urlInputValue = '';
     }
   }
 
@@ -101,13 +149,45 @@
       <div class="drop-zone">
         <div class="drop-icon"><Camera size={32} strokeWidth={1.5} /></div>
         <div class="drop-text">Drop image here</div>
-        <div class="drop-or">or</div>
-        <input 
-          type="text" 
-          class="url-input nodrag"
-          placeholder="Paste image URL..."
-          onchange={handleUrlInput}
-        />
+        
+        <div class="drop-actions">
+          <button 
+            type="button" 
+            class="action-btn nodrag" 
+            onclick={handlePickImage}
+          >
+            <Upload size={14} />
+            <span>Upload</span>
+          </button>
+          
+          <button 
+            type="button" 
+            class="action-btn nodrag" 
+            onclick={() => showUrlInput = !showUrlInput}
+          >
+            <Link size={14} />
+            <span>URL</span>
+          </button>
+        </div>
+        
+        {#if showUrlInput}
+          <div class="url-input-wrapper">
+            <input 
+              type="text" 
+              class="url-input nodrag"
+              placeholder="https://example.com/image.png"
+              bind:value={urlInputValue}
+              onkeydown={handleUrlKeydown}
+            />
+            <button 
+              type="button" 
+              class="url-submit nodrag" 
+              onclick={handleUrlSubmit}
+            >
+              Add
+            </button>
+          </div>
+        {/if}
       </div>
     {/if}
   </div>
@@ -193,11 +273,11 @@
     padding: 20px;
     height: 100%;
     text-align: center;
+    gap: 8px;
   }
 
   .drop-icon {
     font-size: 32px;
-    margin-bottom: 8px;
     opacity: 0.5;
   }
 
@@ -206,14 +286,45 @@
     color: #888;
   }
 
-  .drop-or {
-    font-size: 10px;
-    color: #555;
-    margin: 8px 0;
+  .drop-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .action-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    color: #e0e0e0;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .action-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+
+  .action-btn:active {
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .url-input-wrapper {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+    max-width: 280px;
+    margin-top: 8px;
   }
 
   .url-input {
-    width: 90%;
+    flex: 1;
     padding: 6px 10px;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid #444;
@@ -225,5 +336,21 @@
 
   .url-input:focus {
     border-color: #3b82f6;
+  }
+
+  .url-submit {
+    padding: 6px 12px;
+    background: #3b82f6;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .url-submit:hover {
+    background: #2563eb;
   }
 </style>
