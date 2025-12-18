@@ -18,6 +18,8 @@
   import type { NodeType, MosaicNode, MosaicEdge } from '$lib/types';
   import { NODE_TYPE_INFO } from '$lib/types';
   import { resolveCollisions, findNonOverlappingPosition } from '$lib/utils/resolve-collisions';
+  import { calculateSnapGuides, calculateSelectionSnapGuides, type SnapGuide } from '$lib/utils/snap-guides';
+  import SnapGuides from '$lib/components/SnapGuides.svelte';
   import * as ContextMenu from '$lib/components/ui/context-menu';
   import { 
     MousePointer2, 
@@ -57,6 +59,10 @@
   // Context menu state
   let contextMenuPosition = $state({ x: 0, y: 0 });
   let contextMenuOpen = $state(false);
+  
+  // Snap guides state
+  let snapGuides = $state<SnapGuide[]>([]);
+  const SNAP_THRESHOLD = 8; // Distance in pixels to show guides
   
   // Sync workspace changes to local state
   $effect(() => {
@@ -104,13 +110,35 @@
     }
   }
 
-  // Handle node drag stop - resolve collisions
+  // Handle node drag stop - resolve collisions and clear snap guides
   function handleNodeDragStop() {
+    // Clear snap guides
+    snapGuides = [];
+    
+    // Resolve collisions
     nodes = resolveCollisions(nodes, { 
       maxIterations: 100, 
       overlapThreshold: 0.5, 
       margin: 15 
     });
+  }
+
+  // Handle node drag - calculate snap alignment guides
+  function handleNodeDrag(event: { targetNode: Node | null; nodes: Node[]; event: MouseEvent | TouchEvent }) {
+    // Get the nodes being dragged
+    const draggingNodes = event.nodes.length > 0 ? event.nodes : (event.targetNode ? [event.targetNode] : []);
+    
+    if (draggingNodes.length === 0) {
+      snapGuides = [];
+      return;
+    }
+    
+    // Calculate guides based on single or multiple nodes being dragged
+    if (draggingNodes.length === 1) {
+      snapGuides = calculateSnapGuides(draggingNodes[0], nodes, SNAP_THRESHOLD);
+    } else {
+      snapGuides = calculateSelectionSnapGuides(draggingNodes, nodes, SNAP_THRESHOLD);
+    }
   }
 
   function handleDrop(event: DragEvent) {
@@ -330,6 +358,7 @@
         {nodeTypes}
         onconnect={handleConnect}
         onselectionchange={handleSelectionChange}
+        onnodedrag={handleNodeDrag}
         onnodedragstop={handleNodeDragStop}
         fitView
         connectionLineType={ConnectionLineType.Bezier}
@@ -343,6 +372,9 @@
         proOptions={{ hideAttribution: true }}
         colorMode="dark"
       >
+    <!-- Snap alignment guides -->
+    <SnapGuides guides={snapGuides} />
+    
     <Controls position="bottom-right" />
     
     {#if workspace.settings.showMinimap}
