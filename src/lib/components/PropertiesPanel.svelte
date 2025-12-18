@@ -1,0 +1,1446 @@
+<script lang="ts">
+  import { workspace } from '$lib/stores/workspace.svelte';
+  import type { NodeType, MosaicEdge, MarkerShape } from '$lib/types';
+  import { NODE_TYPE_INFO } from '$lib/types';
+  import { MarkerType } from '@xyflow/svelte';
+  import { X, Copy, Trash2, StickyNote, Image, Link, Code, Clock, User, Building2, Globe, FileDigit, KeyRound, MessageSquare, Router, Camera, FolderOpen, MapPin, List, CheckSquare, ExternalLink, ChevronDown, ChevronRight, Lock, Unlock, Eye, Pencil } from 'lucide-svelte';
+
+  interface Props {
+    onClose: () => void;
+  }
+  
+  let { onClose }: Props = $props();
+
+  // Accordion states
+  let nodeSettingsOpen = $state(false);
+  let appearanceOpen = $state(true);
+  let optionsOpen = $state(true);
+
+  let selectedNode = $derived(
+    workspace.selectedNodeIds.length === 1
+      ? workspace.nodes.find(n => n.id === workspace.selectedNodeIds[0])
+      : null
+  );
+
+  let selectedEdge = $derived(
+    workspace.selectedEdgeIds.length === 1
+      ? workspace.edges.find(e => e.id === workspace.selectedEdgeIds[0])
+      : null
+  );
+
+  const iconMap: Record<string, typeof StickyNote> = {
+    StickyNote, Image, Link, Code, Clock, User, Building2, Globe,
+    FileDigit, KeyRound, MessageSquare, Router, Camera, FolderOpen, MapPin, List, CheckSquare,
+  };
+
+  function getIconComponent(iconName: string) {
+    return iconMap[iconName] || StickyNote;
+  }
+
+  function getNodeTypeInfo(type: string) {
+    return NODE_TYPE_INFO.find(info => info.type === type);
+  }
+
+  function updateNodeData(key: string, value: unknown) {
+    if (selectedNode) {
+      workspace.updateNodeData(selectedNode.id, { [key]: value });
+    }
+  }
+
+  function updateNodePosition(axis: 'x' | 'y', value: number) {
+    if (selectedNode && !selectedNode.data.locked) {
+      workspace.updateNode(selectedNode.id, { 
+        position: { 
+          ...selectedNode.position, 
+          [axis]: value 
+        } 
+      });
+    }
+  }
+
+  function updateNodeSize(dim: 'width' | 'height', value: number) {
+    if (selectedNode && !selectedNode.data.sizeLocked) {
+      workspace.updateNode(selectedNode.id, { [dim]: value });
+    }
+  }
+
+  function updateEdge(updates: Partial<MosaicEdge>) {
+    if (selectedEdge) {
+      workspace.updateEdge(selectedEdge.id, updates);
+    }
+  }
+
+  function updateEdgeData(key: string, value: unknown) {
+    if (selectedEdge) {
+      const currentData = selectedEdge.data || {};
+      workspace.updateEdge(selectedEdge.id, { 
+        data: { ...currentData, [key]: value } 
+      });
+    }
+  }
+
+  function getMarkerConfig(shape: MarkerShape, color: string) {
+    if (shape === 'none') return undefined;
+    
+    const markerType = shape === 'arrowclosed' ? MarkerType.ArrowClosed : MarkerType.Arrow;
+    return {
+      type: markerType,
+      color: color,
+      width: 20,
+      height: 20,
+    };
+  }
+
+  function applyMarkers(startMarker: MarkerShape, endMarker: MarkerShape) {
+    if (selectedEdge) {
+      const color = selectedEdge.data?.color || '#555555';
+      workspace.updateEdge(selectedEdge.id, {
+        markerStart: getMarkerConfig(startMarker, color),
+        markerEnd: getMarkerConfig(endMarker, color),
+      });
+    }
+  }
+
+  function deleteNode() {
+    if (selectedNode) {
+      workspace.deleteNode(selectedNode.id);
+      onClose();
+    }
+  }
+
+  function deleteEdge() {
+    if (selectedEdge) {
+      workspace.deleteEdge(selectedEdge.id);
+    }
+  }
+
+  function duplicateNode() {
+    if (selectedNode) {
+      const newPosition = {
+        x: selectedNode.position.x + 50,
+        y: selectedNode.position.y + 50,
+      };
+      workspace.createNode(selectedNode.type as NodeType, newPosition, { ...selectedNode.data });
+    }
+  }
+
+  function handlePanelEvent(e: Event) {
+    e.stopPropagation();
+  }
+</script>
+
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div 
+  class="properties-panel"
+  onclick={handlePanelEvent}
+  onkeydown={handlePanelEvent}
+  onmousedown={handlePanelEvent}
+  onpointerdown={handlePanelEvent}
+>
+  <div class="panel-header">
+    <h3>Properties</h3>
+    <button class="close-btn" onclick={onClose}>
+      <X size={16} />
+    </button>
+  </div>
+
+  {#if selectedEdge}
+    <!-- Edge Properties -->
+    <div class="panel-content">
+      <div class="node-badge edge-badge">
+        <Link size={16} />
+        <span>Edge</span>
+      </div>
+
+      <div class="section">
+        <div class="section-header">General</div>
+        
+        <div class="field">
+          <label>Label</label>
+          <input 
+            type="text" 
+            value={selectedEdge.label || ''}
+            oninput={(e) => {
+              const label = (e.target as HTMLInputElement).value;
+              updateEdge({ label: label || undefined });
+            }}
+            placeholder="Edge label..."
+          />
+        </div>
+
+        <div class="field">
+          <label>Edge Type</label>
+          <select 
+            value={selectedEdge.type || 'default'}
+            onchange={(e) => updateEdge({ type: (e.target as HTMLSelectElement).value as any })}
+          >
+            <option value="default">Bezier</option>
+            <option value="straight">Straight</option>
+            <option value="step">Step</option>
+            <option value="smoothstep">Smooth Step</option>
+          </select>
+        </div>
+
+        <label class="checkbox-row">
+          <input 
+            type="checkbox" 
+            checked={selectedEdge.animated ?? false}
+            onchange={(e) => updateEdge({ animated: (e.target as HTMLInputElement).checked })}
+          />
+          <span>Animated</span>
+        </label>
+      </div>
+
+      <div class="section">
+        <div class="section-header">Markers</div>
+        
+        <div class="field">
+          <label>Start Marker</label>
+          <select 
+            value={selectedEdge.data?.markerStart || 'none'}
+            onchange={(e) => {
+              const value = (e.target as HTMLSelectElement).value as 'none' | 'arrow' | 'arrowclosed';
+              updateEdgeData('markerStart', value);
+              applyMarkers(value, selectedEdge.data?.markerEnd || 'none');
+            }}
+          >
+            <option value="none">None</option>
+            <option value="arrow">Arrow</option>
+            <option value="arrowclosed">Arrow (Filled)</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>End Marker</label>
+          <select 
+            value={selectedEdge.data?.markerEnd || 'none'}
+            onchange={(e) => {
+              const value = (e.target as HTMLSelectElement).value as 'none' | 'arrow' | 'arrowclosed';
+              updateEdgeData('markerEnd', value);
+              applyMarkers(selectedEdge.data?.markerStart || 'none', value);
+            }}
+          >
+            <option value="none">None</option>
+            <option value="arrow">Arrow</option>
+            <option value="arrowclosed">Arrow (Filled)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">Appearance</div>
+        
+        <div class="field">
+          <label>Edge Color</label>
+          <div class="color-row">
+            <input 
+              type="color" 
+              value={selectedEdge.data?.color || '#555555'}
+              oninput={(e) => {
+                const color = (e.target as HTMLInputElement).value;
+                const width = selectedEdge.data?.strokeWidth || 2;
+                updateEdgeData('color', color);
+                updateEdge({ style: `stroke: ${color}; stroke-width: ${width}px;` });
+                // Update marker colors if they exist
+                applyMarkers(selectedEdge.data?.markerStart || 'none', selectedEdge.data?.markerEnd || 'none');
+              }}
+              class="color-picker"
+            />
+            <input 
+              type="text" 
+              value={selectedEdge.data?.color || '#555555'}
+              oninput={(e) => {
+                const color = (e.target as HTMLInputElement).value;
+                const width = selectedEdge.data?.strokeWidth || 2;
+                updateEdgeData('color', color);
+                updateEdge({ style: `stroke: ${color}; stroke-width: ${width}px;` });
+                // Update marker colors if they exist
+                applyMarkers(selectedEdge.data?.markerStart || 'none', selectedEdge.data?.markerEnd || 'none');
+              }}
+              class="color-text"
+            />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Stroke Width</label>
+          <input 
+            type="number" 
+            value={selectedEdge.data?.strokeWidth || 2}
+            oninput={(e) => {
+              const width = parseInt((e.target as HTMLInputElement).value) || 2;
+              const color = selectedEdge.data?.color || '#555555';
+              updateEdgeData('strokeWidth', width);
+              updateEdge({ style: `stroke: ${color}; stroke-width: ${width}px;` });
+            }}
+            min="1"
+            max="10"
+          />
+        </div>
+
+        <div class="field">
+          <label>Label Color</label>
+          <div class="color-row">
+            <input 
+              type="color" 
+              value={selectedEdge.data?.labelColor || '#ffffff'}
+              oninput={(e) => updateEdgeData('labelColor', (e.target as HTMLInputElement).value)}
+              class="color-picker"
+            />
+            <input 
+              type="text" 
+              value={selectedEdge.data?.labelColor || '#ffffff'}
+              oninput={(e) => updateEdgeData('labelColor', (e.target as HTMLInputElement).value)}
+              class="color-text"
+            />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Label Background</label>
+          <div class="color-row">
+            <input 
+              type="color" 
+              value={selectedEdge.data?.labelBgColor || '#1a1d21'}
+              oninput={(e) => updateEdgeData('labelBgColor', (e.target as HTMLInputElement).value)}
+              class="color-picker"
+            />
+            <input 
+              type="text" 
+              value={selectedEdge.data?.labelBgColor || '#1a1d21'}
+              oninput={(e) => updateEdgeData('labelBgColor', (e.target as HTMLInputElement).value)}
+              class="color-text"
+            />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Label Font Size</label>
+          <input 
+            type="number" 
+            value={selectedEdge.data?.labelFontSize || 12}
+            oninput={(e) => updateEdgeData('labelFontSize', parseInt((e.target as HTMLInputElement).value))}
+            min="8"
+            max="24"
+          />
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">Actions</div>
+        <div class="action-buttons">
+          <button class="action-btn danger full-width" onclick={deleteEdge}>
+            <Trash2 size={14} />
+            <span>Delete Edge</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  {:else if selectedNode}
+    {@const typeInfo = getNodeTypeInfo(selectedNode.type)}
+    {@const IconComponent = typeInfo ? getIconComponent(typeInfo.icon) : StickyNote}
+    
+    <div class="panel-content">
+      <!-- Node Type Badge -->
+      <div class="node-badge">
+        <IconComponent size={16} />
+        <span>{typeInfo?.label || selectedNode.type}</span>
+      </div>
+
+      <!-- General Section -->
+      <div class="section">
+        <div class="section-header">General</div>
+        
+        <div class="field">
+          <label>Title</label>
+          <input 
+            type="text" 
+            value={selectedNode.data.title || ''}
+            oninput={(e) => updateNodeData('title', (e.target as HTMLInputElement).value)}
+          />
+        </div>
+
+        <div class="field">
+          <label class="muted">ID</label>
+          <input 
+            type="text" 
+            value={selectedNode.id}
+            readonly
+            class="readonly"
+          />
+        </div>
+      </div>
+
+      <!-- Appearance Section (Accordion) -->
+      <div class="section accordion">
+        <button class="accordion-header" onclick={() => appearanceOpen = !appearanceOpen}>
+          {#if appearanceOpen}
+            <ChevronDown size={14} />
+          {:else}
+            <ChevronRight size={14} />
+          {/if}
+          <span>Appearance</span>
+        </button>
+        
+        {#if appearanceOpen}
+          <div class="accordion-content">
+            <div class="field">
+              <label>Background</label>
+              <div class="color-row">
+                <input 
+                  type="color" 
+                  value={selectedNode.data.color || '#1e1e1e'}
+                  oninput={(e) => updateNodeData('color', (e.target as HTMLInputElement).value)}
+                  class="color-picker"
+                />
+                <input 
+                  type="text" 
+                  value={selectedNode.data.color || '#1e1e1e'}
+                  oninput={(e) => updateNodeData('color', (e.target as HTMLInputElement).value)}
+                  class="color-text"
+                />
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Background Opacity</label>
+              <div class="slider-row">
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="100" 
+                  value={((selectedNode.data.bgOpacity ?? 1) * 100)}
+                  oninput={(e) => updateNodeData('bgOpacity', parseInt((e.target as HTMLInputElement).value) / 100)}
+                  class="slider"
+                />
+                <span class="slider-value">{Math.round((selectedNode.data.bgOpacity ?? 1) * 100)}%</span>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Border Color</label>
+              <div class="color-row">
+                <input 
+                  type="color" 
+                  value={selectedNode.data.borderColor || '#333333'}
+                  oninput={(e) => updateNodeData('borderColor', (e.target as HTMLInputElement).value)}
+                  class="color-picker"
+                />
+                <input 
+                  type="text" 
+                  value={selectedNode.data.borderColor || '#333333'}
+                  oninput={(e) => updateNodeData('borderColor', (e.target as HTMLInputElement).value)}
+                  class="color-text"
+                />
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label>Border Width</label>
+                <input 
+                  type="number" 
+                  value={(selectedNode.data.borderWidth as number) ?? 1}
+                  oninput={(e) => updateNodeData('borderWidth', parseInt((e.target as HTMLInputElement).value) || 1)}
+                  min="0"
+                  max="10"
+                />
+              </div>
+              <div class="field">
+                <label>Border Radius</label>
+                <input 
+                  type="number" 
+                  value={(selectedNode.data.borderRadius as number) ?? 4}
+                  oninput={(e) => updateNodeData('borderRadius', parseInt((e.target as HTMLInputElement).value) || 0)}
+                  min="0"
+                  max="50"
+                />
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Border Style</label>
+              <select 
+                value={(selectedNode.data.borderStyle as string) || 'solid'}
+                onchange={(e) => updateNodeData('borderStyle', (e.target as HTMLSelectElement).value)}
+              >
+                <option value="solid">Solid</option>
+                <option value="dashed">Dashed</option>
+                <option value="dotted">Dotted</option>
+                <option value="none">None</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Text Color</label>
+              <div class="color-row">
+                <input 
+                  type="color" 
+                  value={selectedNode.data.textColor || '#e0e0e0'}
+                  oninput={(e) => updateNodeData('textColor', (e.target as HTMLInputElement).value)}
+                  class="color-picker"
+                />
+                <input 
+                  type="text" 
+                  value={selectedNode.data.textColor || '#e0e0e0'}
+                  oninput={(e) => updateNodeData('textColor', (e.target as HTMLInputElement).value)}
+                  class="color-text"
+                />
+              </div>
+            </div>
+
+            <label class="checkbox-row">
+              <input 
+                type="checkbox" 
+                checked={selectedNode.data.showHeader ?? false}
+                onchange={(e) => updateNodeData('showHeader', (e.target as HTMLInputElement).checked)}
+              />
+              <span>Show Header</span>
+            </label>
+          </div>
+        {/if}
+      </div>
+
+      <!-- Node Settings Section (Accordion) -->
+      <div class="section accordion">
+        <button class="accordion-header" onclick={() => nodeSettingsOpen = !nodeSettingsOpen}>
+          {#if nodeSettingsOpen}
+            <ChevronDown size={14} />
+          {:else}
+            <ChevronRight size={14} />
+          {/if}
+          <span>Node Settings</span>
+        </button>
+        
+        {#if nodeSettingsOpen}
+          <div class="accordion-content">
+            <div class="field-with-lock">
+              <div class="field-row">
+                <div class="field">
+                  <label class="muted">X</label>
+                  <input 
+                    type="number" 
+                    value={Math.round(selectedNode.position.x)}
+                    oninput={(e) => updateNodePosition('x', parseInt((e.target as HTMLInputElement).value))}
+                    disabled={selectedNode.data.locked}
+                  />
+                </div>
+                <div class="field">
+                  <label class="muted">Y</label>
+                  <input 
+                    type="number" 
+                    value={Math.round(selectedNode.position.y)}
+                    oninput={(e) => updateNodePosition('y', parseInt((e.target as HTMLInputElement).value))}
+                    disabled={selectedNode.data.locked}
+                  />
+                </div>
+              </div>
+              <button 
+                class="lock-btn" 
+                onclick={() => updateNodeData('locked', !selectedNode.data.locked)}
+                title={selectedNode.data.locked ? 'Unlock position' : 'Lock position'}
+              >
+                {#if selectedNode.data.locked}
+                  <Lock size={14} />
+                {:else}
+                  <Unlock size={14} />
+                {/if}
+              </button>
+            </div>
+
+            <div class="field-with-lock">
+              <div class="field-row">
+                <div class="field">
+                  <label class="muted">Width</label>
+                  <input 
+                    type="number" 
+                    value={selectedNode.width || 200}
+                    oninput={(e) => updateNodeSize('width', parseInt((e.target as HTMLInputElement).value))}
+                    disabled={selectedNode.data.sizeLocked}
+                    min="50"
+                  />
+                </div>
+                <div class="field">
+                  <label class="muted">Height</label>
+                  <input 
+                    type="number" 
+                    value={selectedNode.height || 100}
+                    oninput={(e) => updateNodeSize('height', parseInt((e.target as HTMLInputElement).value))}
+                    disabled={selectedNode.data.sizeLocked}
+                    min="50"
+                  />
+                </div>
+              </div>
+              <button 
+                class="lock-btn" 
+                onclick={() => updateNodeData('sizeLocked', !selectedNode.data.sizeLocked)}
+                title={selectedNode.data.sizeLocked ? 'Unlock size' : 'Lock size'}
+              >
+                {#if selectedNode.data.sizeLocked}
+                  <Lock size={14} />
+                {:else}
+                  <Unlock size={14} />
+                {/if}
+              </button>
+            </div>
+          </div>
+        {/if}
+      </div>
+
+      <!-- Note-specific Options -->
+      {#if selectedNode.type === 'note'}
+        <div class="section accordion">
+          <button class="accordion-header" onclick={() => optionsOpen = !optionsOpen}>
+            {#if optionsOpen}
+              <ChevronDown size={14} />
+            {:else}
+              <ChevronRight size={14} />
+            {/if}
+            <span>Note Options</span>
+          </button>
+          
+          {#if optionsOpen}
+            <div class="accordion-content">
+              <div class="field">
+                <label>Mode</label>
+                <div class="mode-toggle">
+                  <button 
+                    class="mode-btn" 
+                    class:active={(selectedNode.data as any).viewMode !== 'view'}
+                    onclick={() => updateNodeData('viewMode', 'edit')}
+                  >
+                    <Pencil size={14} />
+                    <span>Edit</span>
+                  </button>
+                  <button 
+                    class="mode-btn"
+                    class:active={(selectedNode.data as any).viewMode === 'view'}
+                    onclick={() => updateNodeData('viewMode', 'view')}
+                  >
+                    <Eye size={14} />
+                    <span>View</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      <!-- Timestamp-specific Options -->
+      {#if selectedNode.type === 'timestamp'}
+        <div class="section accordion">
+          <button class="accordion-header" onclick={() => optionsOpen = !optionsOpen}>
+            {#if optionsOpen}
+              <ChevronDown size={14} />
+            {:else}
+              <ChevronRight size={14} />
+            {/if}
+            <span>Display Options</span>
+          </button>
+          
+          {#if optionsOpen}
+            <div class="accordion-content">
+              <!-- Custom Timestamp Picker -->
+              <div class="input-group">
+                <label class="input-label">Custom Date/Time</label>
+                <input 
+                  type="datetime-local" 
+                  class="datetime-input nodrag"
+                  value={(selectedNode.data as any).customTimestamp ? new Date((selectedNode.data as any).customTimestamp).toISOString().slice(0, 16) : ''}
+                  onchange={(e) => {
+                    const value = (e.target as HTMLInputElement).value;
+                    updateNodeData('customTimestamp', value ? new Date(value).toISOString() : null);
+                  }}
+                />
+                <span class="input-hint">Leave empty for live time</span>
+                {#if (selectedNode.data as any).customTimestamp}
+                  <button 
+                    class="clear-btn"
+                    onclick={() => updateNodeData('customTimestamp', null)}
+                  >
+                    Use Live Time
+                  </button>
+                {/if}
+              </div>
+
+              <div class="section-divider"></div>
+
+              <label class="checkbox-row">
+                <input 
+                  type="checkbox" 
+                  checked={(selectedNode.data as any).showHeader ?? false}
+                  onchange={(e) => updateNodeData('showHeader', (e.target as HTMLInputElement).checked)}
+                />
+                <span>Show Title</span>
+              </label>
+
+              <label class="checkbox-row">
+                <input 
+                  type="checkbox" 
+                  checked={(selectedNode.data as any).multiLine ?? false}
+                  onchange={(e) => updateNodeData('multiLine', (e.target as HTMLInputElement).checked)}
+                />
+                <span>Multi-line Display</span>
+              </label>
+
+              <div class="section-divider"></div>
+
+              <div class="checkbox-group">
+                <label class="checkbox-row">
+                  <input 
+                    type="checkbox" 
+                    checked={(selectedNode.data as any).showMonth ?? true}
+                    onchange={(e) => updateNodeData('showMonth', (e.target as HTMLInputElement).checked)}
+                  />
+                  <span>Month</span>
+                </label>
+                <label class="checkbox-row">
+                  <input 
+                    type="checkbox" 
+                    checked={(selectedNode.data as any).showDay ?? true}
+                    onchange={(e) => updateNodeData('showDay', (e.target as HTMLInputElement).checked)}
+                  />
+                  <span>Day</span>
+                </label>
+                <label class="checkbox-row">
+                  <input 
+                    type="checkbox" 
+                    checked={(selectedNode.data as any).showYear ?? false}
+                    onchange={(e) => updateNodeData('showYear', (e.target as HTMLInputElement).checked)}
+                  />
+                  <span>Year</span>
+                </label>
+                <label class="checkbox-row">
+                  <input 
+                    type="checkbox" 
+                    checked={(selectedNode.data as any).showDayOfWeek ?? false}
+                    onchange={(e) => updateNodeData('showDayOfWeek', (e.target as HTMLInputElement).checked)}
+                  />
+                  <span>Day of Week</span>
+                </label>
+                <label class="checkbox-row">
+                  <input 
+                    type="checkbox" 
+                    checked={(selectedNode.data as any).showHour ?? true}
+                    onchange={(e) => updateNodeData('showHour', (e.target as HTMLInputElement).checked)}
+                  />
+                  <span>Hour</span>
+                </label>
+                <label class="checkbox-row">
+                  <input 
+                    type="checkbox" 
+                    checked={(selectedNode.data as any).showMinute ?? true}
+                    onchange={(e) => updateNodeData('showMinute', (e.target as HTMLInputElement).checked)}
+                  />
+                  <span>Minute</span>
+                </label>
+                <label class="checkbox-row">
+                  <input 
+                    type="checkbox" 
+                    checked={(selectedNode.data as any).showSecond ?? false}
+                    onchange={(e) => updateNodeData('showSecond', (e.target as HTMLInputElement).checked)}
+                  />
+                  <span>Second</span>
+                </label>
+                <label class="checkbox-row">
+                  <input 
+                    type="checkbox" 
+                    checked={(selectedNode.data as any).showMillisecond ?? false}
+                    onchange={(e) => updateNodeData('showMillisecond', (e.target as HTMLInputElement).checked)}
+                  />
+                  <span>Millisecond</span>
+                </label>
+              </div>
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      <!-- Group-specific Options -->
+      {#if selectedNode.type === 'group'}
+        <div class="section accordion">
+          <button class="accordion-header" onclick={() => optionsOpen = !optionsOpen}>
+            {#if optionsOpen}
+              <ChevronDown size={14} />
+            {:else}
+              <ChevronRight size={14} />
+            {/if}
+            <span>Group Options</span>
+          </button>
+          
+          {#if optionsOpen}
+            <div class="accordion-content">
+              <!-- Label -->
+              <div class="input-group">
+                <label class="input-label">Label</label>
+                <input 
+                  type="text" 
+                  class="text-input"
+                  value={(selectedNode.data as any).label || 'Group'}
+                  oninput={(e) => updateNodeData('label', (e.target as HTMLInputElement).value)}
+                  placeholder="Group label"
+                />
+              </div>
+
+              <div class="section-divider"></div>
+
+              <!-- Font Settings -->
+              <div class="subsection-header">Font Settings</div>
+              
+              <div class="input-group">
+                <label class="input-label">Label Color</label>
+                <div class="color-input-row">
+                  <input 
+                    type="color" 
+                    class="color-input"
+                    value={(selectedNode.data as any).labelColor || '#c4b5fd'}
+                    oninput={(e) => updateNodeData('labelColor', (e.target as HTMLInputElement).value)}
+                  />
+                  <input 
+                    type="text" 
+                    class="color-text-input"
+                    value={(selectedNode.data as any).labelColor || '#c4b5fd'}
+                    oninput={(e) => updateNodeData('labelColor', (e.target as HTMLInputElement).value)}
+                  />
+                </div>
+              </div>
+
+              <div class="input-group">
+                <label class="input-label">Font Size</label>
+                <input 
+                  type="number" 
+                  class="text-input"
+                  value={(selectedNode.data as any).fontSize ?? 14}
+                  oninput={(e) => updateNodeData('fontSize', parseInt((e.target as HTMLInputElement).value) || 14)}
+                  min="10"
+                  max="32"
+                />
+              </div>
+
+              <div class="input-group">
+                <label class="input-label">Font Weight</label>
+                <select 
+                  class="select-input"
+                  value={(selectedNode.data as any).fontWeight || 'semibold'}
+                  onchange={(e) => updateNodeData('fontWeight', (e.target as HTMLSelectElement).value)}
+                >
+                  <option value="normal">Normal</option>
+                  <option value="medium">Medium</option>
+                  <option value="semibold">Semibold</option>
+                  <option value="bold">Bold</option>
+                </select>
+              </div>
+
+              <div class="input-group">
+                <label class="input-label">Font Style</label>
+                <select 
+                  class="select-input"
+                  value={(selectedNode.data as any).fontStyle || 'normal'}
+                  onchange={(e) => updateNodeData('fontStyle', (e.target as HTMLSelectElement).value)}
+                >
+                  <option value="normal">Normal</option>
+                  <option value="italic">Italic</option>
+                </select>
+              </div>
+
+              <div class="section-divider"></div>
+
+              <!-- Child Nodes Info -->
+              <div class="input-group">
+                <label class="input-label">Child Nodes</label>
+                <div class="info-text">
+                  {(selectedNode.data as any).childNodeIds?.length || 0} nodes in group
+                </div>
+              </div>
+
+              <!-- Ungroup Button -->
+              {#if (selectedNode.data as any).childNodeIds?.length > 0}
+                <button 
+                  class="action-btn secondary"
+                  onclick={() => workspace.ungroupNode(selectedNode.id)}
+                  style="width: 100%; margin-top: 8px;"
+                >
+                  <span>Ungroup Nodes</span>
+                </button>
+              {/if}
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      <!-- Quick Actions -->
+      {#if selectedNode.type === 'hash' || selectedNode.type === 'credential' || selectedNode.type === 'domain'}
+        <div class="section">
+          <div class="section-header">Quick Actions</div>
+          <div class="quick-actions">
+            {#if selectedNode.type === 'hash'}
+              <button 
+                class="quick-action-btn"
+                onclick={() => {
+                  const hash = (selectedNode.data as any).hash;
+                  if (hash) window.open(`https://www.virustotal.com/gui/search/${hash}`, '_blank');
+                }}
+              >
+                <ExternalLink size={14} /> VirusTotal Lookup
+              </button>
+            {/if}
+            {#if selectedNode.type === 'credential'}
+              <button 
+                class="quick-action-btn"
+                onclick={() => {
+                  const email = (selectedNode.data as any).email;
+                  if (email) window.open(`https://haveibeenpwned.com/account/${email}`, '_blank');
+                }}
+              >
+                <ExternalLink size={14} /> HIBP Check
+              </button>
+            {/if}
+            {#if selectedNode.type === 'domain'}
+              <button 
+                class="quick-action-btn"
+                onclick={() => {
+                  const domain = (selectedNode.data as any).domain;
+                  if (domain) window.open(`https://who.is/whois/${domain}`, '_blank');
+                }}
+              >
+                <ExternalLink size={14} /> WHOIS Lookup
+              </button>
+            {/if}
+          </div>
+        </div>
+      {/if}
+
+      <!-- Actions -->
+      <div class="section">
+        <div class="section-header">Actions</div>
+        <div class="action-buttons">
+          <button class="action-btn secondary" onclick={duplicateNode}>
+            <Copy size={14} />
+            <span>Duplicate</span>
+          </button>
+          <button class="action-btn danger" onclick={deleteNode}>
+            <Trash2 size={14} />
+            <span>Delete</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  {:else}
+    <div class="empty-state">
+      <StickyNote size={40} strokeWidth={1} />
+      <p>Select a node or edge to view its properties</p>
+    </div>
+  {/if}
+</div>
+
+<style>
+  .properties-panel {
+    width: 280px;
+    height: 100vh;
+    background: #0d1117;
+    border-left: 1px solid #21262d;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    color: #c9d1d9;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid #21262d;
+    background: #0d1117;
+  }
+
+  .panel-header h3 {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: #f0f6fc;
+  }
+
+  .close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: #8b949e;
+    cursor: pointer;
+  }
+
+  .close-btn:hover {
+    background: #21262d;
+    color: #f0f6fc;
+  }
+
+  .panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .node-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(56, 139, 253, 0.15);
+    border: 1px solid rgba(56, 139, 253, 0.4);
+    border-radius: 4px;
+    color: #58a6ff;
+    font-weight: 500;
+  }
+
+  .edge-badge {
+    background: rgba(163, 113, 247, 0.15);
+    border-color: rgba(163, 113, 247, 0.4);
+    color: #a371f7;
+  }
+
+  .section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .section-header {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #8b949e;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #21262d;
+  }
+
+  .accordion-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 8px 0;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #21262d;
+    color: #8b949e;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .accordion-header:hover {
+    color: #c9d1d9;
+  }
+
+  .accordion-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 10px;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .field label {
+    font-size: 11px;
+    color: #c9d1d9;
+  }
+
+  .field label.muted {
+    color: #8b949e;
+  }
+
+  .field input[type="text"],
+  .field input[type="number"] {
+    width: 100%;
+    padding: 6px 10px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    color: #c9d1d9;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    outline: none;
+    box-sizing: border-box;
+  }
+
+  .field input:focus {
+    border-color: #58a6ff;
+  }
+
+  .field input.readonly,
+  .field input:disabled {
+    background: #0d1117;
+    color: #8b949e;
+    cursor: not-allowed;
+  }
+
+  .field-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .field-row .field {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .field-with-lock {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+
+  .field-with-lock .field-row {
+    flex: 1;
+  }
+
+  .lock-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    color: #8b949e;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .lock-btn:hover {
+    background: #21262d;
+    color: #c9d1d9;
+  }
+
+  .color-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .color-picker {
+    width: 32px;
+    height: 28px;
+    padding: 2px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .color-text {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 8px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    color: #c9d1d9;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    outline: none;
+  }
+
+  .color-text:focus {
+    border-color: #58a6ff;
+  }
+
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+
+  .checkbox-row input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: #58a6ff;
+    cursor: pointer;
+  }
+
+  .checkbox-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .mode-toggle {
+    display: flex;
+    gap: 4px;
+  }
+
+  .mode-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    color: #8b949e;
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  .mode-btn:hover {
+    background: #21262d;
+    color: #c9d1d9;
+  }
+
+  .mode-btn.active {
+    background: rgba(56, 139, 253, 0.15);
+    border-color: #58a6ff;
+    color: #58a6ff;
+  }
+
+  .quick-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .quick-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    color: #c9d1d9;
+    font-size: 11px;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .quick-action-btn:hover {
+    background: #21262d;
+    border-color: #8b949e;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 8px;
+  }
+
+  .action-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .action-btn.secondary {
+    background: #21262d;
+    color: #c9d1d9;
+  }
+
+  .action-btn.secondary:hover {
+    background: #30363d;
+  }
+
+  .action-btn.danger {
+    background: rgba(248, 81, 73, 0.15);
+    color: #f85149;
+  }
+
+  .action-btn.danger:hover {
+    background: rgba(248, 81, 73, 0.25);
+  }
+
+  .action-btn.full-width {
+    flex: none;
+    width: 100%;
+  }
+
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #484f58;
+    text-align: center;
+    padding: 32px;
+    gap: 12px;
+  }
+
+  .empty-state p {
+    margin: 0;
+    font-size: 12px;
+  }
+
+  .field select {
+    width: 100%;
+    padding: 6px 10px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    color: #c9d1d9;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .field select:focus {
+    border-color: #58a6ff;
+  }
+
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .slider {
+    flex: 1;
+    height: 4px;
+    background: #30363d;
+    border-radius: 2px;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+  }
+
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    background: #58a6ff;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+
+  .slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: #58a6ff;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+  }
+
+  .slider-value {
+    font-size: 11px;
+    color: #8b949e;
+    min-width: 36px;
+    text-align: right;
+  }
+
+  .section-divider {
+    height: 1px;
+    background: #21262d;
+    margin: 6px 0;
+  }
+
+  .datetime-input {
+    width: 100%;
+    padding: 6px 10px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    color: #c9d1d9;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    outline: none;
+    margin-bottom: 4px;
+  }
+
+  .datetime-input:focus {
+    border-color: #58a6ff;
+  }
+
+  .datetime-input::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+  }
+
+  .input-hint {
+    font-size: 10px;
+    color: #6e7681;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .clear-btn {
+    background: rgba(56, 139, 253, 0.15);
+    border: none;
+    border-radius: 4px;
+    padding: 4px 10px;
+    color: #58a6ff;
+    font-size: 11px;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+
+  .clear-btn:hover {
+    background: rgba(56, 139, 253, 0.25);
+  }
+
+  .subsection-header {
+    font-size: 10px;
+    font-weight: 600;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    margin-top: 4px;
+  }
+
+  .info-text {
+    font-size: 12px;
+    color: #8b949e;
+    padding: 6px 0;
+  }
+
+  .select-input {
+    width: 100%;
+    padding: 6px 10px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    color: #c9d1d9;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .select-input:focus {
+    border-color: #58a6ff;
+  }
+</style>

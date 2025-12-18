@@ -1,0 +1,198 @@
+/* Rich Markdown Editor Styles */
+
+.rich-markdown-editor {
+  width: 100%;
+  height: 100%;
+  color: #d4d4d4;
+  background: transparent;
+}
+
+.rich-markdown-editor .cm-editor {
+  height: 100%;
+  background: transparent;
+}
+
+.rich-markdown-editor .cm-editor.cm-focused {
+  outline: none;
+}
+
+/* Hide markdown syntax when not editing */
+.cm-markdoc-hidden {
+  display: none;
+}
+
+/* Bullet list markers */
+.cm-markdoc-bullet * {
+  display: none;
+}
+
+.cm-markdoc-bullet::after {
+  display: inline !important;
+  color: #6b7280;
+  content: '•';
+  margin-right: 0.5em;
+}
+
+/* Code blocks */
+.cm-markdoc-code {
+  font-family: ui-monospace, 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', 'Source Code Pro', monospace;
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  padding: 0.5em;
+  display: block;
+}
+
+/* Rendered blocks (tables, blockquotes, markdoc tags) */
+.cm-markdoc-renderBlock {
+  font-family: inherit;
+  margin: 0.5em 0;
+}
+
+.cm-markdoc-renderBlock table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+}
+
+.cm-markdoc-renderBlock th,
+.cm-markdoc-renderBlock td {
+  border: 1px solid #3f3f46;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.cm-markdoc-renderBlock th {
+  background-color: rgba(255, 255, 255, 0.05);
+  font-weight: 600;
+}
+
+.cm-markdoc-renderBlock blockquote {
+  border-left: 3px solid #60a5fa;
+  padding-left: 12px;
+  margin: 0.5em 0;
+  color: #a1a1aa;
+  font-style: italic;
+}
+
+.cm-markdoc-renderBlock p {
+  margin: 0.25em 0;
+}
+
+/* Markdoc tags */
+.cm-markdoc-tag {
+  color: #6b7280;
+}
+
+.cm-markdoc-fallbackTag {
+  border: 1px solid #3f3f46;
+  border-radius: 4px;
+  margin: 0.5em 0;
+  overflow: hidden;
+}
+
+.cm-markdoc-fallbackTag--name {
+  background-color: #3f3f46;
+  color: #a1a1aa;
+  padding: 4px 8px;
+  font-size: 0.75em;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.cm-markdoc-fallbackTag--inner {
+  padding: 8px;
+}
+
+/* Callout styles */
+.cm-markdoc-callout {
+  border: 1px solid #3f3f46;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 4px;
+  display: flex;
+  padding: 8px 12px;
+  margin: 0.5em 0;
+  gap: 8px;
+}
+
+.cm-markdoc-callout--warning {
+  background-color: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.cm-markdoc-callout--info {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Note style */
+.cm-markdoc-note {
+  border: 1px solid #3f3f46;
+  background: rgba(161, 161, 170, 0.1);
+  border-radius: 4px;
+  display: flex;
+  padding: 8px 12px;
+  margin: 0.5em 0;
+  gap: 8px;
+}
+
+/* Links */
+.cm-markdoc-renderBlock a {
+  color: #60a5fa;
+  text-decoration: underline;
+}
+
+.cm-markdoc-renderBlock a:hover {
+  color: #93c5fd;
+}
+
+/* Lists */
+.cm-markdoc-renderBlock ul,
+.cm-markdoc-renderBlock ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.cm-markdoc-renderBlock li {
+  margin: 0.25em 0;
+}
+
+/* Headings in rendered blocks */
+.cm-markdoc-renderBlock h1 {
+  font-size: 1.75em;
+  font-weight: bold;
+  margin: 0.5em 0;
+}
+
+.cm-markdoc-renderBlock h2 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin: 0.5em 0;
+}
+
+.cm-markdoc-renderBlock h3 {
+  font-size: 1.25em;
+  font-weight: bold;
+  margin: 0.5em 0;
+}
+
+/* Inline code in rendered blocks */
+.cm-markdoc-renderBlock code {
+  font-family: ui-monospace, monospace;
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+/* Pre blocks in rendered content */
+.cm-markdoc-renderBlock pre {
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  padding: 0.75em;
+  overflow-x: auto;
+}
+
+.cm-markdoc-renderBlock pre code {
+  background: transparent;
+  padding: 0;
+}
