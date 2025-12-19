@@ -99,6 +99,7 @@
 </script>
 
 <div class="quick-toolbar">
+  <Tooltip.Provider>
   <!-- Mode Selection -->
   <div class="toolbar-group">
     <Tooltip.Root>
@@ -190,6 +191,7 @@
       {/each}
     </DropdownMenu.Content>
   </DropdownMenu.Root>
+  </Tooltip.Provider>
 </div>
 
 <style>

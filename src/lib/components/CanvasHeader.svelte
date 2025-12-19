@@ -1,7 +1,13 @@
 <script lang="ts">
   import { vaultStore } from '$lib/stores/vault.svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
-  import { Pencil, Check, X, ChevronRight, Loader2 } from 'lucide-svelte';
+  import { Pencil, Check, X, ChevronRight, Loader2, List } from 'lucide-svelte';
+
+  interface Props {
+    onToggleNodeList?: () => void;
+  }
+
+  let { onToggleNodeList }: Props = $props();
 
   let isEditing = $state(false);
   let editName = $state('');
@@ -82,6 +88,12 @@
   {#if workspace.isModified}
     <span class="modified-indicator" title="Unsaved changes">●</span>
   {/if}
+
+  <div class="right-actions">
+    <button class="icon-btn" onclick={onToggleNodeList} title="Toggle Node List">
+      <List size={16} />
+    </button>
+  </div>
 </div>
 
 <style>
@@ -98,7 +110,31 @@
     background: rgba(10, 10, 15, 0.9);
     border-bottom: 1px solid #2a2a3a;
     z-index: 100;
-    backdrop-filter: blur(8px);
+    padding: 0 16px;
+  }
+
+  .right-actions {
+    position: absolute;
+    right: 16px;
+    display: flex;
+    align-items: center;
+  }
+
+  .icon-btn {
+    background: transparent;
+    border: none;
+    color: #8b949e;
+    padding: 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .icon-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #c9d1d9;
   }
 
   .breadcrumb {
@@ -106,6 +142,7 @@
     align-items: center;
     gap: 0.5rem;
     font-size: 0.875rem;
+    pointer-events: auto;
   }
 
   .vault-name {

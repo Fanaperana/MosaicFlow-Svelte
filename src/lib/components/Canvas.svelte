@@ -19,8 +19,16 @@
   import { resolveCollisions, findNonOverlappingPosition } from '$lib/utils/resolve-collisions';
   import { calculateSnapGuides, calculateSelectionSnapGuides, type SnapGuide } from '$lib/utils/snap-guides';
   import SnapGuides from '$lib/components/SnapGuides.svelte';
+  import NodeListSidebar from '$lib/components/NodeListSidebar.svelte';
   import * as ContextMenu from '$lib/components/ui/context-menu';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+  interface Props {
+    showNodeList?: boolean;
+    onToggleNodeList?: () => void;
+  }
+
+  let { showNodeList = false, onToggleNodeList }: Props = $props();
+
   import { 
     MousePointer2, 
     Hand, 
@@ -76,6 +84,7 @@
   // Context menu state
   let contextMenuPosition = $state({ x: 0, y: 0 });
   let contextMenuOpen = $state(false);
+  let contextMenuOnNode = $state(false); // Track if context menu was opened on a node
   
   // Snap guides state
   let snapGuides = $state<SnapGuide[]>([]);
@@ -366,6 +375,7 @@
       note: { width: 300, height: 200 },
       code: { width: 400, height: 250 },
       group: { width: 400, height: 300 },
+      annotation: { width: 200, height: 100 },
     };
     return sizes[type] || { width: 200, height: 100 };
   }
@@ -391,6 +401,7 @@
       snapshot: Camera,
       action: CheckSquare,
       iframe: LayoutGrid,
+      annotation: StickyNote,
     };
     return icons[type];
   }
@@ -410,6 +421,26 @@
     }
   }
 
+  // Duplicate selected nodes
+  function handleDuplicateNodes() {
+    const selectedNodes = workspace.nodes.filter(n => workspace.selectedNodeIds.includes(n.id));
+    const newNodeIds: string[] = [];
+    
+    for (const node of selectedNodes) {
+      const newPosition = {
+        x: node.position.x + 50,
+        y: node.position.y + 50,
+      };
+      const newNode = workspace.createNode(node.type as NodeType, newPosition, { ...node.data });
+      newNodeIds.push(newNode.id);
+    }
+    
+    // Select the duplicated nodes
+    if (newNodeIds.length > 0) {
+      workspace.setSelectedNodes(newNodeIds);
+    }
+  }
+
   // Delete selected nodes/edges
   function handleDeleteSelected() {
     if (workspace.selectedNodeIds.length > 0) {
@@ -420,14 +451,28 @@
     }
   }
 
-  // Check if we can group
-  const canGroup = $derived(workspace.selectedNodeIds.length >= 2);
+  // Check if we can group (2+ nodes selected, and none of them are inside a group)
+  const canGroup = $derived(() => {
+    if (workspace.selectedNodeIds.length < 2) return false;
+    
+    // Check if any selected node is a child of a group
+    for (const nodeId of workspace.selectedNodeIds) {
+      const parentGroup = workspace.nodes.find(
+        n => n.type === 'group' && (n.data as any).childNodeIds?.includes(nodeId)
+      );
+      if (parentGroup) return false;
+    }
+    return true;
+  });
   
   // Check if we can ungroup
   const canUngroup = $derived(
     workspace.selectedNodeIds.length === 1 && 
     workspace.getNode(workspace.selectedNodeIds[0])?.type === 'group'
   );
+  
+  // Check if selected nodes are inside a group
+  const hasNodesSelected = $derived(workspace.selectedNodeIds.length > 0);
 
   // Handle node deletion
   function handleKeyDown(event: KeyboardEvent) {
@@ -444,13 +489,19 @@
     // Ctrl/Cmd + G to group
     if ((event.ctrlKey || event.metaKey) && event.key === 'g' && !event.shiftKey) {
       event.preventDefault();
-      if (canGroup) handleGroupNodes();
+      if (canGroup()) handleGroupNodes();
     }
     
     // Ctrl/Cmd + Shift + G to ungroup
     if ((event.ctrlKey || event.metaKey) && event.key === 'g' && event.shiftKey) {
       event.preventDefault();
       if (canUngroup) handleUngroupNodes();
+    }
+    
+    // Ctrl/Cmd + D to duplicate
+    if ((event.ctrlKey || event.metaKey) && event.key === 'd') {
+      event.preventDefault();
+      if (workspace.selectedNodeIds.length > 0) handleDuplicateNodes();
     }
   }
 
@@ -469,7 +520,13 @@
       bind:this={flowContainer}
       ondragover={handleDragOver}
       ondrop={handleDrop}
-      oncontextmenu={(e) => { contextMenuPosition = { x: e.clientX, y: e.clientY }; }}
+      oncontextmenu={(e) => { 
+        contextMenuPosition = { x: e.clientX, y: e.clientY };
+        // Check if right-click is on a node
+        const target = e.target as HTMLElement;
+        const nodeElement = target.closest('.svelte-flow__node');
+        contextMenuOnNode = nodeElement !== null || workspace.selectedNodeIds.length > 0;
+      }}
       role="application"
     >
       <SvelteFlow
@@ -484,9 +541,12 @@
         onnodedrag={handleNodeDrag}
         onnodedragstop={handleNodeDragStop}
         fitView
+        elevateNodesOnSelect={false}
         connectionLineType={ConnectionLineType.Bezier}
         panOnDrag={panOnDrag}
         selectionOnDrag={selectionOnDrag}
+        minZoom={0.25}
+        maxZoom={2}
         defaultEdgeOptions={{
           type: 'default',
           animated: false,
@@ -514,165 +574,173 @@
       gap={workspace.settings.gridSize}
       size={1}
     />
+    
+    <NodeListSidebar isOpen={showNodeList} onClose={() => onToggleNodeList?.()} />
       </SvelteFlow>
     </div>
   </ContextMenu.Trigger>
 
   <ContextMenu.Content class="context-menu-content">
-    <!-- Add Node Submenu -->
-    <ContextMenu.Sub>
-      <ContextMenu.SubTrigger class="context-menu-item">
-        <Plus size={14} />
-        <span>Add Node</span>
-      </ContextMenu.SubTrigger>
-      <ContextMenu.SubContent class="context-menu-content">
-        <!-- Content Nodes -->
-        <ContextMenu.Group>
-          <ContextMenu.GroupHeading class="context-menu-heading">Content</ContextMenu.GroupHeading>
-          <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('note')}>
-            <StickyNote size={14} />
-            <span>Note</span>
-          </ContextMenu.Item>
-          <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('image')}>
-            <Image size={14} />
-            <span>Image</span>
-          </ContextMenu.Item>
-          <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('link')}>
-            <Link size={14} />
-            <span>Link</span>
-          </ContextMenu.Item>
-          <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('code')}>
-            <Code size={14} />
-            <span>Code</span>
-          </ContextMenu.Item>
-          <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('timestamp')}>
-            <Clock size={14} />
-            <span>Timestamp</span>
-          </ContextMenu.Item>
-          <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('iframe')}>
-            <LayoutGrid size={14} />
-            <span>Iframe</span>
-          </ContextMenu.Item>
-        </ContextMenu.Group>
-
-        <ContextMenu.Separator class="context-menu-separator" />
-
-        <!-- Entity Nodes -->
-        <ContextMenu.Group>
-          <ContextMenu.GroupHeading class="context-menu-heading">Entity</ContextMenu.GroupHeading>
-          <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('person')}>
-            <User size={14} />
-            <span>Person</span>
-          </ContextMenu.Item>
-          <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('organization')}>
-            <Building2 size={14} />
-            <span>Organization</span>
-          </ContextMenu.Item>
-        </ContextMenu.Group>
-
-        <ContextMenu.Separator class="context-menu-separator" />
-
-        <!-- OSINT Nodes -->
-        <ContextMenu.Group>
-          <ContextMenu.GroupHeading class="context-menu-heading">OSINT</ContextMenu.GroupHeading>
-          <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('domain')}>
-            <Globe size={14} />
-            <span>Domain</span>
-          </ContextMenu.Item>
-          <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('hash')}>
-            <FileDigit size={14} />
-            <span>Hash</span>
-          </ContextMenu.Item>
-          <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('credential')}>
-            <KeyRound size={14} />
-            <span>Credential</span>
-          </ContextMenu.Item>
-          <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('socialPost')}>
-            <MessageSquare size={14} />
-            <span>Social Post</span>
-          </ContextMenu.Item>
-          <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('router')}>
-            <Router size={14} />
-            <span>Router</span>
-          </ContextMenu.Item>
-          <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('snapshot')}>
-            <Camera size={14} />
-            <span>Snapshot</span>
-          </ContextMenu.Item>
-        </ContextMenu.Group>
-
-        <ContextMenu.Separator class="context-menu-separator" />
-
-        <!-- Utility Nodes -->
-        <ContextMenu.Group>
-          <ContextMenu.GroupHeading class="context-menu-heading">Utility</ContextMenu.GroupHeading>
-          <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('group')}>
-            <FolderOpen size={14} />
-            <span>Group</span>
-          </ContextMenu.Item>
-          <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('map')}>
-            <MapPin size={14} />
-            <span>Map</span>
-          </ContextMenu.Item>
-          <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('linkList')}>
-            <List size={14} />
-            <span>Link List</span>
-          </ContextMenu.Item>
-          <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('action')}>
-            <CheckSquare size={14} />
-            <span>Action</span>
-          </ContextMenu.Item>
-        </ContextMenu.Group>
-      </ContextMenu.SubContent>
-    </ContextMenu.Sub>
-
-    <ContextMenu.Separator class="context-menu-separator" />
-
-    <!-- Group/Ungroup Actions -->
-    {#if canGroup}
-      <ContextMenu.Item class="context-menu-item" onclick={handleGroupNodes}>
-        <Group size={14} />
-        <span>Group Selection</span>
-        <ContextMenu.Shortcut>Ctrl+G</ContextMenu.Shortcut>
+    {#if hasNodesSelected}
+      <!-- Node Actions (shown when nodes are selected) -->
+      <ContextMenu.Item class="context-menu-item" onclick={handleDuplicateNodes}>
+        <Copy size={14} />
+        <span>Duplicate</span>
+        <ContextMenu.Shortcut>Ctrl+D</ContextMenu.Shortcut>
       </ContextMenu.Item>
-    {/if}
 
-    {#if canUngroup}
-      <ContextMenu.Item class="context-menu-item" onclick={handleUngroupNodes}>
-        <Ungroup size={14} />
-        <span>Ungroup</span>
-        <ContextMenu.Shortcut>Ctrl+Shift+G</ContextMenu.Shortcut>
-      </ContextMenu.Item>
-    {/if}
+      {#if canGroup()}
+        <ContextMenu.Item class="context-menu-item" onclick={handleGroupNodes}>
+          <Group size={14} />
+          <span>Group</span>
+          <ContextMenu.Shortcut>Ctrl+G</ContextMenu.Shortcut>
+        </ContextMenu.Item>
+      {/if}
 
-    {#if workspace.selectedNodeIds.length > 0 || workspace.selectedEdgeIds.length > 0}
+      {#if canUngroup}
+        <ContextMenu.Item class="context-menu-item" onclick={handleUngroupNodes}>
+          <Ungroup size={14} />
+          <span>Ungroup</span>
+          <ContextMenu.Shortcut>Ctrl+Shift+G</ContextMenu.Shortcut>
+        </ContextMenu.Item>
+      {/if}
+
+      <ContextMenu.Separator class="context-menu-separator" />
+
       <ContextMenu.Item class="context-menu-item context-menu-item-danger" onclick={handleDeleteSelected}>
         <Trash2 size={14} />
         <span>Delete</span>
         <ContextMenu.Shortcut>Del</ContextMenu.Shortcut>
       </ContextMenu.Item>
+    {:else}
+      <!-- Canvas Actions (shown when clicking on empty canvas) -->
+      <!-- Add Node Submenu -->
+      <ContextMenu.Sub>
+        <ContextMenu.SubTrigger class="context-menu-item">
+          <Plus size={14} />
+          <span>Add Node</span>
+        </ContextMenu.SubTrigger>
+        <ContextMenu.SubContent class="context-menu-content">
+          <!-- Content Nodes -->
+          <ContextMenu.Group>
+            <ContextMenu.GroupHeading class="context-menu-heading">Content</ContextMenu.GroupHeading>
+            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('note')}>
+              <StickyNote size={14} />
+              <span>Note</span>
+            </ContextMenu.Item>
+            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('image')}>
+              <Image size={14} />
+              <span>Image</span>
+            </ContextMenu.Item>
+            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('link')}>
+              <Link size={14} />
+              <span>Link</span>
+            </ContextMenu.Item>
+            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('code')}>
+              <Code size={14} />
+              <span>Code</span>
+            </ContextMenu.Item>
+            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('timestamp')}>
+              <Clock size={14} />
+              <span>Timestamp</span>
+            </ContextMenu.Item>
+            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('iframe')}>
+              <LayoutGrid size={14} />
+              <span>Iframe</span>
+            </ContextMenu.Item>
+          </ContextMenu.Group>
+
+          <ContextMenu.Separator class="context-menu-separator" />
+
+          <!-- Entity Nodes -->
+          <ContextMenu.Group>
+            <ContextMenu.GroupHeading class="context-menu-heading">Entity</ContextMenu.GroupHeading>
+            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('person')}>
+              <User size={14} />
+              <span>Person</span>
+            </ContextMenu.Item>
+            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('organization')}>
+              <Building2 size={14} />
+              <span>Organization</span>
+            </ContextMenu.Item>
+          </ContextMenu.Group>
+
+          <ContextMenu.Separator class="context-menu-separator" />
+
+          <!-- OSINT Nodes -->
+          <ContextMenu.Group>
+            <ContextMenu.GroupHeading class="context-menu-heading">OSINT</ContextMenu.GroupHeading>
+            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('domain')}>
+              <Globe size={14} />
+              <span>Domain</span>
+            </ContextMenu.Item>
+            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('hash')}>
+              <FileDigit size={14} />
+              <span>Hash</span>
+            </ContextMenu.Item>
+            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('credential')}>
+              <KeyRound size={14} />
+              <span>Credential</span>
+            </ContextMenu.Item>
+            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('socialPost')}>
+              <MessageSquare size={14} />
+              <span>Social Post</span>
+            </ContextMenu.Item>
+            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('router')}>
+              <Router size={14} />
+              <span>Router</span>
+            </ContextMenu.Item>
+            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('snapshot')}>
+              <Camera size={14} />
+              <span>Snapshot</span>
+            </ContextMenu.Item>
+          </ContextMenu.Group>
+
+          <ContextMenu.Separator class="context-menu-separator" />
+
+          <!-- Utility Nodes -->
+          <ContextMenu.Group>
+            <ContextMenu.GroupHeading class="context-menu-heading">Utility</ContextMenu.GroupHeading>
+            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('group')}>
+              <FolderOpen size={14} />
+              <span>Group</span>
+            </ContextMenu.Item>
+            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('map')}>
+              <MapPin size={14} />
+              <span>Map</span>
+            </ContextMenu.Item>
+            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('linkList')}>
+              <List size={14} />
+              <span>Link List</span>
+            </ContextMenu.Item>
+            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('action')}>
+              <CheckSquare size={14} />
+              <span>Action</span>
+            </ContextMenu.Item>
+            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('annotation')}>
+              <StickyNote size={14} />
+              <span>Annotation</span>
+            </ContextMenu.Item>
+          </ContextMenu.Group>
+        </ContextMenu.SubContent>
+      </ContextMenu.Sub>
+
+      <ContextMenu.Separator class="context-menu-separator" />
+
+      <!-- Canvas Mode Toggle -->
+      <ContextMenu.Item 
+        class="context-menu-item"
+        onclick={() => workspace.setCanvasMode(workspace.canvasMode === 'select' ? 'drag' : 'select')}
+      >
+        {#if workspace.canvasMode === 'select'}
+          <Hand size={14} />
+          <span>Switch to Drag Mode</span>
+        {:else}
+          <MousePointer2 size={14} />
+          <span>Switch to Select Mode</span>
+        {/if}
+      </ContextMenu.Item>
     {/if}
-
-    <ContextMenu.Separator class="context-menu-separator" />
-
-    <!-- Canvas Mode Toggle -->
-    <ContextMenu.Group>
-      <ContextMenu.GroupHeading class="context-menu-heading">Canvas Mode</ContextMenu.GroupHeading>
-      <ContextMenu.Item 
-        class="context-menu-item {workspace.canvasMode === 'select' ? 'active' : ''}"
-        onclick={() => workspace.setCanvasMode('select')}
-      >
-        <MousePointer2 size={14} />
-        <span>Select Mode</span>
-      </ContextMenu.Item>
-      <ContextMenu.Item 
-        class="context-menu-item {workspace.canvasMode === 'drag' ? 'active' : ''}"
-        onclick={() => workspace.setCanvasMode('drag')}
-      >
-        <Hand size={14} />
-        <span>Drag Mode</span>
-      </ContextMenu.Item>
-    </ContextMenu.Group>
   </ContextMenu.Content>
 </ContextMenu.Root>
 
@@ -820,6 +888,9 @@
 
   :global(.svelte-flow) {
     background: #0d1117 !important;
+    /* macOS text blur fix */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   :global(.svelte-flow__background) {
@@ -828,6 +899,23 @@
 
   :global(.svelte-flow__background pattern circle) {
     fill: #333 !important;
+  }
+
+  /* Optimize viewport transform rendering on macOS */
+  :global(.svelte-flow__viewport) {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    -webkit-transform-style: preserve-3d;
+    transform-style: preserve-3d;
+  }
+
+  /* Node text rendering optimization */
+  :global(.svelte-flow__node) {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: geometricPrecision;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
   }
 
   :global(.svelte-flow__controls) {

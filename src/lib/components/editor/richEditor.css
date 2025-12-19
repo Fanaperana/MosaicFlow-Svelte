@@ -8,15 +8,12 @@
   /* Fix blurry text rendering */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
+  text-rendering: geometricPrecision;
 }
 
 .rich-markdown-editor .cm-editor {
   height: 100%;
   background: transparent;
-  /* Ensure crisp text at any zoom level */
-  transform: translateZ(0);
-  backface-visibility: hidden;
 }
 
 .rich-markdown-editor .cm-editor.cm-focused {
@@ -27,12 +24,17 @@
 .rich-markdown-editor .cm-scroller {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
 }
 
 .rich-markdown-editor .cm-content {
-  /* Prevent subpixel rendering issues */
-  will-change: auto;
-  transform: translateZ(0);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.rich-markdown-editor .cm-line {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
 }
 
 /* Hide markdown syntax when not editing */

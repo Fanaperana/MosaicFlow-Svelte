@@ -21,7 +21,8 @@ export type NodeType =
   | 'linkList'
   | 'snapshot'
   | 'action'
-  | 'iframe';
+  | 'iframe'
+  | 'annotation';
 
 // Base node data interface with index signature for xyflow compatibility
 export interface BaseNodeData {
@@ -195,8 +196,15 @@ export interface IframeNodeData extends BaseNodeData {
   sandbox?: string;
 }
 
+export interface AnnotationNodeData extends BaseNodeData {
+  label: string;
+  arrow?: string;
+  fontSize?: number;
+  fontWeight?: string;
+}
+
 // Union type for all node data
-export type MosaicNodeData = 
+export type MosaicNodeData =  
   | NoteNodeData
   | ImageNodeData
   | LinkNodeData
@@ -214,7 +222,8 @@ export type MosaicNodeData =
   | LinkListNodeData
   | SnapshotNodeData
   | ActionNodeData
-  | IframeNodeData;
+  | IframeNodeData
+  | AnnotationNodeData;
 
 // Custom node type extending xyflow Node
 export interface MosaicNode extends Node {
@@ -233,6 +242,9 @@ export type MarkerShape = 'none' | 'arrow' | 'arrowclosed';
 // Canvas interaction modes
 export type CanvasMode = 'select' | 'drag';
 
+// Edge stroke style types
+export type EdgeStrokeStyle = 'solid' | 'dashed' | 'dotted';
+
 export interface MosaicEdge extends Edge {
   label?: string;
   type?: EdgeType;
@@ -243,6 +255,7 @@ export interface MosaicEdge extends Edge {
   data?: {
     color?: string;
     strokeWidth?: number;
+    strokeStyle?: EdgeStrokeStyle;
     labelColor?: string;
     labelBgColor?: string;
     labelFontSize?: number;

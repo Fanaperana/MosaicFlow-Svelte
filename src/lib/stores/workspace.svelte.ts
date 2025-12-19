@@ -73,6 +73,7 @@ class WorkspaceStore {
       data: { ...baseData, ...data } as MosaicNodeData,
       width: this.getDefaultWidthForType(type),
       height: this.getDefaultHeightForType(type),
+      zIndex: type === 'group' ? -1 : 1,
     };
     
     this.nodes = [...this.nodes, node];
@@ -124,6 +125,8 @@ class WorkspaceStore {
         return { ...baseData, action: '', status: 'pending', priority: 'medium' };
       case 'iframe':
         return { ...baseData, url: '' };
+      case 'annotation':
+        return { ...baseData, label: 'Annotation', arrow: '⤹', fontSize: 24, fontWeight: 'normal' };
       default:
         return baseData as MosaicNodeData;
     }
@@ -149,6 +152,7 @@ class WorkspaceStore {
       snapshot: 'Snapshot',
       action: 'Action',
       iframe: 'Embed',
+      annotation: 'Annotation',
     };
     return titles[type] || 'Node';
   }
@@ -163,6 +167,7 @@ class WorkspaceStore {
       socialPost: 350,
       timestamp: 160,
       iframe: 400,
+      annotation: 200,
     };
     return widths[type] || 250;
   }
@@ -176,6 +181,7 @@ class WorkspaceStore {
       linkList: 200,
       timestamp: 36,
       iframe: 300,
+      annotation: 100,
     };
     return heights[type] || 150;
   }
@@ -303,6 +309,7 @@ class WorkspaceStore {
             y: node.position.y - minY,
           },
           expandParent: true,
+          extent: 'parent', // Default to contained within parent
         };
       }
       if (node.id === groupNode.id) {
@@ -336,6 +343,7 @@ class WorkspaceStore {
             y: node.position.y + groupNode.position.y,
           },
           expandParent: undefined,
+          extent: undefined, // Remove containment
         };
       }
       return node;
@@ -374,6 +382,25 @@ class WorkspaceStore {
     this.propertiesPanelOpen = !this.propertiesPanelOpen;
   }
 
+  // Update a node's extent (containment within parent)
+  setNodeContained(nodeId: string, contained: boolean) {
+    this.nodes = this.nodes.map(node => {
+      if (node.id === nodeId && node.parentId) {
+        return {
+          ...node,
+          extent: contained ? 'parent' : undefined,
+        };
+      }
+      return node;
+    });
+    this.markModified();
+  }
+
+  // Get child nodes of a group
+  getChildNodes(groupId: string): MosaicNode[] {
+    return this.nodes.filter(n => n.parentId === groupId);
+  }
+
   // Viewport management
   setViewport(viewport: Viewport) {
     this.viewport = viewport;
@@ -381,7 +408,10 @@ class WorkspaceStore {
 
   // Set all nodes
   setNodes(nodes: MosaicNode[]) {
-    this.nodes = nodes;
+    this.nodes = nodes.map(node => ({
+      ...node,
+      zIndex: node.type === 'group' ? -1 : 1
+    }));
     this.markModified();
   }
 
@@ -427,7 +457,10 @@ class WorkspaceStore {
     this.settings = { ...this.settings, ...data.metadata.settings };
     
     // Convert nodes and edges from Record to array
-    this.nodes = Object.values(data.nodes);
+    this.nodes = Object.values(data.nodes).map(node => ({
+      ...node,
+      zIndex: node.type === 'group' ? -1 : 1
+    }));
     this.edges = Object.values(data.edges);
     
     this.isModified = false;

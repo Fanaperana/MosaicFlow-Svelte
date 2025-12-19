@@ -146,19 +146,65 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Space Mono', 'Monaco', 'Consolas', monospace;
+    font-family: 'Space Mono', 'Monaco', 'Consolas', monospace !important;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
 }
 
-/* Crisp text rendering for canvas nodes at all zoom levels */
+/* 
+ * Fix blurry text in xyflow canvas at non-1x zoom levels.
+ * The viewport uses CSS transforms (scale) which can cause subpixel blur on macOS.
+ * Using font-smoothing, geometricPrecision, and transform optimizations helps maintain text clarity.
+ */
+
+/* Force hardware acceleration for viewport */
+.svelte-flow__viewport {
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-perspective: 1000;
+  perspective: 1000;
+}
+
+/* All nodes should have crisp text rendering */
 .svelte-flow .svelte-flow__node {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  transform: translateZ(0);
+  text-rendering: geometricPrecision;
+  -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
-  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* Ensure all text inside nodes is crisp */
+.svelte-flow .svelte-flow__node * {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+}
+
+/* Fix for scaled transforms causing blur on macOS */
+.svelte-flow__renderer {
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
+}
+
+/* Optimize text rendering in pane (background layer) */
+.svelte-flow__pane {
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Edge labels */
+.svelte-flow .svelte-flow__edge-text {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+}
+
+/* Force subpixel rendering on node wrappers */
+.svelte-flow [data-id] {
+  -webkit-font-smoothing: subpixel-antialiased;
+  filter: none;
 }

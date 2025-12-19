@@ -175,12 +175,22 @@
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    /* Fix blurry text at different zoom levels */
+    /* Fix blurry text at different zoom levels - especially on macOS */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-    transform: translateZ(0);
+    text-rendering: geometricPrecision;
+    /* Force layer creation to prevent transform blur */
+    -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
+    transform: translateZ(0);
+    /* Prevent filter inheritance causing blur */
+    filter: none;
+  }
+
+  /* Ensure text inside is also crisp */
+  .note-node * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   .note-node.selected:not(.customizing) {

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { workspace } from '$lib/stores/workspace.svelte';
-  import type { NodeType, MosaicEdge, MarkerShape } from '$lib/types';
+  import type { NodeType, MosaicEdge, MarkerShape, EdgeStrokeStyle } from '$lib/types';
   import { NODE_TYPE_INFO } from '$lib/types';
   import { MarkerType } from '@xyflow/svelte';
   import { X, Copy, Trash2, StickyNote, Image, Link, Code, Clock, User, Building2, Globe, FileDigit, KeyRound, MessageSquare, Router, Camera, FolderOpen, MapPin, List, CheckSquare, ExternalLink, ChevronDown, ChevronRight, Lock, Unlock, Eye, Pencil } from 'lucide-svelte';
@@ -79,6 +79,14 @@
     }
   }
 
+  function updateNodeExtent(contained: boolean) {
+    if (selectedNode && selectedNode.parentId) {
+      workspace.updateNode(selectedNode.id, { 
+        extent: contained ? 'parent' : undefined 
+      });
+    }
+  }
+
   function getMarkerConfig(shape: MarkerShape, color: string) {
     if (shape === 'none') return undefined;
     
@@ -126,6 +134,40 @@
 
   function handlePanelEvent(e: Event) {
     e.stopPropagation();
+  }
+
+  // Helper to generate edge style string
+  function getEdgeStyleString(color: string, width: number, strokeStyle: EdgeStrokeStyle = 'solid'): string {
+    let style = `stroke: ${color}; stroke-width: ${width}px;`;
+    
+    if (strokeStyle === 'dashed') {
+      style += ` stroke-dasharray: ${width * 3} ${width * 2};`;
+    } else if (strokeStyle === 'dotted') {
+      style += ` stroke-dasharray: ${width} ${width * 2};`;
+    }
+    
+    return style;
+  }
+
+  function updateEdgeAppearance(updates: { color?: string; strokeWidth?: number; strokeStyle?: EdgeStrokeStyle }) {
+    if (!selectedEdge) return;
+    
+    const color = updates.color ?? selectedEdge.data?.color ?? '#555555';
+    const width = updates.strokeWidth ?? selectedEdge.data?.strokeWidth ?? 2;
+    const strokeStyle = updates.strokeStyle ?? selectedEdge.data?.strokeStyle ?? 'solid';
+    
+    // Update data fields
+    if (updates.color !== undefined) updateEdgeData('color', color);
+    if (updates.strokeWidth !== undefined) updateEdgeData('strokeWidth', width);
+    if (updates.strokeStyle !== undefined) updateEdgeData('strokeStyle', strokeStyle);
+    
+    // Update style string
+    updateEdge({ style: getEdgeStyleString(color, width, strokeStyle) });
+    
+    // Update marker colors if needed
+    if (updates.color !== undefined) {
+      applyMarkers(selectedEdge.data?.markerStart || 'none', selectedEdge.data?.markerEnd || 'none');
+    }
   }
 </script>
 
@@ -237,12 +279,7 @@
               type="color" 
               value={selectedEdge.data?.color || '#555555'}
               oninput={(e) => {
-                const color = (e.target as HTMLInputElement).value;
-                const width = selectedEdge.data?.strokeWidth || 2;
-                updateEdgeData('color', color);
-                updateEdge({ style: `stroke: ${color}; stroke-width: ${width}px;` });
-                // Update marker colors if they exist
-                applyMarkers(selectedEdge.data?.markerStart || 'none', selectedEdge.data?.markerEnd || 'none');
+                updateEdgeAppearance({ color: (e.target as HTMLInputElement).value });
               }}
               class="color-picker"
             />
@@ -250,12 +287,7 @@
               type="text" 
               value={selectedEdge.data?.color || '#555555'}
               oninput={(e) => {
-                const color = (e.target as HTMLInputElement).value;
-                const width = selectedEdge.data?.strokeWidth || 2;
-                updateEdgeData('color', color);
-                updateEdge({ style: `stroke: ${color}; stroke-width: ${width}px;` });
-                // Update marker colors if they exist
-                applyMarkers(selectedEdge.data?.markerStart || 'none', selectedEdge.data?.markerEnd || 'none');
+                updateEdgeAppearance({ color: (e.target as HTMLInputElement).value });
               }}
               class="color-text"
             />
@@ -268,14 +300,25 @@
             type="number" 
             value={selectedEdge.data?.strokeWidth || 2}
             oninput={(e) => {
-              const width = parseInt((e.target as HTMLInputElement).value) || 2;
-              const color = selectedEdge.data?.color || '#555555';
-              updateEdgeData('strokeWidth', width);
-              updateEdge({ style: `stroke: ${color}; stroke-width: ${width}px;` });
+              updateEdgeAppearance({ strokeWidth: parseInt((e.target as HTMLInputElement).value) || 2 });
             }}
             min="1"
             max="10"
           />
+        </div>
+
+        <div class="field">
+          <label>Stroke Style</label>
+          <select 
+            value={selectedEdge.data?.strokeStyle || 'solid'}
+            onchange={(e) => {
+              updateEdgeAppearance({ strokeStyle: (e.target as HTMLSelectElement).value as EdgeStrokeStyle });
+            }}
+          >
+            <option value="solid">Solid</option>
+            <option value="dashed">Dashed</option>
+            <option value="dotted">Dotted</option>
+          </select>
         </div>
 
         <div class="field">
@@ -458,6 +501,19 @@
                 />
               </div>
             </div>
+
+            {#if selectedNode.parentId}
+              <div class="field">
+                <label class="checkbox-label">
+                  <input 
+                    type="checkbox" 
+                    checked={selectedNode.extent === 'parent'}
+                    onchange={(e) => updateNodeExtent((e.target as HTMLInputElement).checked)}
+                  />
+                  <span>Contain within Group</span>
+                </label>
+              </div>
+            {/if}
 
             <div class="field">
               <label>Border Style</label>
@@ -847,23 +903,46 @@
 
               <div class="section-divider"></div>
 
-              <!-- Child Nodes Info -->
-              <div class="input-group">
-                <label class="input-label">Child Nodes</label>
-                <div class="info-text">
-                  {(selectedNode.data as any).childNodeIds?.length || 0} nodes in group
+              <!-- Contained Child Nodes -->
+              {#if true}
+                {@const childNodes = workspace.getChildNodes(selectedNode.id)}
+                <div class="input-group">
+                  <label class="input-label">Contained Nodes ({childNodes.length})</label>
+                  {#if childNodes.length > 0}
+                    <div class="child-nodes-list">
+                      {#each childNodes as childNode (childNode.id)}
+                        <div class="child-node-item">
+                          <label class="child-node-checkbox">
+                            <input 
+                              type="checkbox" 
+                              checked={childNode.extent === 'parent'}
+                              onchange={(e) => workspace.setNodeContained(childNode.id, (e.target as HTMLInputElement).checked)}
+                            />
+                            <span class="child-node-label" title={String(childNode.data?.label || childNode.id)}>
+                              {childNode.data?.label || childNode.type || childNode.id}
+                            </span>
+                          </label>
+                        </div>
+                      {/each}
+                    </div>
+                    <div class="info-text" style="margin-top: 6px; font-size: 10px;">
+                      Checked nodes stay within group bounds
+                    </div>
+                  {:else}
+                    <div class="info-text">No child nodes</div>
+                  {/if}
                 </div>
-              </div>
 
-              <!-- Ungroup Button -->
-              {#if (selectedNode.data as any).childNodeIds?.length > 0}
-                <button 
-                  class="action-btn secondary"
-                  onclick={() => workspace.ungroupNode(selectedNode.id)}
-                  style="width: 100%; margin-top: 8px;"
-                >
-                  <span>Ungroup Nodes</span>
-                </button>
+                <!-- Ungroup Button -->
+                {#if childNodes.length > 0}
+                  <button 
+                    class="action-btn secondary"
+                    onclick={() => workspace.ungroupNode(selectedNode.id)}
+                    style="width: 100%; margin-top: 8px;"
+                  >
+                    <span>Ungroup Nodes</span>
+                  </button>
+                {/if}
               {/if}
             </div>
           {/if}
@@ -953,7 +1032,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px;
+    padding: 0 16px;
+    height: 36px;
     border-bottom: 1px solid #21262d;
     background: #0d1117;
   }
@@ -1103,6 +1183,21 @@
   .field-row .field {
     flex: 1;
     min-width: 0;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: #c9d1d9;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .checkbox-label input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
   }
 
   .field-with-lock {
@@ -1419,6 +1514,47 @@
     letter-spacing: 0.5px;
     margin-bottom: 8px;
     margin-top: 4px;
+  }
+
+  .child-nodes-list {
+    max-height: 150px;
+    overflow-y: auto;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    background: #0d1117;
+  }
+
+  .child-node-item {
+    padding: 4px 8px;
+    border-bottom: 1px solid #21262d;
+  }
+
+  .child-node-item:last-child {
+    border-bottom: none;
+  }
+
+  .child-node-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 11px;
+    color: #c9d1d9;
+  }
+
+  .child-node-checkbox input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: #58a6ff;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .child-node-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
   }
 
   .info-text {

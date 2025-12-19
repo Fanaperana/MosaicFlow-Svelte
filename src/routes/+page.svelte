@@ -7,13 +7,19 @@
   import CanvasList from '$lib/components/CanvasList.svelte';
   import CanvasHeader from '$lib/components/CanvasHeader.svelte';
   import QuickToolbar from '$lib/components/QuickToolbar.svelte';
+  import WorkflowSearch from '$lib/components/WorkflowSearch.svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
   import { saveWorkspace, loadWorkspace } from '$lib/services/fileOperations';
   import { message } from '@tauri-apps/plugin-dialog';
+  import type { CanvasInfo } from '$lib/services/vaultService';
   
   let showProperties = $state(false);
-  let canvasLoaded = $state(false);
+  let showSearch = $state(false);
+  let showNodeList = $state(false);
+  
+  // Track the current canvas ID to detect changes
+  let currentCanvasId = $state<string | null>(null);
   
   // Show properties when a node is selected
   $effect(() => {
@@ -24,7 +30,9 @@
 
   // Load canvas when current canvas changes
   $effect(() => {
-    if (vaultStore.currentCanvas && !canvasLoaded) {
+    const canvas = vaultStore.currentCanvas;
+    if (canvas && canvas.id !== currentCanvasId) {
+      currentCanvasId = canvas.id;
       loadCurrentCanvas();
     }
   });
@@ -38,10 +46,14 @@
     if (!vaultStore.currentCanvas) return;
     
     try {
+      // Clear workspace first
+      workspace.clear();
+      
       const success = await loadWorkspace(vaultStore.currentCanvas.path);
       if (success) {
         workspace.workspacePath = vaultStore.currentCanvas.path;
-        canvasLoaded = true;
+        // Sync name from canvas metadata
+        workspace.name = vaultStore.currentCanvas.name;
       }
     } catch (err) {
       console.error('Failed to load canvas:', err);
@@ -55,7 +67,7 @@
     }
     
     // Go back to canvas list or vault picker
-    canvasLoaded = false;
+    currentCanvasId = null;
     workspace.clear();
     vaultStore.closeCanvas();
   }
@@ -79,7 +91,7 @@
     if (workspace.isModified) {
       await handleSave();
     }
-    canvasLoaded = false;
+    currentCanvasId = null;
     workspace.clear();
     vaultStore.closeCanvas();
   }
@@ -98,11 +110,36 @@
     if (workspace.isModified) {
       await handleSave();
     }
-    canvasLoaded = false;
+    currentCanvasId = null;
     workspace.clear();
     await vaultStore.createCanvas('Untitled');
   }
+
+  function handleSearch() {
+    showSearch = true;
+  }
+
+  async function handleCanvasSelect(canvas: CanvasInfo) {
+    // Save current first
+    if (workspace.isModified) {
+      await handleSave();
+    }
+    
+    // Switch to selected canvas
+    await vaultStore.openCanvas(canvas);
+    showSearch = false;
+  }
+
+  // Global keyboard shortcut for search
+  function handleGlobalKeydown(e: KeyboardEvent) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      showSearch = !showSearch;
+    }
+  }
 </script>
+
+<svelte:window onkeydown={handleGlobalKeydown} />
 
 {#if !vaultStore.isInitialized || vaultStore.isLoading}
   <div class="loading-screen">
@@ -122,21 +159,28 @@
       onExport={handleExport}
       onSettings={handleSettings}
       onNewCanvas={handleNewCanvas}
+      onSearch={handleSearch}
       canvasName={vaultStore.currentCanvas.name}
       vaultName={vaultStore.currentVault?.name}
     />
     
     <div class="main-content">
       <div class="canvas-container">
-        <CanvasHeader />
+        <CanvasHeader onToggleNodeList={() => showNodeList = !showNodeList} />
         <QuickToolbar />
-        <Canvas />
+        <Canvas showNodeList={showNodeList} onToggleNodeList={() => showNodeList = !showNodeList} />
       </div>
       
       {#if showProperties}
         <PropertiesPanel onClose={() => showProperties = false} />
       {/if}
     </div>
+    
+    <WorkflowSearch 
+      isOpen={showSearch}
+      onClose={() => showSearch = false}
+      onCanvasSelect={handleCanvasSelect}
+    />
   </div>
 {:else}
   <VaultPicker />

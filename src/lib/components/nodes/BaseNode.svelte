@@ -79,6 +79,10 @@
     display: flex;
     flex-direction: column;
     height: 100%;
+    /* Crisp text rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: geometricPrecision;
   }
 
   .node-header {

@@ -170,7 +170,7 @@ export async function renameVault(vaultPath: string, newName: string): Promise<V
   }
   
   try {
-    return await invoke<VaultInfo>('rename_vault', { vaultPath, newName });
+    return await invoke<VaultInfo>('rename_vault', { vault_path: vaultPath, new_name: newName });
   } catch (error) {
     console.error('Failed to rename vault:', error);
     return null;
@@ -195,7 +195,7 @@ export async function listCanvases(vaultPath: string): Promise<CanvasInfo[]> {
   }
   
   try {
-    return await invoke<CanvasInfo[]>('list_canvases', { vaultPath });
+    return await invoke<CanvasInfo[]>('list_canvases', { vault_path: vaultPath });
   } catch (error) {
     console.error('Failed to list canvases:', error);
     return [];
@@ -218,7 +218,7 @@ export async function createCanvas(vaultPath: string, name: string): Promise<Can
   }
   
   try {
-    return await invoke<CanvasInfo>('create_canvas', { vaultPath, name });
+    return await invoke<CanvasInfo>('create_canvas', { vault_path: vaultPath, name });
   } catch (error) {
     console.error('Failed to create canvas:', error);
     return null;
@@ -230,11 +230,24 @@ export async function createCanvas(vaultPath: string, name: string): Promise<Can
  */
 export async function renameCanvas(canvasPath: string, newName: string): Promise<CanvasInfo | null> {
   if (!isTauri) {
-    return null;
+    // Mock for development - return updated canvas info
+    // Extract id from path for consistency
+    const pathParts = canvasPath.split('/');
+    const oldName = pathParts[pathParts.length - 1];
+    return {
+      id: oldName, // Keep original id for mock
+      name: newName,
+      path: canvasPath.replace(/[^/]+$/, newName.replace(/[^a-zA-Z0-9-_\s]/g, '_')),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
   }
   
   try {
-    return await invoke<CanvasInfo>('rename_canvas', { canvasPath, newName });
+    return await invoke<CanvasInfo>('rename_canvas', { 
+      canvas_path: canvasPath, 
+      new_name: newName 
+    });
   } catch (error) {
     console.error('Failed to rename canvas:', error);
     return null;
@@ -250,7 +263,7 @@ export async function deleteCanvas(canvasPath: string): Promise<boolean> {
   }
   
   try {
-    const result = await invoke<VaultOperationResult>('delete_canvas', { canvasPath });
+    const result = await invoke<VaultOperationResult>('delete_canvas', { canvas_path: canvasPath });
     return result.success;
   } catch (error) {
     console.error('Failed to delete canvas:', error);

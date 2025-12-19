@@ -14,6 +14,7 @@ interface NodeBounds {
   height: number;
   centerX: number;
   centerY: number;
+  type?: string;
 }
 
 /**
@@ -43,6 +44,7 @@ export function resolveCollisions<T extends Node>(
       height,
       centerX: node.position.x + width / 2,
       centerY: node.position.y + height / 2,
+      type: node.type,
     });
   }
 
@@ -60,6 +62,9 @@ export function resolveCollisions<T extends Node>(
       for (let j = i + 1; j < nodeIds.length; j++) {
         const nodeA = bounds.get(nodeIds[i])!;
         const nodeB = bounds.get(nodeIds[j])!;
+
+        // Skip collision detection if either node is a group
+        if (nodeA.type === 'group' || nodeB.type === 'group') continue;
 
         // Check for overlap
         const overlapX = Math.max(0,
@@ -156,6 +161,9 @@ export function findNonOverlappingPosition<T extends Node>(
     let hasCollision = false;
     
     for (const node of existingNodes) {
+      // Skip collision check for group nodes
+      if (node.type === 'group') continue;
+
       const nodeWidth = node.measured?.width ?? node.width ?? 200;
       const nodeHeight = node.measured?.height ?? node.height ?? 100;
       

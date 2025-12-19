@@ -12,26 +12,8 @@
     ZoomOut,
     Maximize2,
     Trash2,
-    // Node type icons
-    StickyNote,
-    Image,
-    Link,
-    Code,
-    Clock,
-    User,
-    Building2,
-    Globe,
-    FileDigit,
-    KeyRound,
-    MessageSquare,
-    Router,
-    Camera,
-    FolderOpen as FolderIcon,
-    MapPin,
-    List,
-    CheckSquare,
+    Search,
   } from 'lucide-svelte';
-  import { NODE_TYPE_INFO, type NodeType } from '$lib/types';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { cn } from '$lib/utils';
 
@@ -41,74 +23,19 @@
     onOpen: () => void;
     onExport: () => void;
     onSettings: () => void;
-    onNewCanvas?: () => void;
+    onNewCanvas: () => void;
+    onSearch: () => void;
     canvasName?: string;
     vaultName?: string;
   }
 
-  let { onHome, onSave, onOpen, onExport, onSettings, onNewCanvas, canvasName, vaultName }: Props = $props();
+  let { onHome, onSave, onOpen, onExport, onSettings, onNewCanvas, onSearch, canvasName, vaultName }: Props = $props();
 
-  let addMenuOpen = $state(false);
   let exportMenuOpen = $state(false);
 
-  // Map icon names to components
-  const iconMap: Record<string, typeof StickyNote> = {
-    StickyNote,
-    Image,
-    Link,
-    Code,
-    Clock,
-    User,
-    Building2,
-    Globe,
-    FileDigit,
-    KeyRound,
-    MessageSquare,
-    Router,
-    Camera,
-    FolderOpen: FolderIcon,
-    MapPin,
-    List,
-    CheckSquare,
-  };
-
-  function getIconComponent(iconName: string) {
-    return iconMap[iconName] || StickyNote;
-  }
-
-  function handleAddNode(type: NodeType) {
-    // Add node at center of viewport
-    const centerX = (window.innerWidth / 2 - workspace.viewport.x) / workspace.viewport.zoom;
-    const centerY = (window.innerHeight / 2 - workspace.viewport.y) / workspace.viewport.zoom;
-    workspace.createNode(type, { x: centerX, y: centerY });
-    addMenuOpen = false;
-  }
-
   function handleClickOutside() {
-    addMenuOpen = false;
     exportMenuOpen = false;
   }
-
-  // Group nodes by category
-  const groupedNodes = $derived(() => {
-    const groups: Record<string, typeof NODE_TYPE_INFO> = {
-      content: [],
-      entity: [],
-      osint: [],
-      utility: [],
-    };
-    NODE_TYPE_INFO.forEach(info => {
-      groups[info.category].push(info);
-    });
-    return groups;
-  });
-
-  const categoryLabels: Record<string, string> = {
-    content: 'Content',
-    entity: 'Entities',
-    osint: 'OSINT',
-    utility: 'Utility',
-  };
 </script>
 
 <svelte:window onclick={handleClickOutside} />
@@ -119,40 +46,20 @@
     <button class="sidebar-btn" onclick={(e) => { e.stopPropagation(); onHome(); }} title="Home">
       <Home size={20} strokeWidth={1.5} />
     </button>
+    <button class="sidebar-btn" onclick={(e) => { e.stopPropagation(); onSearch(); }} title="Search (Ctrl+K)">
+      <Search size={20} strokeWidth={1.5} />
+    </button>
   </div>
 
   <!-- Main tools -->
   <div class="sidebar-section">
-    <div class="dropdown-container">
-      <button 
-        class="sidebar-btn primary" 
-        onclick={(e) => { e.stopPropagation(); addMenuOpen = !addMenuOpen; exportMenuOpen = false; }}
-        title="Add Node"
-      >
-        <Plus size={20} strokeWidth={1.5} />
-      </button>
-      
-      {#if addMenuOpen}
-        <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-        <div class="dropdown-menu add-menu" onclick={(e) => e.stopPropagation()}>
-          {#each Object.entries(groupedNodes()) as [category, nodes]}
-            <div class="menu-category">
-              <span class="category-label">{categoryLabels[category]}</span>
-              {#each nodes as nodeInfo}
-                {@const IconComponent = getIconComponent(nodeInfo.icon)}
-                <button 
-                  class="menu-item"
-                  onclick={() => handleAddNode(nodeInfo.type)}
-                >
-                  <IconComponent size={16} strokeWidth={1.5} />
-                  <span>{nodeInfo.label}</span>
-                </button>
-              {/each}
-            </div>
-          {/each}
-        </div>
-      {/if}
-    </div>
+    <button 
+      class="sidebar-btn" 
+      onclick={(e) => { e.stopPropagation(); onNewCanvas(); }}
+      title="New Canvas"
+    >
+      <Plus size={20} strokeWidth={1.5} />
+    </button>
 
     <button class="sidebar-btn" onclick={(e) => { e.stopPropagation(); onSave(); }} title="Save">
       <Save size={20} strokeWidth={1.5} />
@@ -165,7 +72,7 @@
     <div class="dropdown-container">
       <button 
         class="sidebar-btn"
-        onclick={(e) => { e.stopPropagation(); exportMenuOpen = !exportMenuOpen; addMenuOpen = false; }}
+        onclick={(e) => { e.stopPropagation(); exportMenuOpen = !exportMenuOpen; }}
         title="Export"
       >
         <Download size={20} strokeWidth={1.5} />
