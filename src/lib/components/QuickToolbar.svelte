@@ -189,8 +189,8 @@
     transform: translateX(-50%);
     display: flex;
     align-items: center;
-    gap: 2px;
-    padding: 4px 6px;
+    gap: 4px;
+    padding: 6px 10px;
     background: rgba(17, 17, 24, 0.95);
     border: 1px solid #2a2a3a;
     border-radius: 8px;
@@ -202,18 +202,18 @@
   .toolbar-group {
     display: flex;
     align-items: center;
-    gap: 1px;
+    gap: 4px;
   }
 
   .toolbar-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     background: transparent;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     color: #888;
     cursor: pointer;
     transition: all 0.15s ease;
