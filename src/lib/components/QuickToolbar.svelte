@@ -110,7 +110,7 @@
       >
         <MousePointer2 size={ICON_SIZE} strokeWidth={1.5} />
       </Tooltip.Trigger>
-      <Tooltip.Content side="bottom" sideOffset={4}>
+      <Tooltip.Content side="bottom" sideOffset={8} arrowClasses="hidden">
         <p>Select (V)</p>
       </Tooltip.Content>
     </Tooltip.Root>
@@ -122,7 +122,7 @@
       >
         <Hand size={ICON_SIZE} strokeWidth={1.5} />
       </Tooltip.Trigger>
-      <Tooltip.Content side="bottom" sideOffset={4}>
+      <Tooltip.Content side="bottom" sideOffset={8} arrowClasses="hidden">
         <p>Pan (Space + Drag)</p>
       </Tooltip.Content>
     </Tooltip.Root>
@@ -141,7 +141,7 @@
         >
           <IconComponent size={ICON_SIZE} strokeWidth={1.5} />
         </Tooltip.Trigger>
-        <Tooltip.Content side="bottom" sideOffset={4}>
+        <Tooltip.Content side="bottom" sideOffset={8} arrowClasses="hidden">
           <p>{nodeInfo.label}</p>
         </Tooltip.Content>
       </Tooltip.Root>
