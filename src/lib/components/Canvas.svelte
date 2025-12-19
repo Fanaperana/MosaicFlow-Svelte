@@ -888,9 +888,9 @@
 
   :global(.svelte-flow) {
     background: #0d1117 !important;
-    /* macOS text blur fix */
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    /* macOS text blur fix - use subpixel-antialiased for sharper text */
+    -webkit-font-smoothing: subpixel-antialiased;
+    -moz-osx-font-smoothing: auto;
   }
 
   :global(.svelte-flow__background) {
@@ -903,19 +903,16 @@
 
   /* Optimize viewport transform rendering on macOS */
   :global(.svelte-flow__viewport) {
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-    -webkit-transform-style: preserve-3d;
-    transform-style: preserve-3d;
+    /* Removed backface-visibility and transform-style as they cause blur on modern WebKit */
+    transform: translate3d(0, 0, 0);
   }
 
   /* Node text rendering optimization */
   :global(.svelte-flow__node) {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: geometricPrecision;
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
+    -webkit-font-smoothing: subpixel-antialiased;
+    -moz-osx-font-smoothing: auto;
+    text-rendering: optimizeLegibility;
+    /* Removed backface-visibility as it causes blur */
   }
 
   :global(.svelte-flow__controls) {
