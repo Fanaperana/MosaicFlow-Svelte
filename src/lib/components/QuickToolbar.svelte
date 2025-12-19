@@ -104,11 +104,14 @@
   <!-- Mode Selection -->
   <div class="toolbar-group">
     <Tooltip.Root>
-      <Tooltip.Trigger
-        class="toolbar-btn {workspace.canvasMode === 'select' ? 'active' : ''}"
-        onclick={setSelectMode}
-      >
-        <MousePointer2 size={ICON_SIZE} strokeWidth={1.5} />
+      <Tooltip.Trigger>
+        <button 
+          class="toolbar-btn" 
+          class:active={workspace.canvasMode === 'select'}
+          onclick={setSelectMode}
+        >
+          <MousePointer2 size={ICON_SIZE} strokeWidth={1.5} />
+        </button>
       </Tooltip.Trigger>
       <Tooltip.Content side="bottom" sideOffset={8} arrowClasses="hidden">
         <p>Select (V)</p>
@@ -116,11 +119,14 @@
     </Tooltip.Root>
 
     <Tooltip.Root>
-      <Tooltip.Trigger
-        class="toolbar-btn {workspace.canvasMode === 'drag' ? 'active' : ''}"
-        onclick={setPanMode}
-      >
-        <Hand size={ICON_SIZE} strokeWidth={1.5} />
+      <Tooltip.Trigger>
+        <button 
+          class="toolbar-btn"
+          class:active={workspace.canvasMode === 'drag'}
+          onclick={setPanMode}
+        >
+          <Hand size={ICON_SIZE} strokeWidth={1.5} />
+        </button>
       </Tooltip.Trigger>
       <Tooltip.Content side="bottom" sideOffset={8} arrowClasses="hidden">
         <p>Pan (Space + Drag)</p>
@@ -135,11 +141,13 @@
     {#each quickNodes as nodeInfo}
       {@const IconComponent = getIconComponent(nodeInfo.icon)}
       <Tooltip.Root>
-        <Tooltip.Trigger
-          class="toolbar-btn"
-          onclick={() => handleAddNode(nodeInfo.type)}
-        >
-          <IconComponent size={ICON_SIZE} strokeWidth={1.5} />
+        <Tooltip.Trigger>
+          <button 
+            class="toolbar-btn"
+            onclick={() => handleAddNode(nodeInfo.type)}
+          >
+            <IconComponent size={ICON_SIZE} strokeWidth={1.5} />
+          </button>
         </Tooltip.Trigger>
         <Tooltip.Content side="bottom" sideOffset={8} arrowClasses="hidden">
           <p>{nodeInfo.label}</p>
@@ -152,10 +160,17 @@
 
   <!-- More Nodes Dropdown -->
   <DropdownMenu.Root>
-    <DropdownMenu.Trigger class="toolbar-btn dropdown-trigger">
-      <Plus size={ICON_SIZE} strokeWidth={1.5} />
-      <span class="dropdown-indicator"><ChevronDown size={8} strokeWidth={2.5} /></span>
-    </DropdownMenu.Trigger>
+    <Tooltip.Root>
+      <Tooltip.Trigger>
+        <DropdownMenu.Trigger class="toolbar-btn dropdown-trigger">
+          <Plus size={ICON_SIZE} strokeWidth={1.5} />
+          <span class="dropdown-indicator"><ChevronDown size={8} strokeWidth={2.5} /></span>
+        </DropdownMenu.Trigger>
+      </Tooltip.Trigger>
+      <Tooltip.Content side="bottom" sideOffset={8} arrowClasses="hidden">
+        <p>More nodes</p>
+      </Tooltip.Content>
+    </Tooltip.Root>
     
     <DropdownMenu.Content class="node-dropdown" align="start" sideOffset={4}>
       {#each Object.entries(groupedNodes()) as [category, nodes]}
