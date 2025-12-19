@@ -154,7 +154,7 @@
   <DropdownMenu.Root>
     <DropdownMenu.Trigger class="toolbar-btn dropdown-trigger">
       <Plus size={ICON_SIZE} strokeWidth={1.5} />
-      <ChevronDown size={10} strokeWidth={2} class="dropdown-indicator" />
+      <span class="dropdown-indicator"><ChevronDown size={8} strokeWidth={2.5} /></span>
     </DropdownMenu.Trigger>
     
     <DropdownMenu.Content class="node-dropdown" align="start" sideOffset={4}>
@@ -236,9 +236,11 @@
     position: relative;
   }
 
-  .toolbar-btn :global(.dropdown-indicator) {
-    opacity: 0.6;
-    margin-left: 2px;
+  .dropdown-indicator {
+    display: flex;
+    align-items: center;
+    opacity: 0.5;
+    margin-left: 1px;
   }
 
   .toolbar-divider {
