@@ -2,7 +2,7 @@
 //
 // Handles all vault-related operations
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use crate::core::{self, MosaicResult, MosaicError, paths::VaultPaths};
 use crate::models::{VaultMeta, VaultInfo, CanvasInfo};
 use crate::services::CanvasService;
@@ -33,7 +33,7 @@ impl VaultService {
         core::write_json(&vault_paths.vault_json, &meta)?;
         
         // Create default canvas
-        let canvas = CanvasService::create(
+        let _canvas = CanvasService::create(
             &vault_paths.canvases,
             &vault_id,
             "Untitled",

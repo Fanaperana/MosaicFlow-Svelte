@@ -102,7 +102,7 @@ impl CanvasService {
         let canvas_paths = CanvasPaths::from_root(&path.to_path_buf());
         
         // Ensure v2 format (auto-migrate if needed)
-        let info = Self::open(path)?;
+        let _info = Self::open(path)?;
         
         // Read and update metadata
         let mut meta: CanvasMeta = core::read_json(&canvas_paths.meta_json)?;

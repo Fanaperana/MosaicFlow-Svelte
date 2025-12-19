@@ -61,7 +61,7 @@ impl MigrationService {
         let now = core::now_iso();
         
         // Read old format if exists
-        let (canvas_id, vault_id, name, created_at, updated_at) = if old_canvas_json.exists() {
+        let (canvas_id, vault_id, name, _created_at, _updated_at) = if old_canvas_json.exists() {
             let content = core::read_string(&old_canvas_json)?;
             let json: serde_json::Value = serde_json::from_str(&content)?;
             

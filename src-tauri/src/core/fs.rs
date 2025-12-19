@@ -6,7 +6,6 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::fs;
 use std::path::Path;
 
-use super::error::MosaicError;
 use super::result::MosaicResult;
 
 /// Read and parse JSON file
