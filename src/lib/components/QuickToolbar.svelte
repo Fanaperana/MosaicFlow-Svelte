@@ -7,6 +7,7 @@
     MousePointer2, 
     Hand, 
     Plus,
+    ChevronDown,
     StickyNote, 
     Image, 
     Link, 
@@ -151,8 +152,9 @@
 
   <!-- More Nodes Dropdown -->
   <DropdownMenu.Root>
-    <DropdownMenu.Trigger class="toolbar-btn">
+    <DropdownMenu.Trigger class="toolbar-btn dropdown-trigger">
       <Plus size={ICON_SIZE} strokeWidth={1.5} />
+      <ChevronDown size={10} strokeWidth={2} class="dropdown-indicator" />
     </DropdownMenu.Trigger>
     
     <DropdownMenu.Content class="node-dropdown" align="start" sideOffset={4}>
@@ -225,6 +227,18 @@
   .toolbar-btn.active {
     background: rgba(59, 130, 246, 0.15);
     color: #3b82f6;
+  }
+
+  .toolbar-btn.dropdown-trigger {
+    width: auto;
+    padding: 0 6px;
+    gap: 2px;
+    position: relative;
+  }
+
+  .toolbar-btn :global(.dropdown-indicator) {
+    opacity: 0.6;
+    margin-left: 2px;
   }
 
   .toolbar-divider {
