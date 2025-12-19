@@ -21,9 +21,9 @@
   // Track the current canvas ID to detect changes
   let currentCanvasId = $state<string | null>(null);
   
-  // Show properties when a node is selected
+  // Show properties when a node or edge is selected
   $effect(() => {
-    if (workspace.selectedNodeIds.length === 1) {
+    if (workspace.selectedNodeIds.length === 1 || workspace.selectedEdgeIds.length === 1) {
       showProperties = true;
     }
   });
