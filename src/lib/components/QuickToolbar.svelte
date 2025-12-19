@@ -105,13 +105,16 @@
   <div class="toolbar-group">
     <Tooltip.Root>
       <Tooltip.Trigger>
-        <button 
-          class="toolbar-btn" 
-          class:active={workspace.canvasMode === 'select'}
-          onclick={setSelectMode}
-        >
-          <MousePointer2 size={ICON_SIZE} strokeWidth={1.5} />
-        </button>
+        {#snippet child({ props })}
+          <button 
+            {...props}
+            class="toolbar-btn" 
+            class:active={workspace.canvasMode === 'select'}
+            onclick={setSelectMode}
+          >
+            <MousePointer2 size={ICON_SIZE} strokeWidth={1.5} />
+          </button>
+        {/snippet}
       </Tooltip.Trigger>
       <Tooltip.Content side="bottom" sideOffset={8} arrowClasses="hidden">
         <p>Select (V)</p>
@@ -120,13 +123,16 @@
 
     <Tooltip.Root>
       <Tooltip.Trigger>
-        <button 
-          class="toolbar-btn"
-          class:active={workspace.canvasMode === 'drag'}
-          onclick={setPanMode}
-        >
-          <Hand size={ICON_SIZE} strokeWidth={1.5} />
-        </button>
+        {#snippet child({ props })}
+          <button 
+            {...props}
+            class="toolbar-btn"
+            class:active={workspace.canvasMode === 'drag'}
+            onclick={setPanMode}
+          >
+            <Hand size={ICON_SIZE} strokeWidth={1.5} />
+          </button>
+        {/snippet}
       </Tooltip.Trigger>
       <Tooltip.Content side="bottom" sideOffset={8} arrowClasses="hidden">
         <p>Pan (Space + Drag)</p>
@@ -142,12 +148,15 @@
       {@const IconComponent = getIconComponent(nodeInfo.icon)}
       <Tooltip.Root>
         <Tooltip.Trigger>
-          <button 
-            class="toolbar-btn"
-            onclick={() => handleAddNode(nodeInfo.type)}
-          >
-            <IconComponent size={ICON_SIZE} strokeWidth={1.5} />
-          </button>
+          {#snippet child({ props })}
+            <button 
+              {...props}
+              class="toolbar-btn"
+              onclick={() => handleAddNode(nodeInfo.type)}
+            >
+              <IconComponent size={ICON_SIZE} strokeWidth={1.5} />
+            </button>
+          {/snippet}
         </Tooltip.Trigger>
         <Tooltip.Content side="bottom" sideOffset={8} arrowClasses="hidden">
           <p>{nodeInfo.label}</p>
@@ -162,10 +171,14 @@
   <DropdownMenu.Root>
     <Tooltip.Root>
       <Tooltip.Trigger>
-        <DropdownMenu.Trigger class="toolbar-btn dropdown-trigger">
-          <Plus size={ICON_SIZE} strokeWidth={1.5} />
-          <span class="dropdown-indicator"><ChevronDown size={8} strokeWidth={2.5} /></span>
-        </DropdownMenu.Trigger>
+        {#snippet child({ props })}
+          <DropdownMenu.Trigger {...props} class="toolbar-btn dropdown-trigger">
+            <Plus size={ICON_SIZE} strokeWidth={1.5} />
+            <span class="dropdown-indicator">
+              <ChevronDown size={10} strokeWidth={2} />
+            </span>
+          </DropdownMenu.Trigger>
+        {/snippet}
       </Tooltip.Trigger>
       <Tooltip.Content side="bottom" sideOffset={8} arrowClasses="hidden">
         <p>More nodes</p>
