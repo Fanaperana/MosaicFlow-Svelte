@@ -81,6 +81,10 @@ export interface TimestampNodeData extends BaseNodeData {
   useCurrentTime?: boolean;
   multiLine?: boolean;
   customTimestamp?: string; // ISO date string for custom datetime
+  // Component compatibility
+  date?: string;
+  time?: string;
+  label?: string;
 }
 
 export interface PersonNodeData extends BaseNodeData {
@@ -99,6 +103,10 @@ export interface OrganizationNodeData extends BaseNodeData {
   website?: string;
   description?: string;
   logo?: string;
+  // Component compatibility
+  industry?: string;
+  location?: string;
+  size?: string;
 }
 
 export interface DomainNodeData extends BaseNodeData {
@@ -108,6 +116,11 @@ export interface DomainNodeData extends BaseNodeData {
   expiryDate?: string;
   nameservers?: string[];
   ipAddresses?: string[];
+  // Additional OSINT properties
+  protocol?: 'http' | 'https';
+  ip?: string;
+  created?: string;
+  expires?: string;
 }
 
 export interface HashNodeData extends BaseNodeData {
@@ -116,6 +129,11 @@ export interface HashNodeData extends BaseNodeData {
   filename?: string;
   threatLevel?: 'unknown' | 'safe' | 'suspicious' | 'malicious';
   virusTotalUrl?: string;
+  // Alternative properties for component compatibility
+  type?: string;
+  value?: string;
+  status?: 'clean' | 'malicious' | 'unknown';
+  source?: string;
 }
 
 export interface CredentialNodeData extends BaseNodeData {
@@ -124,6 +142,10 @@ export interface CredentialNodeData extends BaseNodeData {
   platform?: string;
   source?: string;
   breached?: boolean;
+  // Additional properties
+  service?: string;
+  password?: string;
+  compromised?: boolean;
 }
 
 export interface SocialPostNodeData extends BaseNodeData {
@@ -137,6 +159,13 @@ export interface SocialPostNodeData extends BaseNodeData {
     shares?: number;
     comments?: number;
   };
+  // Additional properties
+  url?: string;
+  avatar?: string;
+  handle?: string;
+  likes?: number;
+  reposts?: number;
+  replies?: number;
 }
 
 export interface GroupNodeData extends BaseNodeData {
@@ -150,13 +179,17 @@ export interface GroupNodeData extends BaseNodeData {
   labelColor?: string;
   // Collapsed state
   collapsed?: boolean;
+  // Group styling
+  groupColor?: string;
+  description?: string;
 }
 
 export interface MapNodeData extends BaseNodeData {
-  latitude: number;
-  longitude: number;
+  latitude?: number;
+  longitude?: number;
   zoom?: number;
   address?: string;
+  label?: string;
 }
 
 export interface RouterNodeData extends BaseNodeData {
@@ -165,14 +198,24 @@ export interface RouterNodeData extends BaseNodeData {
   macAddress?: string;
   manufacturer?: string;
   model?: string;
+  // Additional properties
+  ip?: string;
+  mac?: string;
+  vendor?: string;
+  status?: 'online' | 'offline' | 'unknown';
+  ports?: number[];
+}
+
+// Link item for LinkListNode
+export interface LinkItem {
+  id: string;
+  url: string;
+  label: string;
+  description?: string;
 }
 
 export interface LinkListNodeData extends BaseNodeData {
-  links: Array<{
-    url: string;
-    label: string;
-    description?: string;
-  }>;
+  links: LinkItem[];
 }
 
 export interface SnapshotNodeData extends BaseNodeData {
@@ -180,6 +223,11 @@ export interface SnapshotNodeData extends BaseNodeData {
   screenshotPath?: string;
   capturedAt?: string;
   htmlPath?: string;
+  // Additional properties
+  imageUrl?: string;
+  sourceUrl?: string;
+  timestamp?: string;
+  hash?: string;
 }
 
 export interface ActionNodeData extends BaseNodeData {
@@ -201,6 +249,10 @@ export interface AnnotationNodeData extends BaseNodeData {
   arrow?: string;
   fontSize?: number;
   fontWeight?: string;
+  // Component compatibility
+  content?: string;
+  annotationType?: 'note' | 'info' | 'warning' | 'error' | 'success';
+  author?: string;
 }
 
 // Union type for all node data

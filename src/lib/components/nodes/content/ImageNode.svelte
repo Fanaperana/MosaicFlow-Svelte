@@ -1,36 +1,24 @@
+<!--
+  ImageNode - Content Category
+  
+  Display images with drag-and-drop, file picker, and URL input support.
+-->
 <script lang="ts">
-  import { Handle, Position, NodeResizer, type NodeProps, type Node } from '@xyflow/svelte';
+  import { type NodeProps, type Node } from '@xyflow/svelte';
   import type { ImageNodeData } from '$lib/types';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { Image, Camera, Upload, Link } from 'lucide-svelte';
   import { open } from '@tauri-apps/plugin-dialog';
   import { convertFileSrc } from '@tauri-apps/api/core';
+  import { NodeWrapper } from '../_shared';
 
-  type ImageNode = Node<ImageNodeData, 'image'>;
+  type ImageNodeType = Node<ImageNodeData, 'image'>;
 
-  let { data, selected, id }: NodeProps<ImageNode> = $props();
+  let { data, selected, id }: NodeProps<ImageNodeType> = $props();
   
   let isDraggingOver = $state(false);
   let showUrlInput = $state(false);
   let urlInputValue = $state('');
-
-  // Border styling
-  const borderWidth = $derived((data.borderWidth as number) ?? 1);
-  const borderStyle = $derived((data.borderStyle as string) ?? 'solid');
-  const borderRadius = $derived((data.borderRadius as number) ?? 4);
-  const bgOpacity = $derived((data.bgOpacity as number) ?? 1);
-
-  function hexToRgba(hex: string, opacity: number): string {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    if (result) {
-      const r = parseInt(result[1], 16);
-      const g = parseInt(result[2], 16);
-      const b = parseInt(result[3], 16);
-      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-    }
-    return hex;
-  }
-  const backgroundColor = $derived(hexToRgba(data.color || '#1a1d21', bgOpacity));
 
   function handleDragOver(e: DragEvent) {
     e.preventDefault();
@@ -49,14 +37,11 @@
     if (files && files.length > 0) {
       const file = files[0];
       if (file.type.startsWith('image/')) {
-        // Check for Tauri file path
-        const filePath = (file as any).path;
+        const filePath = (file as unknown as { path?: string }).path;
         if (filePath) {
-          // Convert local path to asset URL for Tauri
           const assetUrl = convertFileSrc(filePath);
           workspace.updateNodeData(id, { imageUrl: assetUrl });
         } else {
-          // Fallback: read as data URL for browser-based drops
           const reader = new FileReader();
           reader.onload = (event) => {
             const imageUrl = event.target?.result as string;
@@ -102,44 +87,22 @@
       urlInputValue = '';
     }
   }
-
-  function handleUrlInput(e: Event) {
-    const target = e.target as HTMLInputElement;
-    workspace.updateNodeData(id, { imageUrl: target.value });
-  }
 </script>
 
-<NodeResizer 
-  minWidth={150} 
-  minHeight={150} 
-  isVisible={selected ?? false}
-  lineStyle="border-color: #3b82f6"
-  handleStyle="background: #3b82f6; width: 8px; height: 8px; border-radius: 2px;"
-/>
-
-<div 
-  class="image-node"
-  class:selected
-  class:dragging-over={isDraggingOver}
-  ondragover={handleDragOver}
-  ondragleave={handleDragLeave}
-  ondrop={handleDrop}
-  role="img"
-  style="
-    background: {backgroundColor};
-    border-color: {data.borderColor || '#333'};
-    border-width: {borderWidth}px;
-    border-style: {borderStyle};
-    border-radius: {borderRadius}px;
-    color: {data.textColor || '#e0e0e0'};
-  "
->
-  <div class="node-header">
+<NodeWrapper {data} {selected} {id} nodeType="image" class="image-node">
+  {#snippet header()}
     <span class="node-icon"><Image size={14} strokeWidth={1.5} /></span>
     <span class="node-title">{data.title}</span>
-  </div>
+  {/snippet}
   
-  <div class="node-content">
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div 
+    class="image-content"
+    class:dragging-over={isDraggingOver}
+    ondragover={handleDragOver}
+    ondragleave={handleDragLeave}
+    ondrop={handleDrop}
+  >
     {#if data.imageUrl}
       <img src={data.imageUrl} alt={data.caption || data.title} />
       {#if data.caption}
@@ -151,20 +114,12 @@
         <div class="drop-text">Drop image here</div>
         
         <div class="drop-actions">
-          <button 
-            type="button" 
-            class="action-btn nodrag" 
-            onclick={handlePickImage}
-          >
+          <button type="button" class="action-btn nodrag" onclick={handlePickImage}>
             <Upload size={14} />
             <span>Upload</span>
           </button>
           
-          <button 
-            type="button" 
-            class="action-btn nodrag" 
-            onclick={() => showUrlInput = !showUrlInput}
-          >
+          <button type="button" class="action-btn nodrag" onclick={() => showUrlInput = !showUrlInput}>
             <Link size={14} />
             <span>URL</span>
           </button>
@@ -179,11 +134,7 @@
               bind:value={urlInputValue}
               onkeydown={handleUrlKeydown}
             />
-            <button 
-              type="button" 
-              class="url-submit nodrag" 
-              onclick={handleUrlSubmit}
-            >
+            <button type="button" class="url-submit nodrag" onclick={handleUrlSubmit}>
               Add
             </button>
           </div>
@@ -191,78 +142,33 @@
       </div>
     {/if}
   </div>
-</div>
-
-<Handle type="target" position={Position.Left} id="left" />
-<Handle type="source" position={Position.Right} id="right" />
-<Handle type="target" position={Position.Top} id="top" />
-<Handle type="source" position={Position.Bottom} id="bottom" />
+</NodeWrapper>
 
 <style>
-  .image-node {
-    min-width: 150px;
-    min-height: 150px;
-    width: 100%;
+  .image-content {
     height: 100%;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color: #e0e0e0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    overflow: hidden;
     display: flex;
     flex-direction: column;
   }
 
-  .image-node.selected {
-    border-color: #3b82f6;
+  .image-content.dragging-over {
+    background: rgba(59, 130, 246, 0.1);
+    border: 2px dashed #3b82f6;
+    border-radius: 4px;
   }
 
-  .image-node.dragging-over {
-    border-color: #10b981;
-    background: rgba(16, 185, 129, 0.1);
-  }
-
-  .node-header {
-    padding: 8px 12px;
-    background: rgba(255, 255, 255, 0.05);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .node-icon {
-    font-size: 14px;
-  }
-
-  .node-title {
-    font-weight: 600;
-    font-size: 13px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex: 1;
-  }
-
-  .node-content {
-    flex: 1;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-
-  img {
-    width: 100%;
-    height: 100%;
+  .image-content img {
+    max-width: 100%;
+    max-height: 100%;
     object-fit: contain;
-    flex: 1;
+    border-radius: 4px;
   }
 
   .caption {
-    padding: 8px 12px;
-    background: rgba(0, 0, 0, 0.3);
+    margin-top: 8px;
     font-size: 11px;
+    color: #888;
     text-align: center;
-    color: #aaa;
   }
 
   .drop-zone {
@@ -270,20 +176,18 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 20px;
     height: 100%;
-    text-align: center;
+    min-height: 100px;
     gap: 8px;
+    color: #666;
   }
 
   .drop-icon {
-    font-size: 32px;
     opacity: 0.5;
   }
 
   .drop-text {
     font-size: 12px;
-    color: #888;
   }
 
   .drop-actions {
@@ -297,45 +201,35 @@
     align-items: center;
     gap: 4px;
     padding: 6px 12px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 6px;
-    color: #e0e0e0;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: inherit;
     font-size: 11px;
     cursor: pointer;
-    transition: all 0.15s ease;
   }
 
   .action-btn:hover {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.25);
-  }
-
-  .action-btn:active {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #555;
   }
 
   .url-input-wrapper {
     display: flex;
-    gap: 6px;
-    width: 100%;
-    max-width: 280px;
+    gap: 4px;
     margin-top: 8px;
+    width: 100%;
+    max-width: 250px;
   }
 
   .url-input {
     flex: 1;
-    padding: 6px 10px;
+    padding: 6px 8px;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid #444;
     border-radius: 4px;
-    color: #e0e0e0;
+    color: inherit;
     font-size: 11px;
-    outline: none;
-  }
-
-  .url-input:focus {
-    border-color: #3b82f6;
   }
 
   .url-submit {
@@ -345,9 +239,7 @@
     border-radius: 4px;
     color: white;
     font-size: 11px;
-    font-weight: 500;
     cursor: pointer;
-    transition: background 0.15s ease;
   }
 
   .url-submit:hover {

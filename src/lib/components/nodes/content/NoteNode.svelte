@@ -1,3 +1,8 @@
+<!--
+  NoteNode - Content Category
+  
+  Markdown-supported text notes with edit/view mode.
+-->
 <script lang="ts">
   import { Handle, Position, NodeResizer, type NodeProps, type Node } from '@xyflow/svelte';
   import type { NoteNodeData } from '$lib/types';
@@ -5,27 +10,28 @@
   import { StickyNote, Check, Pencil } from 'lucide-svelte';
   import { RichMarkdownEditor } from '$lib/components/editor';
   import { marked } from 'marked';
+  import { hexToRgba } from '../_shared/utils';
 
-  type NoteNode = Node<NoteNodeData, 'note'>;
+  type NoteNodeType = Node<NoteNodeData, 'note'>;
 
-  let { data, selected, id }: NodeProps<NoteNode> = $props();
+  let { data, selected, id }: NodeProps<NoteNodeType> = $props();
   
   let content = $state('');
   
   // Header is hidden by default
-  let showHeader = $derived(data.showHeader ?? false);
+  const showHeader = $derived(data.showHeader ?? false);
   
   // View mode: 'edit' shows editor, 'view' shows rendered content
-  let viewMode = $derived(data.viewMode ?? 'edit');
+  const viewMode = $derived(data.viewMode ?? 'edit');
   
   // Check if node is locked
-  let isLocked = $derived(data.locked ?? false);
+  const isLocked = $derived(data.locked ?? false);
 
   // Border styling
-  let borderWidth = $derived((data.borderWidth as number) ?? 1);
-  let borderStyle = $derived((data.borderStyle as string) ?? 'solid');
-  let borderRadius = $derived((data.borderRadius as number) ?? 4);
-  let bgOpacity = $derived((data.bgOpacity as number) ?? 1);
+  const borderWidth = $derived((data.borderWidth as number) ?? 1);
+  const borderStyle = $derived((data.borderStyle as string) ?? 'solid');
+  const borderRadius = $derived((data.borderRadius as number) ?? 4);
+  const bgOpacity = $derived((data.bgOpacity as number) ?? 1);
   
   $effect(() => {
     content = data.content || '';
@@ -38,7 +44,7 @@
   });
 
   // Render markdown content
-  let renderedHtml = $derived.by(() => {
+  const renderedHtml = $derived.by(() => {
     if (!content) return '';
     try {
       return marked.parse(content) as string;
@@ -60,39 +66,13 @@
     workspace.updateNodeData(id, { content: newContent });
   }
 
-  function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape' && viewMode === 'edit') {
-      workspace.updateNodeData(id, { content, viewMode: 'view' });
-    }
-    e.stopPropagation();
-  }
-
-  function handleBlur() {
-    // Auto-switch to view mode when editor loses focus
-    if (viewMode === 'edit' && content) {
-      workspace.updateNodeData(id, { content, viewMode: 'view' });
-    }
-  }
-
   function handleDoubleClick() {
     if (viewMode === 'view') {
       workspace.updateNodeData(id, { viewMode: 'edit' });
     }
   }
 
-  // Compute background with opacity
-  function hexToRgba(hex: string, opacity: number): string {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    if (result) {
-      const r = parseInt(result[1], 16);
-      const g = parseInt(result[2], 16);
-      const b = parseInt(result[3], 16);
-      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-    }
-    return hex;
-  }
-
-  let backgroundColor = $derived(hexToRgba(data.color || '#1a1d21', bgOpacity));
+  const backgroundColor = $derived(hexToRgba(data.color || '#1a1d21', bgOpacity));
 </script>
 
 <NodeResizer 
@@ -133,8 +113,7 @@
   
   <div class="node-content">
     {#if viewMode === 'edit'}
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="editor-wrapper" onblur={handleBlur}>
+      <div class="editor-wrapper">
         <RichMarkdownEditor
           value={content}
           onChange={handleContentChange}
@@ -164,7 +143,6 @@
 
 <style>
   .note-node {
-    /* Border properties set via inline styles for customization */
     min-width: 200px;
     min-height: 120px;
     width: 100%;
@@ -175,22 +153,6 @@
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    /* Fix blurry text at different zoom levels - especially on macOS */
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: geometricPrecision;
-    /* Force layer creation to prevent transform blur */
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-    transform: translateZ(0);
-    /* Prevent filter inheritance causing blur */
-    filter: none;
-  }
-
-  /* Ensure text inside is also crisp */
-  .note-node * {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
   }
 
   .note-node.selected:not(.customizing) {

@@ -1,63 +1,75 @@
-// Node components index
-export { default as NoteNode } from './NoteNode.svelte';
-export { default as ImageNode } from './ImageNode.svelte';
-export { default as LinkNode } from './LinkNode.svelte';
-export { default as CodeNode } from './CodeNode.svelte';
-export { default as TimestampNode } from './TimestampNode.svelte';
-export { default as PersonNode } from './PersonNode.svelte';
-export { default as OrganizationNode } from './OrganizationNode.svelte';
-export { default as DomainNode } from './DomainNode.svelte';
-export { default as HashNode } from './HashNode.svelte';
-export { default as CredentialNode } from './CredentialNode.svelte';
-export { default as SocialPostNode } from './SocialPostNode.svelte';
-export { default as GroupNode } from './GroupNode.svelte';
-export { default as MapNode } from './MapNode.svelte';
-export { default as RouterNode } from './RouterNode.svelte';
-export { default as LinkListNode } from './LinkListNode.svelte';
-export { default as SnapshotNode } from './SnapshotNode.svelte';
-export { default as ActionNode } from './ActionNode.svelte';
-export { default as IframeNode } from './IframeNode.svelte';
-export { default as AnnotationNode } from './AnnotationNode.svelte';
+/**
+ * Node Components Index
+ * 
+ * This module re-exports all node components organized by category.
+ * Use the registry for full node metadata and type definitions.
+ * 
+ * @see ./registry.ts for the centralized node registry
+ * @see ./README.md for documentation on creating new nodes
+ */
 
-// Node types map for SvelteFlow
-import NoteNode from './NoteNode.svelte';
-import ImageNode from './ImageNode.svelte';
-import LinkNode from './LinkNode.svelte';
-import CodeNode from './CodeNode.svelte';
-import TimestampNode from './TimestampNode.svelte';
-import PersonNode from './PersonNode.svelte';
-import OrganizationNode from './OrganizationNode.svelte';
-import DomainNode from './DomainNode.svelte';
-import HashNode from './HashNode.svelte';
-import CredentialNode from './CredentialNode.svelte';
-import SocialPostNode from './SocialPostNode.svelte';
-import GroupNode from './GroupNode.svelte';
-import MapNode from './MapNode.svelte';
-import RouterNode from './RouterNode.svelte';
-import LinkListNode from './LinkListNode.svelte';
-import SnapshotNode from './SnapshotNode.svelte';
-import ActionNode from './ActionNode.svelte';
-import IframeNode from './IframeNode.svelte';
-import AnnotationNode from './AnnotationNode.svelte';
+// =============================================================================
+// RE-EXPORTS BY CATEGORY
+// =============================================================================
 
-export const nodeTypes = {
-  note: NoteNode,
-  image: ImageNode,
-  link: LinkNode,
-  code: CodeNode,
-  timestamp: TimestampNode,
-  person: PersonNode,
-  organization: OrganizationNode,
-  domain: DomainNode,
-  hash: HashNode,
-  credential: CredentialNode,
-  socialPost: SocialPostNode,
-  group: GroupNode,
-  map: MapNode,
-  router: RouterNode,
-  linkList: LinkListNode,
-  snapshot: SnapshotNode,
-  action: ActionNode,
-  iframe: IframeNode,
-  annotation: AnnotationNode,
+// Content Nodes - Text, media, and embedded content
+export * from './content';
+
+// Entity Nodes - People, organizations, and time markers
+export * from './entity';
+
+// OSINT Nodes - Security research and intelligence gathering
+export * from './osint';
+
+// Utility Nodes - Grouping, actions, and annotations
+export * from './utility';
+
+// Shared Components & Utilities
+export * from './_shared';
+
+// =============================================================================
+// NODE TYPES MAP (for SvelteFlow)
+// =============================================================================
+
+// Re-export the centralized nodeTypes from registry
+export { nodeTypes, NODE_REGISTRY, getNodeDefinition, getNodesByCategory, getDefaultNodeData, NODE_CATEGORIES } from './registry';
+
+// =============================================================================
+// LEGACY EXPORTS (deprecated - use category imports instead)
+// =============================================================================
+
+// Content
+import { NoteNode, ImageNode, LinkNode, CodeNode, IframeNode } from './content';
+// Entity
+import { PersonNode, OrganizationNode, TimestampNode } from './entity';
+// OSINT
+import { DomainNode, HashNode, CredentialNode, SocialPostNode, RouterNode, SnapshotNode } from './osint';
+// Utility
+import { GroupNode, MapNode, LinkListNode, ActionNode, AnnotationNode } from './utility';
+
+// Individual named exports (for backwards compatibility)
+export {
+  // Content
+  NoteNode,
+  ImageNode,
+  LinkNode,
+  CodeNode,
+  IframeNode,
+  // Entity
+  PersonNode,
+  OrganizationNode,
+  TimestampNode,
+  // OSINT
+  DomainNode,
+  HashNode,
+  CredentialNode,
+  SocialPostNode,
+  RouterNode,
+  SnapshotNode,
+  // Utility
+  GroupNode,
+  MapNode,
+  LinkListNode,
+  ActionNode,
+  AnnotationNode,
 };
