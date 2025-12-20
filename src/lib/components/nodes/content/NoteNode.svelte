@@ -280,12 +280,38 @@
 
   .markdown-content :global(ul),
   .markdown-content :global(ol) {
-    margin: 4px 0;
-    padding-left: 20px;
+    margin: 8px 0;
+    padding-left: 24px;
+  }
+
+  .markdown-content :global(ul) {
+    list-style-type: disc;
+  }
+
+  .markdown-content :global(ul ul) {
+    list-style-type: circle;
+  }
+
+  .markdown-content :global(ul ul ul) {
+    list-style-type: square;
+  }
+
+  .markdown-content :global(ol) {
+    list-style-type: decimal;
   }
 
   .markdown-content :global(li) {
-    margin: 2px 0;
+    margin: 4px 0;
+    display: list-item;
+  }
+
+  .markdown-content :global(li::marker) {
+    color: #888;
+  }
+
+  .markdown-content :global(li > ul),
+  .markdown-content :global(li > ol) {
+    margin: 4px 0;
   }
 
   .markdown-content :global(blockquote) {
@@ -321,6 +347,49 @@
 
   .markdown-content :global(p:last-child) {
     margin-bottom: 0;
+  }
+
+  /* Task list (checkboxes) */
+  .markdown-content :global(input[type="checkbox"]) {
+    margin-right: 6px;
+    accent-color: #3b82f6;
+  }
+
+  .markdown-content :global(li:has(input[type="checkbox"])) {
+    list-style-type: none;
+    margin-left: -20px;
+  }
+
+  /* Tables */
+  .markdown-content :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0;
+    font-size: 11px;
+  }
+
+  .markdown-content :global(th),
+  .markdown-content :global(td) {
+    border: 1px solid #30363d;
+    padding: 6px 8px;
+    text-align: left;
+  }
+
+  .markdown-content :global(th) {
+    background: rgba(255, 255, 255, 0.05);
+    font-weight: 600;
+  }
+
+  .markdown-content :global(tr:nth-child(even)) {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  /* Images */
+  .markdown-content :global(img) {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    margin: 8px 0;
   }
 
   .placeholder {
