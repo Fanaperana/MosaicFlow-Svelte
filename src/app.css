@@ -159,23 +159,13 @@
  * Using font-smoothing, geometricPrecision, and transform optimizations helps maintain text clarity.
  */
 
-/* Force hardware acceleration for viewport */
-.svelte-flow__viewport {
-  will-change: transform;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  -webkit-perspective: 1000;
-  perspective: 1000;
-}
+/* Viewport text rendering - removed aggressive hardware acceleration that caused blur */
 
 /* All nodes should have crisp text rendering */
 .svelte-flow .svelte-flow__node {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: geometricPrecision;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  transform: translateZ(0);
 }
 
 /* Ensure all text inside nodes is crisp */
@@ -185,11 +175,7 @@
   text-rendering: geometricPrecision;
 }
 
-/* Fix for scaled transforms causing blur on macOS */
-.svelte-flow__renderer {
-  -webkit-transform-style: preserve-3d;
-  transform-style: preserve-3d;
-}
+/* Renderer - removed preserve-3d that caused blur on scaled content */
 
 /* Optimize text rendering in pane (background layer) */
 .svelte-flow__pane {
