@@ -110,21 +110,21 @@
   <div class="sidebar-section">
     <button 
       class="sidebar-btn" 
-      onclick={() => workspace.setViewport({ ...workspace.viewport, zoom: Math.min(workspace.viewport.zoom * 1.2, 4) })}
+      onclick={() => window.dispatchEvent(new CustomEvent('mosaicflow:zoomIn'))}
       title="Zoom In"
     >
       <ZoomIn size={20} strokeWidth={1.5} />
     </button>
     <button 
       class="sidebar-btn"
-      onclick={() => workspace.setViewport({ ...workspace.viewport, zoom: Math.max(workspace.viewport.zoom / 1.2, 0.1) })}
+      onclick={() => window.dispatchEvent(new CustomEvent('mosaicflow:zoomOut'))}
       title="Zoom Out"
     >
       <ZoomOut size={20} strokeWidth={1.5} />
     </button>
     <button 
       class="sidebar-btn"
-      onclick={() => workspace.fitView()}
+      onclick={() => window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.1 } }))}
       title="Fit View"
     >
       <Maximize2 size={20} strokeWidth={1.5} />

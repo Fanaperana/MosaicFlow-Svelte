@@ -20,6 +20,7 @@
   import { calculateSnapGuides, calculateSelectionSnapGuides, type SnapGuide } from '$lib/utils/snap-guides';
   import SnapGuides from '$lib/components/SnapGuides.svelte';
   import NodeListSidebar from '$lib/components/NodeListSidebar.svelte';
+  import FlowHelper from '$lib/components/FlowHelper.svelte';
   import * as ContextMenu from '$lib/components/ui/context-menu';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   interface Props {
@@ -558,6 +559,9 @@
       >
     <!-- Snap alignment guides -->
     <SnapGuides guides={snapGuides} />
+    
+    <!-- Flow helper for programmatic control (fitView, zoom, etc.) -->
+    <FlowHelper />
     
     <Controls position="bottom-right" />
     
