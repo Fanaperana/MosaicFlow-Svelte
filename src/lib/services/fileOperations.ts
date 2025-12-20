@@ -300,6 +300,10 @@ export async function exportAsPng(): Promise<boolean> {
       backgroundColor: '#1a1a2e', // Match the canvas background
       quality: 1.0,
       pixelRatio: 2, // Higher resolution for better quality
+      skipFonts: true, // Skip external fonts to avoid CORS issues
+      fetchRequestInit: {
+        mode: 'no-cors', // Attempt to bypass CORS for resources
+      },
       filter: (node) => {
         // Filter out minimap, controls, and other UI elements
         const className = node.className;
@@ -308,20 +312,52 @@ export async function exportAsPng(): Promise<boolean> {
           if (className.includes('svelte-flow__controls')) return false;
           if (className.includes('svelte-flow__panel')) return false;
         }
+        // Filter out broken images (like cm-widgetBuffer)
+        if (node instanceof HTMLImageElement) {
+          if (!node.complete || node.naturalWidth === 0) return false;
+          if (node.className?.includes('cm-widgetBuffer')) return false;
+        }
         return true;
       },
     });
 
-    // Create download link
-    const link = document.createElement('a');
-    link.download = `${workspace.name.replace(/[^a-z0-9]/gi, '_')}_canvas.png`;
-    link.href = dataUrl;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Convert data URL to binary data
+    const base64Data = dataUrl.replace(/^data:image\/png;base64,/, '');
+    const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
 
-    console.log('Canvas exported as PNG successfully');
-    return true;
+    if (isTauri) {
+      // Use Tauri file dialog to choose save location
+      const { save } = await import('@tauri-apps/plugin-dialog');
+      const { writeFile } = await import('@tauri-apps/plugin-fs');
+      
+      const defaultName = `${workspace.name.replace(/[^a-z0-9]/gi, '_')}_canvas.png`;
+      
+      const filePath = await save({
+        defaultPath: defaultName,
+        filters: [{
+          name: 'PNG Image',
+          extensions: ['png']
+        }]
+      });
+
+      if (filePath) {
+        await writeFile(filePath, binaryData);
+        console.log('Canvas exported as PNG successfully to:', filePath);
+        return true;
+      } else {
+        // User cancelled the dialog
+        return false;
+      }
+    } else {
+      // Fallback for non-Tauri environment (browser)
+      const link = document.createElement('a');
+      link.download = `${workspace.name.replace(/[^a-z0-9]/gi, '_')}_canvas.png`;
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return true;
+    }
   } catch (error) {
     console.error('Error exporting canvas as PNG:', error);
     return false;
