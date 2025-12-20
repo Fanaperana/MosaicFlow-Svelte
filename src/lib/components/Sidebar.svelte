@@ -13,6 +13,7 @@
     Maximize2,
     Trash2,
     Search,
+    Image,
   } from 'lucide-svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { cn } from '$lib/utils';
@@ -22,6 +23,7 @@
     onSave: () => void;
     onOpen: () => void;
     onExport: () => void;
+    onExportPng: () => void;
     onSettings: () => void;
     onNewCanvas: () => void;
     onSearch: () => void;
@@ -29,7 +31,7 @@
     vaultName?: string;
   }
 
-  let { onHome, onSave, onOpen, onExport, onSettings, onNewCanvas, onSearch, canvasName, vaultName }: Props = $props();
+  let { onHome, onSave, onOpen, onExport, onExportPng, onSettings, onNewCanvas, onSearch, canvasName, vaultName }: Props = $props();
 
   let exportMenuOpen = $state(false);
 
@@ -83,7 +85,11 @@
         <div class="dropdown-menu" onclick={(e) => e.stopPropagation()}>
           <button class="menu-item" onclick={() => { onExport(); exportMenuOpen = false; }}>
             <Download size={16} strokeWidth={1.5} />
-            <span>Export as ZIP</span>
+            <span>Export as JSON</span>
+          </button>
+          <button class="menu-item" onclick={() => { onExportPng(); exportMenuOpen = false; }}>
+            <Image size={16} strokeWidth={1.5} />
+            <span>Export as PNG</span>
           </button>
         </div>
       {/if}

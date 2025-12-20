@@ -10,7 +10,7 @@
   import WorkflowSearch from '$lib/components/WorkflowSearch.svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
-  import { saveWorkspace, loadWorkspace } from '$lib/services/fileOperations';
+  import { saveWorkspace, loadWorkspace, exportAsPng } from '$lib/services/fileOperations';
   import { message } from '@tauri-apps/plugin-dialog';
   import type { CanvasInfo } from '$lib/services/vaultService';
   
@@ -101,6 +101,18 @@
     await message('Export feature coming soon!', { title: 'Info', kind: 'info' });
   }
 
+  async function handleExportPng() {
+    try {
+      const success = await exportAsPng();
+      if (!success) {
+        await message('Failed to export canvas as PNG', { title: 'Error', kind: 'error' });
+      }
+    } catch (err) {
+      console.error('Failed to export PNG:', err);
+      await message('Failed to export canvas as PNG', { title: 'Error', kind: 'error' });
+    }
+  }
+
   function handleSettings() {
     showProperties = !showProperties;
   }
@@ -157,6 +169,7 @@
       onSave={handleSave}
       onOpen={handleOpen}
       onExport={handleExport}
+      onExportPng={handleExportPng}
       onSettings={handleSettings}
       onNewCanvas={handleNewCanvas}
       onSearch={handleSearch}
