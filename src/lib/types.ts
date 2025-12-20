@@ -80,6 +80,7 @@ export interface TimestampNodeData extends BaseNodeData {
   showMillisecond?: boolean;
   useCurrentTime?: boolean;
   multiLine?: boolean;
+  use24HourFormat?: boolean; // Military time (24h) vs 12h with AM/PM
   customTimestamp?: string; // ISO date string for custom datetime
   // Component compatibility
   date?: string;

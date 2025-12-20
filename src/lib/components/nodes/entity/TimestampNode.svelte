@@ -34,6 +34,7 @@
   const showMinute = $derived(data.showMinute ?? true);
   const showSecond = $derived(data.showSecond ?? false);
   const showMillisecond = $derived(data.showMillisecond ?? false);
+  const use24HourFormat = $derived(data.use24HourFormat ?? false); // Default to 12-hour with AM/PM
 
   // Colors
   const textColor = $derived(data.textColor ?? '#e0e0e0');
@@ -75,12 +76,35 @@
 
   // Format time parts
   const timeParts = $derived.by(() => {
+    if (!showHour && !showMinute && !showSecond) return '';
+    
+    const hours = displayTime.getHours();
+    const minutes = displayTime.getMinutes();
+    const seconds = displayTime.getSeconds();
+    const milliseconds = displayTime.getMilliseconds();
+    
+    let hourDisplay: string;
+    let ampm = '';
+    
+    if (use24HourFormat) {
+      // 24-hour / military time
+      hourDisplay = hours.toString().padStart(2, '0');
+    } else {
+      // 12-hour format with AM/PM
+      const hour12 = hours % 12 || 12; // Convert 0 to 12
+      hourDisplay = hour12.toString().padStart(2, '0');
+      ampm = hours >= 12 ? ' PM' : ' AM';
+    }
+    
     const parts: string[] = [];
-    if (showHour) parts.push(displayTime.getHours().toString().padStart(2, '0'));
-    if (showMinute) parts.push(displayTime.getMinutes().toString().padStart(2, '0'));
-    if (showSecond) parts.push(displayTime.getSeconds().toString().padStart(2, '0'));
+    if (showHour) parts.push(hourDisplay);
+    if (showMinute) parts.push(minutes.toString().padStart(2, '0'));
+    if (showSecond) parts.push(seconds.toString().padStart(2, '0'));
+    
     let timeStr = parts.join(':');
-    if (showMillisecond) timeStr += '.' + displayTime.getMilliseconds().toString().padStart(3, '0');
+    if (showMillisecond) timeStr += '.' + milliseconds.toString().padStart(3, '0');
+    if (showHour && !use24HourFormat) timeStr += ampm;
+    
     return timeStr;
   });
 

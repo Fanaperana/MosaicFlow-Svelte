@@ -812,6 +812,21 @@
                 </label>
               </div>
             </div>
+
+            <!-- Time Format -->
+            <div class="checkbox-group" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #333;">
+              <label class="checkbox-row">
+                <input 
+                  type="checkbox" 
+                  checked={(selectedNode.data as any).use24HourFormat ?? false}
+                  onchange={(e) => updateNodeData('use24HourFormat', (e.target as HTMLInputElement).checked)}
+                />
+                <span>24-Hour Format (Military Time)</span>
+              </label>
+              <div class="hint" style="font-size: 10px; color: #666; margin-left: 22px;">
+                {(selectedNode.data as any).use24HourFormat ? 'Shows 13:00, 14:30, etc.' : 'Shows 1:00 PM, 2:30 PM, etc.'}
+              </div>
+            </div>
           {/if}
         </div>
       {/if}
