@@ -814,6 +814,170 @@
         </div>
       {/if}
 
+      <!-- Annotation-specific Options -->
+      {#if selectedNode.type === 'annotation'}
+        <div class="section accordion">
+          <button class="accordion-header" onclick={() => optionsOpen = !optionsOpen}>
+            {#if optionsOpen}
+              <ChevronDown size={14} />
+            {:else}
+              <ChevronRight size={14} />
+            {/if}
+            <span>Annotation Options</span>
+          </button>
+          
+          {#if optionsOpen}
+            <div class="accordion-content">
+              <!-- Text Color -->
+              <div class="field">
+                <label>Text Color</label>
+                <div class="color-picker-row">
+                  <input 
+                    type="color" 
+                    class="color-input"
+                    value={(selectedNode.data as any).textColor || '#999999'}
+                    oninput={(e) => updateNodeData('textColor', (e.target as HTMLInputElement).value)}
+                  />
+                  <input 
+                    type="text" 
+                    class="color-text"
+                    value={(selectedNode.data as any).textColor || '#999999'}
+                    oninput={(e) => updateNodeData('textColor', (e.target as HTMLInputElement).value)}
+                    placeholder="#999999"
+                  />
+                </div>
+              </div>
+
+              <div class="section-divider"></div>
+
+              <!-- Arrow Position -->
+              <div class="field">
+                <label>Arrow Position</label>
+                <select 
+                  class="select-input"
+                  value={(selectedNode.data as any).arrowPosition || 'bottom-left'}
+                  onchange={(e) => updateNodeData('arrowPosition', (e.target as HTMLSelectElement).value)}
+                >
+                  <option value="none">No Arrow</option>
+                  <option value="top-left">Top Left ↖</option>
+                  <option value="top-right">Top Right ↗</option>
+                  <option value="bottom-left">Bottom Left ↙</option>
+                  <option value="bottom-right">Bottom Right ↘</option>
+                  <option value="left">Left ←</option>
+                  <option value="right">Right →</option>
+                </select>
+              </div>
+
+              <!-- Arrow Rotation -->
+              <div class="field">
+                <label>Arrow Rotation</label>
+                <select 
+                  class="select-input"
+                  value={(selectedNode.data as any).arrowRotation || 0}
+                  onchange={(e) => updateNodeData('arrowRotation', parseInt((e.target as HTMLSelectElement).value))}
+                >
+                  <option value={0}>0°</option>
+                  <option value={45}>45°</option>
+                  <option value={90}>90°</option>
+                  <option value={135}>135°</option>
+                  <option value={180}>180°</option>
+                  <option value={225}>225°</option>
+                  <option value={270}>270°</option>
+                  <option value={315}>315°</option>
+                </select>
+              </div>
+
+              <!-- Arrow Flip -->
+              <div class="field">
+                <label>Arrow Flip</label>
+                <div class="mode-toggle">
+                  <button 
+                    class="mode-btn" 
+                    class:active={(selectedNode.data as any).arrowFlipX}
+                    onclick={() => updateNodeData('arrowFlipX', !(selectedNode.data as any).arrowFlipX)}
+                  >
+                    <span>Flip X</span>
+                  </button>
+                  <button 
+                    class="mode-btn"
+                    class:active={(selectedNode.data as any).arrowFlipY}
+                    onclick={() => updateNodeData('arrowFlipY', !(selectedNode.data as any).arrowFlipY)}
+                  >
+                    <span>Flip Y</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="section-divider"></div>
+
+              <!-- Font Style -->
+              <div class="field">
+                <label>Font Weight</label>
+                <select 
+                  class="select-input"
+                  value={(selectedNode.data as any).fontWeight || '400'}
+                  onchange={(e) => updateNodeData('fontWeight', (e.target as HTMLSelectElement).value)}
+                >
+                  <option value="300">Light</option>
+                  <option value="400">Normal</option>
+                  <option value="500">Medium</option>
+                  <option value="600">Semi Bold</option>
+                  <option value="700">Bold</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label>Font Style</label>
+                <div class="mode-toggle">
+                  <button 
+                    class="mode-btn" 
+                    class:active={(selectedNode.data as any).fontStyle !== 'italic'}
+                    onclick={() => updateNodeData('fontStyle', 'normal')}
+                  >
+                    <span>Normal</span>
+                  </button>
+                  <button 
+                    class="mode-btn"
+                    class:active={(selectedNode.data as any).fontStyle === 'italic'}
+                    onclick={() => updateNodeData('fontStyle', 'italic')}
+                  >
+                    <span style="font-style: italic;">Italic</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Text Align -->
+              <div class="field">
+                <label>Text Align</label>
+                <div class="mode-toggle">
+                  <button 
+                    class="mode-btn" 
+                    class:active={(selectedNode.data as any).textAlign === 'left' || !(selectedNode.data as any).textAlign}
+                    onclick={() => updateNodeData('textAlign', 'left')}
+                  >
+                    <span>Left</span>
+                  </button>
+                  <button 
+                    class="mode-btn"
+                    class:active={(selectedNode.data as any).textAlign === 'center'}
+                    onclick={() => updateNodeData('textAlign', 'center')}
+                  >
+                    <span>Center</span>
+                  </button>
+                  <button 
+                    class="mode-btn"
+                    class:active={(selectedNode.data as any).textAlign === 'right'}
+                    onclick={() => updateNodeData('textAlign', 'right')}
+                  >
+                    <span>Right</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          {/if}
+        </div>
+      {/if}
+
       <!-- Group-specific Options -->
       {#if selectedNode.type === 'group'}
         <div class="section accordion">

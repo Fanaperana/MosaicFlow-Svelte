@@ -247,8 +247,15 @@ export interface IframeNodeData extends BaseNodeData {
 export interface AnnotationNodeData extends BaseNodeData {
   label: string;
   arrow?: string;
+  arrowStyle?: string;
+  arrowPosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'left' | 'right' | 'none';
+  arrowRotation?: number; // 0, 45, 90, 135, 180, 225, 270, 315
+  arrowFlipX?: boolean;
+  arrowFlipY?: boolean;
   fontSize?: number;
   fontWeight?: string;
+  fontStyle?: 'normal' | 'italic';
+  textAlign?: 'left' | 'center' | 'right';
   // Component compatibility
   content?: string;
   annotationType?: 'note' | 'info' | 'warning' | 'error' | 'success';
@@ -420,4 +427,5 @@ export const NODE_TYPE_INFO: NodeTypeInfo[] = [
   { type: 'linkList', label: 'Link List', icon: 'List', category: 'utility', description: 'Collection of related links' },
   { type: 'action', label: 'Action', icon: 'CheckSquare', category: 'utility', description: 'Task/action items' },
   { type: 'iframe', label: 'Iframe', icon: 'Globe', category: 'content', description: 'Embed external webpages' },
+  { type: 'annotation', label: 'Annotation', icon: 'MessageSquare', category: 'utility', description: 'Visual text annotation with arrow' },
 ];

@@ -348,13 +348,18 @@ export const NODE_REGISTRY: NodeTypeDefinition[] = [
   {
     type: 'annotation',
     label: 'Annotation',
-    description: 'Text labels and arrows',
+    description: 'Visual text annotation with arrow',
     category: 'utility',
-    icon: 'Type',
+    icon: 'MessageSquare',
     component: AnnotationNode,
     defaultData: {
       title: 'Annotation',
-      label: '',
+      label: 'Double-click to edit...',
+      arrowPosition: 'bottom-left',
+      textColor: '#999',
+      fontWeight: '400',
+      fontStyle: 'normal',
+      textAlign: 'left',
     },
   },
 ];

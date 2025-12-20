@@ -1,153 +1,255 @@
 <!--
-  AnnotationNode - Utility Category
+  AnnotationNode - Visual Annotation/Callout
   
-  Canvas annotations and callouts.
+  A lightweight annotation node inspired by xyflow's AnnotationNode.
+  - No background, just text
+  - Font size scales with node size
+  - Customizable arrow position
+  - Cannot be linked to other nodes (no handles)
 -->
 <script lang="ts">
-  import { type NodeProps, type Node } from '@xyflow/svelte';
+  import { type NodeProps, type Node, NodeResizer } from '@xyflow/svelte';
   import type { AnnotationNodeData } from '$lib/types';
   import { workspace } from '$lib/stores/workspace.svelte';
-  import { MessageSquare, AlertCircle, Info, CheckCircle, AlertTriangle } from 'lucide-svelte';
-  import { NodeWrapper } from '../_shared';
 
   type AnnotationNodeType = Node<AnnotationNodeData, 'annotation'>;
 
-  let { data, selected, id }: NodeProps<AnnotationNodeType> = $props();
+  let { data, selected, id, width, height }: NodeProps<AnnotationNodeType> = $props();
   
-  let content = $state('');
+  let isEditing = $state(false);
+  let labelText = $state('');
+  let textareaRef = $state<HTMLTextAreaElement | null>(null);
   
   $effect(() => {
-    content = data.content || '';
+    labelText = data.label || 'Double-click to edit...';
   });
 
-  const annotationTypes = [
-    { value: 'note', label: 'Note', icon: MessageSquare, color: '#3b82f6' },
-    { value: 'info', label: 'Info', icon: Info, color: '#06b6d4' },
-    { value: 'warning', label: 'Warning', icon: AlertTriangle, color: '#f59e0b' },
-    { value: 'error', label: 'Error', icon: AlertCircle, color: '#ef4444' },
-    { value: 'success', label: 'Success', icon: CheckCircle, color: '#22c55e' },
-  ];
+  // Calculate font size based on node dimensions
+  const calculatedFontSize = $derived(() => {
+    const w = width || 200;
+    const h = height || 100;
+    // Base the font size on the smaller dimension to ensure text fits
+    const minDim = Math.min(w, h);
+    // Scale factor: starts at 14px for 100px and grows proportionally
+    const baseFontSize = data.fontSize || Math.max(12, Math.min(48, minDim / 5));
+    return baseFontSize;
+  });
 
-  function updateType(type: string) {
-    workspace.updateNodeData(id, { annotationType: type });
+  // Arrow symbols for different positions
+  const arrowSymbols: Record<string, string> = {
+    'top-left': '↖',
+    'top-right': '↗',
+    'bottom-left': '↙',
+    'bottom-right': '↘',
+    'left': '←',
+    'right': '→',
+    'none': '',
+  };
+
+  const arrowPosition = $derived(data.arrowPosition || 'bottom-left');
+  const arrowSymbol = $derived(data.arrow || arrowSymbols[arrowPosition] || '⤹');
+  
+  // Arrow transform (rotation and flip)
+  const arrowTransform = $derived(() => {
+    const transforms: string[] = [];
+    if (data.arrowRotation) {
+      transforms.push(`rotate(${data.arrowRotation}deg)`);
+    }
+    if (data.arrowFlipX) {
+      transforms.push('scaleX(-1)');
+    }
+    if (data.arrowFlipY) {
+      transforms.push('scaleY(-1)');
+    }
+    return transforms.length > 0 ? transforms.join(' ') : 'none';
+  });
+
+  function handleDoubleClick() {
+    isEditing = true;
+    setTimeout(() => textareaRef?.focus(), 0);
   }
 
-  function handleContentChange(e: Event) {
+  function handleBlur() {
+    isEditing = false;
+    if (labelText.trim() !== data.label) {
+      workspace.updateNodeData(id, { label: labelText.trim() || 'Annotation' });
+    }
+  }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      isEditing = false;
+      labelText = data.label || '';
+    } else if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleBlur();
+    }
+  }
+
+  function handleInput(e: Event) {
     const target = e.target as HTMLTextAreaElement;
-    content = target.value;
-    workspace.updateNodeData(id, { content });
+    labelText = target.value;
   }
-
-  const currentType = $derived(annotationTypes.find(t => t.value === (data.annotationType || 'note')) || annotationTypes[0]);
-  const CurrentTypeIcon = $derived(currentType.icon);
 </script>
 
-<NodeWrapper {data} {selected} {id} nodeType="annotation" class="annotation-node">
-  {#snippet header()}
-    <span class="node-icon" style="color: {currentType.color}">
-      <CurrentTypeIcon size={14} strokeWidth={1.5} />
-    </span>
-    <span class="node-title">{currentType.label}</span>
-  {/snippet}
+<div 
+  class="annotation-node"
+  class:selected
+  class:editing={isEditing}
+  style="
+    --font-size: {calculatedFontSize()}px;
+    --font-weight: {data.fontWeight || '400'};
+    --font-style: {data.fontStyle || 'normal'};
+    --text-color: {data.textColor || '#999'};
+    --text-align: {data.textAlign || 'left'};
+  "
+  ondblclick={handleDoubleClick}
+  role="button"
+  tabindex="0"
+>
+  <NodeResizer 
+    minWidth={80} 
+    minHeight={40}
+    isVisible={selected ?? false}
+    lineStyle="border-color: rgba(59, 130, 246, 0.5); border-style: dashed;"
+    handleStyle="background: #3b82f6; width: 8px; height: 8px; border-radius: 2px;"
+  />
   
-  <div class="type-selector">
-    {#each annotationTypes as type}
-      {@const TypeIcon = type.icon}
-      <button
-        class="type-btn nodrag"
-        class:selected={data.annotationType === type.value || (!data.annotationType && type.value === 'note')}
-        style="--type-color: {type.color}"
-        onclick={() => updateType(type.value)}
-        title={type.label}
-      >
-        <TypeIcon size={14} strokeWidth={1.5} />
-      </button>
-    {/each}
+  <div class="annotation-content">
+    {#if isEditing}
+      <textarea
+        bind:this={textareaRef}
+        class="annotation-input nodrag nowheel"
+        value={labelText}
+        oninput={handleInput}
+        onblur={handleBlur}
+        onkeydown={handleKeydown}
+        placeholder="Enter annotation text..."
+      ></textarea>
+    {:else}
+      <div class="annotation-label">{labelText}</div>
+    {/if}
   </div>
-  
-  <div class="annotation-content" style="--accent-color: {currentType.color}">
-    <div class="accent-bar"></div>
-    <textarea
-      class="content-input nodrag nowheel"
-      value={content}
-      placeholder="Add annotation..."
-      oninput={handleContentChange}
-    ></textarea>
-  </div>
-  
-  {#if data.author}
-    <div class="annotation-author">— {data.author}</div>
+
+  {#if arrowPosition !== 'none' && arrowSymbol}
+    <div 
+      class="annotation-arrow" 
+      class:top-left={arrowPosition === 'top-left'}
+      class:top-right={arrowPosition === 'top-right'}
+      class:bottom-left={arrowPosition === 'bottom-left'}
+      class:bottom-right={arrowPosition === 'bottom-right'}
+      class:left={arrowPosition === 'left'}
+      class:right={arrowPosition === 'right'}
+      style="{data.arrowStyle || ''}; transform: {arrowTransform()};"
+    >
+      {arrowSymbol}
+    </div>
   {/if}
-</NodeWrapper>
+</div>
 
 <style>
-  .type-selector {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 10px;
+  .annotation-node {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    border: none;
+    cursor: default;
+    user-select: none;
+    padding: 8px;
+    box-sizing: border-box;
   }
 
-  .type-btn {
-    padding: 6px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid #333;
-    border-radius: 4px;
-    color: #666;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .type-btn:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: var(--type-color);
-  }
-
-  .type-btn.selected {
-    background: color-mix(in srgb, var(--type-color) 10%, transparent);
-    border-color: var(--type-color);
-    color: var(--type-color);
+  .annotation-node.selected {
+    outline: 2px dashed rgba(59, 130, 246, 0.5);
+    outline-offset: 2px;
   }
 
   .annotation-content {
-    position: relative;
+    width: 100%;
+    height: 100%;
     display: flex;
-    padding-left: 12px;
+    align-items: flex-start;
+    justify-content: flex-start;
   }
 
-  .accent-bar {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background: var(--accent-color);
-    border-radius: 2px;
+  .annotation-label {
+    font-size: var(--font-size);
+    font-weight: var(--font-weight);
+    font-style: var(--font-style);
+    color: var(--text-color);
+    text-align: var(--text-align);
+    line-height: 1.3;
+    white-space: pre-wrap;
+    word-break: break-word;
+    width: 100%;
   }
 
-  .content-input {
-    flex: 1;
-    min-height: 60px;
-    background: transparent;
-    border: none;
-    color: inherit;
-    font-size: 12px;
-    line-height: 1.5;
+  .annotation-input {
+    width: 100%;
+    height: 100%;
+    font-size: var(--font-size);
+    font-weight: var(--font-weight);
+    font-style: var(--font-style);
+    color: var(--text-color);
+    text-align: var(--text-align);
+    line-height: 1.3;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(59, 130, 246, 0.5);
+    border-radius: 4px;
+    padding: 4px;
     resize: none;
     outline: none;
+    font-family: inherit;
   }
 
-  .content-input::placeholder {
+  .annotation-input::placeholder {
     color: #555;
   }
 
-  .annotation-author {
-    margin-top: 8px;
-    font-size: 10px;
-    color: #666;
-    font-style: italic;
-    text-align: right;
+  .annotation-arrow {
+    position: absolute;
+    font-size: calc(var(--font-size) * 1.5);
+    color: var(--text-color);
+    line-height: 1;
+    opacity: 0.7;
+  }
+
+  .annotation-arrow.top-left {
+    top: -0.5em;
+    left: -0.5em;
+  }
+
+  .annotation-arrow.top-right {
+    top: -0.5em;
+    right: -0.5em;
+  }
+
+  .annotation-arrow.bottom-left {
+    bottom: -0.5em;
+    left: -0.5em;
+  }
+
+  .annotation-arrow.bottom-right {
+    bottom: -0.5em;
+    right: -0.5em;
+  }
+
+  .annotation-arrow.left {
+    top: 50%;
+    left: -1em;
+    transform: translateY(-50%);
+  }
+
+  .annotation-arrow.right {
+    top: 50%;
+    right: -1em;
+    transform: translateY(-50%);
+  }
+
+  /* Selection state from svelte-flow */
+  :global(.svelte-flow__node.selected .annotation-node) {
+    outline: 2px dashed rgba(59, 130, 246, 0.5);
+    outline-offset: 2px;
   }
 </style>
