@@ -3,6 +3,7 @@
 
 import { workspace } from '$lib/stores/workspace.svelte';
 import type { WorkspaceData, UIState } from '$lib/types';
+import { toPng } from 'html-to-image';
 
 // Check if we're in Tauri environment
 const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
@@ -267,4 +268,62 @@ export function initAutoSave() {
       scheduleAutoSave();
     }
   });
+}
+
+// Export canvas as PNG image
+export async function exportAsPng(): Promise<boolean> {
+  try {
+    // Find the SvelteFlow viewport element
+    const flowElement = document.querySelector('.svelte-flow') as HTMLElement;
+    
+    if (!flowElement) {
+      console.error('Canvas element not found');
+      return false;
+    }
+
+    // Get the viewport for proper sizing
+    const viewport = flowElement.querySelector('.svelte-flow__viewport') as HTMLElement;
+    if (!viewport) {
+      console.error('Viewport element not found');
+      return false;
+    }
+
+    // Calculate the bounds of all nodes to determine the export area
+    const nodes = flowElement.querySelectorAll('.svelte-flow__node');
+    if (nodes.length === 0) {
+      console.error('No nodes to export');
+      return false;
+    }
+
+    // Generate PNG with high quality settings
+    const dataUrl = await toPng(flowElement, {
+      backgroundColor: '#1a1a2e', // Match the canvas background
+      quality: 1.0,
+      pixelRatio: 2, // Higher resolution for better quality
+      filter: (node) => {
+        // Filter out minimap, controls, and other UI elements
+        const className = node.className;
+        if (typeof className === 'string') {
+          if (className.includes('svelte-flow__minimap')) return false;
+          if (className.includes('svelte-flow__controls')) return false;
+          if (className.includes('svelte-flow__panel')) return false;
+        }
+        return true;
+      },
+    });
+
+    // Create download link
+    const link = document.createElement('a');
+    link.download = `${workspace.name.replace(/[^a-z0-9]/gi, '_')}_canvas.png`;
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    console.log('Canvas exported as PNG successfully');
+    return true;
+  } catch (error) {
+    console.error('Error exporting canvas as PNG:', error);
+    return false;
+  }
 }

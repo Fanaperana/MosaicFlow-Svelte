@@ -5,6 +5,7 @@
     openWorkspaceDialog, 
     saveWorkspaceAsDialog,
     exportAsZip,
+    exportAsPng,
     createWorkspace 
   } from '$lib/services/fileOperations';
   import { MousePointer2, Hand, Group } from 'lucide-svelte';
@@ -41,9 +42,8 @@
     showExportMenu = false;
   }
 
-  function handleExportPng() {
-    // Export canvas as PNG - would require html-to-image or similar
-    alert('PNG export coming soon!');
+  async function handleExportPng() {
+    await exportAsPng();
     showExportMenu = false;
   }
 
