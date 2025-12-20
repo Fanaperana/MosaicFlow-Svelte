@@ -229,6 +229,7 @@
     height: 8px;
     background: #555;
     border: 1px solid #333;
+    border-radius: 2px;
   }
 
   .timestamp-node :global(.svelte-flow__handle:hover) {

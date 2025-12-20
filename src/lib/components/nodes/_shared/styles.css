@@ -217,6 +217,7 @@
   height: 8px;
   background: #3b82f6;
   border: 2px solid #1e1e1e;
+  border-radius: 2px;
 }
 
 :global(.svelte-flow__handle:hover) {

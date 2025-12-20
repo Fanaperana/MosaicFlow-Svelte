@@ -552,6 +552,7 @@
           animated: false,
           style: 'stroke: #555555; stroke-width: 2px;',
         }}
+        defaultMarkerColor="#555555"
         proOptions={{ hideAttribution: true }}
         colorMode="dark"
       >
@@ -950,15 +951,30 @@
     stroke: #3b82f6 !important;
   }
 
+  /* Edge markers (arrowheads) */
+  :global(.svelte-flow__arrowhead) {
+    stroke-width: 1;
+  }
+
+  :global(.svelte-flow__arrowhead polyline) {
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  :global(.svelte-flow__marker svg) {
+    overflow: visible;
+  }
+
   :global(.svelte-flow__handle) {
     background: #555555 !important;
     border: 2px solid #333 !important;
     width: 10px !important;
     height: 10px !important;
+    border-radius: 2px !important;
   }
 
   :global(.svelte-flow__handle:hover) {
-    background: #3b82f6 !important;
+    background: #f6b83b !important;
   }
 
   :global(.svelte-flow__minimap) {
