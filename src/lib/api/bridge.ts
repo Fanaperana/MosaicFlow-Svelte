@@ -13,25 +13,13 @@
 
 import { invoke } from '@tauri-apps/api/core';
 
-// Check if we're in Tauri environment (single source of truth)
-export const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
-
 /**
- * Safe invoke wrapper with dev mode fallback
+ * Safe invoke wrapper for Tauri commands
  */
 export async function safeInvoke<T>(
   command: string,
-  args?: Record<string, unknown>,
-  devFallback?: () => T | Promise<T>
+  args?: Record<string, unknown>
 ): Promise<T> {
-  if (!isTauri) {
-    if (devFallback) {
-      console.log(`[DEV] ${command}`, args);
-      return devFallback();
-    }
-    throw new Error(`Tauri not available and no fallback for: ${command}`);
-  }
-  
   try {
     return await invoke<T>(command, args);
   } catch (error) {

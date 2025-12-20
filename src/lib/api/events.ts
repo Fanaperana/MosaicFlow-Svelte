@@ -6,7 +6,6 @@
  */
 
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { isTauri } from './bridge';
 import {
   EventNames,
   type VaultEvent,
@@ -23,39 +22,11 @@ export type WorkspaceEventCallback = (event: WorkspaceEvent) => void;
 export type StateEventCallback = (event: StateEvent) => void;
 export type HistoryEventCallback = (event: HistoryEvent) => void;
 
-// Event emitter for dev mode
-class DevEventEmitter {
-  private listeners: Map<string, Set<(payload: unknown) => void>> = new Map();
-
-  on(event: string, callback: (payload: unknown) => void): () => void {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, new Set());
-    }
-    this.listeners.get(event)!.add(callback);
-    
-    return () => {
-      this.listeners.get(event)?.delete(callback);
-    };
-  }
-
-  emit(event: string, payload: unknown): void {
-    console.log(`[DEV EVENT] ${event}`, payload);
-    this.listeners.get(event)?.forEach(cb => cb(payload));
-  }
-}
-
-export const devEmitter = new DevEventEmitter();
-
 // Generic event listener
 async function subscribeToEvent<T>(
   eventName: string,
   callback: (payload: T) => void
 ): Promise<UnlistenFn> {
-  if (!isTauri) {
-    // Dev mode: use local emitter
-    return devEmitter.on(eventName, callback as (payload: unknown) => void);
-  }
-  
   return listen<T>(eventName, (event) => {
     callback(event.payload);
   });

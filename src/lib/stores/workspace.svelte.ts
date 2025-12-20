@@ -406,6 +406,61 @@ class WorkspaceStore {
     this.viewport = viewport;
   }
 
+  // Fit view to show all nodes
+  fitView(padding: number = 50) {
+    if (this.nodes.length === 0) {
+      // No nodes, reset to default
+      this.viewport = { x: 0, y: 0, zoom: 1 };
+      return;
+    }
+
+    // Calculate bounds of all nodes
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    for (const node of this.nodes) {
+      const width = node.width || 200;
+      const height = node.height || 100;
+      
+      minX = Math.min(minX, node.position.x);
+      minY = Math.min(minY, node.position.y);
+      maxX = Math.max(maxX, node.position.x + width);
+      maxY = Math.max(maxY, node.position.y + height);
+    }
+
+    // Add padding
+    minX -= padding;
+    minY -= padding;
+    maxX += padding;
+    maxY += padding;
+
+    // Calculate the bounds dimensions
+    const boundsWidth = maxX - minX;
+    const boundsHeight = maxY - minY;
+
+    // Get canvas dimensions (approximate, since we don't have direct access)
+    // Using a reasonable default canvas size
+    const canvasWidth = window.innerWidth - 200; // Approximate canvas width
+    const canvasHeight = window.innerHeight - 100; // Approximate canvas height
+
+    // Calculate zoom to fit
+    const zoomX = canvasWidth / boundsWidth;
+    const zoomY = canvasHeight / boundsHeight;
+    const zoom = Math.min(zoomX, zoomY, 1); // Don't zoom in more than 1
+
+    // Calculate center position
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+
+    // Calculate viewport position to center the nodes
+    const x = (canvasWidth / 2) - (centerX * zoom);
+    const y = (canvasHeight / 2) - (centerY * zoom);
+
+    this.viewport = { x, y, zoom: Math.max(zoom, 0.1) };
+  }
+
   // Set all nodes
   setNodes(nodes: MosaicNode[]) {
     this.nodes = nodes.map(node => ({

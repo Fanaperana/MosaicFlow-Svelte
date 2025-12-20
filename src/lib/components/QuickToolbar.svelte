@@ -80,7 +80,7 @@
 
   // Quick access nodes (most commonly used)
   const quickNodes = $derived(
-    NODE_TYPE_INFO.filter(n => ['note', 'image', 'link', 'person', 'timestamp'].includes(n.type))
+    NODE_TYPE_INFO.filter(n => ['note', 'image', 'annotation', 'link', 'person', 'timestamp'].includes(n.type))
   );
 
   function setSelectMode() {

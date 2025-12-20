@@ -276,7 +276,7 @@ class VaultStore {
     this.error = null;
     
     try {
-      const canvas = await createCanvasApi(this.currentVault.path, name);
+      const canvas = await createCanvasApi(this.currentVault.path, this.currentVault.id, name);
       
       if (canvas) {
         this.canvases = [...this.canvases, canvas];

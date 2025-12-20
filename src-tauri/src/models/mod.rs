@@ -8,6 +8,7 @@ pub mod canvas;
 pub mod history;
 pub mod workspace;
 pub mod state;
+pub mod config;
 
 // Re-export all models
 pub use vault::*;
@@ -15,3 +16,4 @@ pub use canvas::*;
 pub use history::*;
 pub use workspace::*;
 pub use state::*;
+pub use config::*;

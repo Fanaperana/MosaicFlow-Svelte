@@ -49,11 +49,16 @@
       // Clear workspace first
       workspace.clear();
       
+      // Always set the workspace path to the canvas path
+      workspace.workspacePath = vaultStore.currentCanvas.path;
+      // Sync name from canvas metadata
+      workspace.name = vaultStore.currentCanvas.name;
+      
+      // Try to load existing workspace data
       const success = await loadWorkspace(vaultStore.currentCanvas.path);
-      if (success) {
-        workspace.workspacePath = vaultStore.currentCanvas.path;
-        // Sync name from canvas metadata
-        workspace.name = vaultStore.currentCanvas.name;
+      if (!success) {
+        // If no workspace.json exists yet, that's fine - we just start fresh
+        console.log('No existing workspace data, starting fresh');
       }
     } catch (err) {
       console.error('Failed to load canvas:', err);

@@ -5,9 +5,6 @@ import { workspace } from '$lib/stores/workspace.svelte';
 import type { WorkspaceData, UIState } from '$lib/types';
 import { toPng } from 'html-to-image';
 
-// Check if we're in Tauri environment
-const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
-
 // Debounce timer
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -26,10 +23,9 @@ export function scheduleAutoSave() {
 
 // Save workspace to file
 export async function saveWorkspace(): Promise<boolean> {
-  if (!isTauri || !workspace.workspacePath) {
-    console.log('Save to localStorage as fallback');
-    saveToLocalStorage();
-    return true;
+  if (!workspace.workspacePath) {
+    console.log('No workspace path set');
+    return false;
   }
 
   try {
@@ -71,11 +67,6 @@ export async function saveWorkspace(): Promise<boolean> {
 
 // Load workspace from file
 export async function loadWorkspace(path: string): Promise<boolean> {
-  if (!isTauri) {
-    console.log('Load from localStorage as fallback');
-    return loadFromLocalStorage();
-  }
-
   try {
     const { readTextFile, exists } = await import('@tauri-apps/plugin-fs');
     
@@ -110,13 +101,6 @@ export async function loadWorkspace(path: string): Promise<boolean> {
 
 // Create new workspace
 export async function createWorkspace(path: string, name: string): Promise<boolean> {
-  if (!isTauri) {
-    workspace.clear();
-    workspace.name = name;
-    saveToLocalStorage();
-    return true;
-  }
-
   try {
     const { mkdir, exists } = await import('@tauri-apps/plugin-fs');
     
@@ -142,11 +126,6 @@ export async function createWorkspace(path: string, name: string): Promise<boole
 
 // Open workspace dialog
 export async function openWorkspaceDialog(): Promise<string | null> {
-  if (!isTauri) {
-    loadFromLocalStorage();
-    return 'localStorage';
-  }
-
   try {
     const { open } = await import('@tauri-apps/plugin-dialog');
     
@@ -170,11 +149,6 @@ export async function openWorkspaceDialog(): Promise<string | null> {
 
 // Save as dialog
 export async function saveWorkspaceAsDialog(): Promise<string | null> {
-  if (!isTauri) {
-    saveToLocalStorage();
-    return 'localStorage';
-  }
-
   try {
     const { open } = await import('@tauri-apps/plugin-dialog');
     
@@ -272,91 +246,84 @@ export function initAutoSave() {
 
 // Export canvas as PNG image
 export async function exportAsPng(): Promise<boolean> {
+  console.log('Starting PNG export...');
+  
   try {
-    // Find the SvelteFlow viewport element
-    const flowElement = document.querySelector('.svelte-flow') as HTMLElement;
+    // Get the SvelteFlow viewport element (the one that contains the nodes)
+    const viewportEl = document.querySelector('.svelte-flow__viewport') as HTMLElement;
+    if (!viewportEl) {
+      console.error('SvelteFlow viewport not found');
+      return false;
+    }
     
-    if (!flowElement) {
-      console.error('Canvas element not found');
-      return false;
-    }
+    console.log('Viewport element found, generating PNG...');
 
-    // Get the viewport for proper sizing
-    const viewport = flowElement.querySelector('.svelte-flow__viewport') as HTMLElement;
-    if (!viewport) {
-      console.error('Viewport element not found');
-      return false;
-    }
-
-    // Calculate the bounds of all nodes to determine the export area
-    const nodes = flowElement.querySelectorAll('.svelte-flow__node');
-    if (nodes.length === 0) {
-      console.error('No nodes to export');
-      return false;
-    }
-
-    // Generate PNG with high quality settings
-    const dataUrl = await toPng(flowElement, {
-      backgroundColor: '#1a1a2e', // Match the canvas background
-      quality: 1.0,
-      pixelRatio: 2, // Higher resolution for better quality
-      skipFonts: true, // Skip external fonts to avoid CORS issues
-      fetchRequestInit: {
-        mode: 'no-cors', // Attempt to bypass CORS for resources
-      },
+    // Create a high-resolution PNG using the filter option to exclude controls
+    // Using pixelRatio 4 for very high resolution (4K equivalent scaling)
+    const dataUrl = await toPng(viewportEl, {
+      backgroundColor: '#0a0a0a', // Match the canvas background
+      pixelRatio: 4, // 4x resolution for high-quality export - allows zooming in without blur
+      skipFonts: true, // Skip web fonts to avoid CORS errors with Google Fonts
+      includeQueryParams: true,
+      cacheBust: true,
       filter: (node) => {
-        // Filter out minimap, controls, and other UI elements
-        const className = node.className;
-        if (typeof className === 'string') {
-          if (className.includes('svelte-flow__minimap')) return false;
-          if (className.includes('svelte-flow__controls')) return false;
-          if (className.includes('svelte-flow__panel')) return false;
+        // Exclude controls, minimap, attribution, and panels
+        if (node instanceof Element) {
+          const classList = node.classList;
+          if (classList?.contains('svelte-flow__controls') ||
+              classList?.contains('svelte-flow__minimap') ||
+              classList?.contains('svelte-flow__attribution') ||
+              classList?.contains('svelte-flow__panel') ||
+              classList?.contains('cm-widgetBuffer')) {
+            return false;
+          }
         }
-        // Filter out broken images (like cm-widgetBuffer)
+        // Filter out broken or incomplete images
         if (node instanceof HTMLImageElement) {
-          if (!node.complete || node.naturalWidth === 0) return false;
-          if (node.className?.includes('cm-widgetBuffer')) return false;
+          if (!node.complete || node.naturalWidth === 0 || node.src === '') {
+            return false;
+          }
         }
         return true;
       },
     });
+    
+    console.log('PNG generated, dataUrl length:', dataUrl?.length);
 
-    // Convert data URL to binary data
-    const base64Data = dataUrl.replace(/^data:image\/png;base64,/, '');
-    const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+    console.log('Opening save dialog...');
+    // Use Tauri file dialog to choose save location
+    const { save } = await import('@tauri-apps/plugin-dialog');
+    const { writeFile } = await import('@tauri-apps/plugin-fs');
+    
+    const defaultName = `${workspace.name.replace(/[^a-z0-9]/gi, '_')}_canvas.png`;
+    console.log('Default filename:', defaultName);
+    
+    const filePath = await save({
+      defaultPath: defaultName,
+      filters: [{
+        name: 'PNG Image',
+        extensions: ['png']
+      }]
+    });
+    
+    console.log('Save dialog returned:', filePath);
 
-    if (isTauri) {
-      // Use Tauri file dialog to choose save location
-      const { save } = await import('@tauri-apps/plugin-dialog');
-      const { writeFile } = await import('@tauri-apps/plugin-fs');
-      
-      const defaultName = `${workspace.name.replace(/[^a-z0-9]/gi, '_')}_canvas.png`;
-      
-      const filePath = await save({
-        defaultPath: defaultName,
-        filters: [{
-          name: 'PNG Image',
-          extensions: ['png']
-        }]
-      });
-
-      if (filePath) {
-        await writeFile(filePath, binaryData);
-        console.log('Canvas exported as PNG successfully to:', filePath);
-        return true;
-      } else {
-        // User cancelled the dialog
-        return false;
+    if (filePath) {
+      // Convert data URL to binary
+      const base64Data = dataUrl.split(',')[1];
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
       }
-    } else {
-      // Fallback for non-Tauri environment (browser)
-      const link = document.createElement('a');
-      link.download = `${workspace.name.replace(/[^a-z0-9]/gi, '_')}_canvas.png`;
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      console.log('Writing', bytes.length, 'bytes to:', filePath);
+      await writeFile(filePath, bytes);
+      console.log('Canvas exported as PNG successfully to:', filePath);
       return true;
+    } else {
+      console.log('User cancelled the save dialog');
+      // User cancelled the dialog
+      return false;
     }
   } catch (error) {
     console.error('Error exporting canvas as PNG:', error);

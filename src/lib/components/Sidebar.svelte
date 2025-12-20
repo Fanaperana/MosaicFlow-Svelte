@@ -124,7 +124,7 @@
     </button>
     <button 
       class="sidebar-btn"
-      onclick={() => workspace.setViewport({ x: 0, y: 0, zoom: 1 })}
+      onclick={() => workspace.fitView()}
       title="Fit View"
     >
       <Maximize2 size={20} strokeWidth={1.5} />

@@ -58,6 +58,11 @@ pub fn run() {
             load_app_state,
             save_app_state,
             update_last_opened,
+            // Config commands (for vault picker)
+            load_app_config,
+            save_app_config,
+            // Export commands
+            save_png,
             // History commands
             load_history,
             track_vault_open,

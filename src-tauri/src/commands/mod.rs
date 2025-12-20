@@ -8,6 +8,8 @@ pub mod canvas;
 pub mod workspace;
 pub mod state;
 pub mod history;
+pub mod config;
+pub mod export;
 
 // Re-export all commands for easy registration
 pub use vault::*;
@@ -15,3 +17,5 @@ pub use canvas::*;
 pub use workspace::*;
 pub use state::*;
 pub use history::*;
+pub use config::*;
+pub use export::*;

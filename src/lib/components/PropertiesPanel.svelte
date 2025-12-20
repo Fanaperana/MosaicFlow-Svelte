@@ -528,6 +528,7 @@
               </select>
             </div>
 
+            {#if selectedNode.type !== 'image' && selectedNode.type !== 'annotation'}
             <div class="field">
               <label>Text Color</label>
               <div class="color-row">
@@ -545,6 +546,7 @@
                 />
               </div>
             </div>
+            {/if}
 
             <label class="checkbox-row">
               <input 
@@ -831,10 +833,10 @@
               <!-- Text Color -->
               <div class="field">
                 <label>Text Color</label>
-                <div class="color-picker-row">
+                <div class="color-row">
                   <input 
                     type="color" 
-                    class="color-input"
+                    class="color-picker"
                     value={(selectedNode.data as any).textColor || '#999999'}
                     oninput={(e) => updateNodeData('textColor', (e.target as HTMLInputElement).value)}
                   />

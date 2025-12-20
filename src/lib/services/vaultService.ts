@@ -5,8 +5,10 @@ import { invoke } from '@tauri-apps/api/core';
 
 // Types matching Rust structs
 export interface VaultInfo {
+  id: string;
   path: string;
   name: string;
+  description: string;
   created_at: string;
   updated_at: string;
   canvas_count: number;
@@ -37,22 +39,10 @@ export interface VaultOperationResult {
   data?: unknown;
 }
 
-// Check if we're in Tauri environment
-const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
-
 /**
  * Load app configuration from Rust backend
  */
 export async function loadAppConfig(): Promise<AppConfig> {
-  if (!isTauri) {
-    // Fallback to localStorage for development
-    const stored = localStorage.getItem('mosaicflow-vault-config');
-    if (stored) {
-      return JSON.parse(stored);
-    }
-    return { current_vault_path: null, recent_vaults: [] };
-  }
-  
   try {
     return await invoke<AppConfig>('load_app_config');
   } catch (error) {
@@ -65,14 +55,9 @@ export async function loadAppConfig(): Promise<AppConfig> {
  * Save app configuration to Rust backend
  */
 export async function saveAppConfig(config: AppConfig): Promise<boolean> {
-  if (!isTauri) {
-    localStorage.setItem('mosaicflow-vault-config', JSON.stringify(config));
-    return true;
-  }
-  
   try {
-    const result = await invoke<VaultOperationResult>('save_app_config', { config });
-    return result.success;
+    const result = await invoke<boolean>('save_app_config', { config });
+    return result;
   } catch (error) {
     console.error('Failed to save app config:', error);
     return false;
@@ -83,21 +68,6 @@ export async function saveAppConfig(config: AppConfig): Promise<boolean> {
  * Create a new vault at the specified path
  */
 export async function createVault(path: string, name: string): Promise<VaultOperationResult> {
-  if (!isTauri) {
-    // Mock for development
-    return {
-      success: true,
-      message: 'Vault created (mock)',
-      data: {
-        path,
-        name,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        canvas_count: 1,
-      },
-    };
-  }
-  
   try {
     return await invoke<VaultOperationResult>('create_vault', { path, name });
   } catch (error) {
@@ -110,17 +80,6 @@ export async function createVault(path: string, name: string): Promise<VaultOper
  * Open an existing vault
  */
 export async function openVault(path: string): Promise<VaultInfo | null> {
-  if (!isTauri) {
-    // Mock for development
-    return {
-      path,
-      name: 'Mock Vault',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      canvas_count: 1,
-    };
-  }
-  
   try {
     return await invoke<VaultInfo>('open_vault', { path });
   } catch (error) {
@@ -133,10 +92,6 @@ export async function openVault(path: string): Promise<VaultInfo | null> {
  * Check if a path is a valid vault
  */
 export async function isValidVault(path: string): Promise<boolean> {
-  if (!isTauri) {
-    return false;
-  }
-  
   try {
     return await invoke<boolean>('is_valid_vault', { path });
   } catch (error) {
@@ -149,10 +104,6 @@ export async function isValidVault(path: string): Promise<boolean> {
  * Get vault info without opening it
  */
 export async function getVaultInfo(path: string): Promise<VaultInfo | null> {
-  if (!isTauri) {
-    return null;
-  }
-  
   try {
     return await invoke<VaultInfo | null>('get_vault_info', { path });
   } catch (error) {
@@ -165,12 +116,8 @@ export async function getVaultInfo(path: string): Promise<VaultInfo | null> {
  * Rename a vault
  */
 export async function renameVault(vaultPath: string, newName: string): Promise<VaultInfo | null> {
-  if (!isTauri) {
-    return null;
-  }
-  
   try {
-    return await invoke<VaultInfo>('rename_vault', { vault_path: vaultPath, new_name: newName });
+    return await invoke<VaultInfo>('rename_vault', { vaultPath, newName });
   } catch (error) {
     console.error('Failed to rename vault:', error);
     return null;
@@ -181,21 +128,8 @@ export async function renameVault(vaultPath: string, newName: string): Promise<V
  * List all canvases in a vault
  */
 export async function listCanvases(vaultPath: string): Promise<CanvasInfo[]> {
-  if (!isTauri) {
-    // Mock for development
-    return [
-      {
-        id: 'mock-canvas-1',
-        name: 'Untitled',
-        path: `${vaultPath}/canvases/Untitled`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ];
-  }
-  
   try {
-    return await invoke<CanvasInfo[]>('list_canvases', { vault_path: vaultPath });
+    return await invoke<CanvasInfo[]>('list_canvases', { vaultPath });
   } catch (error) {
     console.error('Failed to list canvases:', error);
     return [];
@@ -205,20 +139,9 @@ export async function listCanvases(vaultPath: string): Promise<CanvasInfo[]> {
 /**
  * Create a new canvas in the vault
  */
-export async function createCanvas(vaultPath: string, name: string): Promise<CanvasInfo | null> {
-  if (!isTauri) {
-    // Mock for development
-    return {
-      id: `mock-${Date.now()}`,
-      name,
-      path: `${vaultPath}/canvases/${name}`,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-  }
-  
+export async function createCanvas(vaultPath: string, vaultId: string, name: string, description?: string): Promise<CanvasInfo | null> {
   try {
-    return await invoke<CanvasInfo>('create_canvas', { vault_path: vaultPath, name });
+    return await invoke<CanvasInfo>('create_canvas', { vaultPath, vaultId, name, description });
   } catch (error) {
     console.error('Failed to create canvas:', error);
     return null;
@@ -229,25 +152,8 @@ export async function createCanvas(vaultPath: string, name: string): Promise<Can
  * Rename a canvas
  */
 export async function renameCanvas(canvasPath: string, newName: string): Promise<CanvasInfo | null> {
-  if (!isTauri) {
-    // Mock for development - return updated canvas info
-    // Extract id from path for consistency
-    const pathParts = canvasPath.split('/');
-    const oldName = pathParts[pathParts.length - 1];
-    return {
-      id: oldName, // Keep original id for mock
-      name: newName,
-      path: canvasPath.replace(/[^/]+$/, newName.replace(/[^a-zA-Z0-9-_\s]/g, '_')),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-  }
-  
   try {
-    return await invoke<CanvasInfo>('rename_canvas', { 
-      canvas_path: canvasPath, 
-      new_name: newName 
-    });
+    return await invoke<CanvasInfo>('rename_canvas', { canvasPath, newName });
   } catch (error) {
     console.error('Failed to rename canvas:', error);
     return null;
@@ -258,12 +164,8 @@ export async function renameCanvas(canvasPath: string, newName: string): Promise
  * Delete a canvas
  */
 export async function deleteCanvas(canvasPath: string): Promise<boolean> {
-  if (!isTauri) {
-    return true;
-  }
-  
   try {
-    const result = await invoke<VaultOperationResult>('delete_canvas', { canvas_path: canvasPath });
+    const result = await invoke<VaultOperationResult>('delete_canvas', { canvasPath });
     return result.success;
   } catch (error) {
     console.error('Failed to delete canvas:', error);

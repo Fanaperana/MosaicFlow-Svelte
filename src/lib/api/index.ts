@@ -6,7 +6,7 @@
  */
 
 // Bridge and utilities
-export { isTauri, safeInvoke } from './bridge';
+export { safeInvoke } from './bridge';
 
 // All types
 export * from './types';
