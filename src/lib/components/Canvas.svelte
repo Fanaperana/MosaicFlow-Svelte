@@ -14,6 +14,7 @@
 
   import { workspace } from '$lib/stores/workspace.svelte';
   import { nodeTypes } from '$lib/components/nodes';
+  import { GlowEdge } from '$lib/components/edges';
   import type { NodeType, MosaicNode, MosaicEdge } from '$lib/types';
   import { NODE_TYPE_INFO } from '$lib/types';
   import { resolveCollisions, findNonOverlappingPosition } from '$lib/utils/resolve-collisions';
@@ -61,6 +62,11 @@
     Maximize,
     LayoutGrid
   } from 'lucide-svelte';
+
+  // Custom edge types with glow effect on selection
+  const edgeTypes = {
+    default: GlowEdge,
+  };
 
   // Two-way binding with workspace state - using $state.raw for better performance
   let nodes = $state.raw(workspace.nodes as Node[]);
@@ -565,6 +571,7 @@
         bind:edges
         bind:viewport
         {nodeTypes}
+        {edgeTypes}
         onconnect={handleConnect}
         onconnectstart={handleConnectStart}
         onconnectend={handleConnectEnd}
@@ -979,10 +986,6 @@
 
   :global(.svelte-flow__edge-path) {
     stroke: #555555 !important;
-  }
-
-  :global(.svelte-flow__edge.selected .svelte-flow__edge-path) {
-    stroke: #3b82f6 !important;
   }
 
   /* Edge markers (arrowheads) */
