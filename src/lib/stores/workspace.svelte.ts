@@ -483,16 +483,22 @@ class WorkspaceStore {
 
   // Update a node's extent (containment within parent)
   setNodeContained(nodeId: string, contained: boolean) {
+    let updatedNode: MosaicNode | null = null;
     this.nodes = this.nodes.map(node => {
       if (node.id === nodeId && node.parentId) {
-        return {
+        updatedNode = {
           ...node,
           extent: contained ? 'parent' : undefined,
         };
+        return updatedNode;
       }
       return node;
     });
-    this.markModified();
+    
+    // Save to file
+    if (this.workspacePath && updatedNode) {
+      saveNodeProperties(updatedNode);
+    }
   }
 
   // Get child nodes of a group

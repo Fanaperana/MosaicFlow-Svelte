@@ -16,10 +16,13 @@ export interface VaultInfo {
 
 export interface CanvasInfo {
   id: string;
+  vault_id: string;
   name: string;
+  description: string;
   path: string;
   created_at: string;
   updated_at: string;
+  tags: string[];
 }
 
 export interface AppConfig {
