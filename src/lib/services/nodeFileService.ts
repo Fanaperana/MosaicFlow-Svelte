@@ -56,8 +56,8 @@ function extractContent(type: NodeType, data: MosaicNodeData): string {
     case 'iframe':
       return (data as { url?: string }).url || '';
     case 'timestamp':
-      return (data as { datetime?: string; customTimestamp?: string }).customTimestamp || 
-             (data as { datetime?: string }).datetime || '';
+      // Only save customTimestamp - if not set, content is empty meaning "use live time"
+      return (data as { customTimestamp?: string }).customTimestamp || '';
     case 'person':
       return (data as { name?: string }).name || '';
     case 'organization':
@@ -340,7 +340,12 @@ function applyContentToData(type: NodeType, data: Record<string, unknown>, conte
       data.url = content;
       break;
     case 'timestamp':
-      data.datetime = content;
+      // If content exists, it means user set a custom timestamp - restore to customTimestamp
+      // This ensures the node doesn't reset to live/realtime mode on reload
+      if (content) {
+        data.customTimestamp = content;
+        data.datetime = content;
+      }
       break;
     case 'person':
     case 'organization':
