@@ -92,7 +92,8 @@ pub struct CanvasPaths {
     pub meta_json: PathBuf,
     pub state_json: PathBuf,
     pub workspace_json: PathBuf,
-    pub notes: PathBuf,
+    pub nodes: PathBuf,
+    pub edges: PathBuf,
     pub images: PathBuf,
     pub attachments: PathBuf,
 }
@@ -106,7 +107,8 @@ impl CanvasPaths {
             meta_json: mosaic.join("meta.json"),
             state_json: mosaic.join("state.json"),
             workspace_json: root.join("workspace.json"),
-            notes: root.join("notes"),
+            nodes: root.join("nodes"),
+            edges: root.join("edges"),
             images: root.join("images"),
             attachments: root.join("attachments"),
         }
@@ -126,7 +128,8 @@ impl CanvasPaths {
     pub fn create_all(&self) -> MosaicResult<()> {
         super::fs::ensure_dir(&self.root)?;
         super::fs::ensure_dir(&self.mosaic)?;
-        super::fs::ensure_dir(&self.notes)?;
+        super::fs::ensure_dir(&self.nodes)?;
+        super::fs::ensure_dir(&self.edges)?;
         super::fs::ensure_dir(&self.images)?;
         super::fs::ensure_dir(&self.attachments)?;
         Ok(())

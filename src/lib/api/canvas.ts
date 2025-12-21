@@ -15,41 +15,41 @@ export async function create(
   description?: string
 ): Promise<CanvasInfo> {
   return safeInvoke('create_canvas', {
-    vault_path: vaultPath,
-    vault_id: vaultId,
+    vaultPath,
+    vaultId,
     name,
     description
   }, () => devStorage.createCanvas(vaultPath, vaultId, name, description));
 }
 
 export async function open(canvasPath: string): Promise<CanvasInfo> {
-  return safeInvoke('open_canvas', { canvas_path: canvasPath }, () =>
+  return safeInvoke('open_canvas', { canvasPath }, () =>
     devStorage.openCanvas(canvasPath)
   );
 }
 
 export async function list(vaultPath: string): Promise<CanvasInfo[]> {
-  return safeInvoke('list_canvases', { vault_path: vaultPath }, () =>
+  return safeInvoke('list_canvases', { vaultPath }, () =>
     devStorage.listCanvases(vaultPath)
   );
 }
 
 export async function rename(canvasPath: string, newName: string): Promise<CanvasInfo> {
   return safeInvoke('rename_canvas', {
-    canvas_path: canvasPath,
-    new_name: newName
+    canvasPath,
+    newName
   }, () => devStorage.renameCanvas(canvasPath, newName));
 }
 
 export async function remove(canvasPath: string): Promise<void> {
-  return safeInvoke('delete_canvas', { canvas_path: canvasPath }, () =>
+  return safeInvoke('delete_canvas', { canvasPath }, () =>
     devStorage.deleteCanvas(canvasPath)
   );
 }
 
 export async function updateTags(canvasPath: string, tags: string[]): Promise<CanvasInfo> {
   return safeInvoke('update_canvas_tags', {
-    canvas_path: canvasPath,
+    canvasPath,
     tags
   });
 }
@@ -59,13 +59,13 @@ export async function updateDescription(
   description: string
 ): Promise<CanvasInfo> {
   return safeInvoke('update_canvas_description', {
-    canvas_path: canvasPath,
+    canvasPath,
     description
   });
 }
 
 export async function loadState(canvasPath: string): Promise<CanvasUIState> {
-  return safeInvoke('load_canvas_state', { canvas_path: canvasPath }, () =>
+  return safeInvoke('load_canvas_state', { canvasPath }, () =>
     devStorage.loadCanvasState(canvasPath)
   );
 }
@@ -76,7 +76,7 @@ export async function saveState(canvasPath: string, state: Omit<CanvasUIState, '
     updated_at: new Date().toISOString()
   };
   return safeInvoke('save_canvas_state', {
-    canvas_path: canvasPath,
+    canvasPath,
     state: fullState
   }, () => devStorage.saveCanvasState(canvasPath, fullState));
 }

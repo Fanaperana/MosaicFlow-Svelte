@@ -96,6 +96,9 @@
   let edgeDropMenuPosition = $state({ x: 0, y: 0 });
   let pendingConnectionSource = $state<{ nodeId: string; handleId: string | null; handleType: 'source' | 'target' } | null>(null);
   
+  // Track previous node dimensions for detecting resize changes
+  let prevNodeDimensions = new Map<string, { width?: number; height?: number }>();
+  
   // Sync workspace changes to local state
   $effect(() => {
     nodes = workspace.nodes as Node[];
@@ -105,9 +108,23 @@
     edges = workspace.edges as Edge[];
   });
   
-  // Sync local state changes back to workspace
+  // Sync local state changes back to workspace and detect dimension changes
   $effect(() => {
     if (nodes !== workspace.nodes) {
+      // Detect nodes with changed dimensions (from resize)
+      for (const node of nodes) {
+        const prev = prevNodeDimensions.get(node.id);
+        if (prev && (prev.width !== node.width || prev.height !== node.height)) {
+          // Dimension changed - save to file
+          workspace.updateNode(node.id, {
+            width: node.width,
+            height: node.height,
+          });
+        }
+        // Update tracking
+        prevNodeDimensions.set(node.id, { width: node.width, height: node.height });
+      }
+      
       workspace.nodes = nodes as MosaicNode[];
     }
   });
@@ -239,8 +256,8 @@
     }
   }
 
-  // Handle node drag stop - resolve collisions and clear snap guides
-  function handleNodeDragStop() {
+  // Handle node drag stop - resolve collisions, save positions, and clear snap guides
+  function handleNodeDragStop(event: { nodes: Node[] }) {
     // Clear snap guides
     snapGuides = [];
     
@@ -250,6 +267,18 @@
       overlapThreshold: 0.5, 
       margin: 15 
     });
+    
+    // Save the position/dimension changes for each dragged node
+    for (const draggedNode of event.nodes) {
+      const node = nodes.find(n => n.id === draggedNode.id);
+      if (node) {
+        workspace.updateNode(node.id, {
+          position: node.position,
+          width: node.width,
+          height: node.height,
+        });
+      }
+    }
   }
 
   // Handle node drag - calculate snap alignment guides

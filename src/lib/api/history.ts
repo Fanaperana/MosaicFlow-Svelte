@@ -32,20 +32,20 @@ export async function trackCanvasOpen(
 ): Promise<void> {
   return safeInvoke('track_canvas_open', {
     id,
-    vault_id: vaultId,
+    vaultId,
     name,
     path
   }, () => devStorage.trackCanvasOpen(id, vaultId, name, path));
 }
 
 export async function removeVault(vaultId: string): Promise<void> {
-  return safeInvoke('remove_vault_from_history', { vault_id: vaultId }, () =>
+  return safeInvoke('remove_vault_from_history', { vaultId }, () =>
     devStorage.removeVaultFromHistory(vaultId)
   );
 }
 
 export async function removeCanvas(canvasId: string): Promise<void> {
-  return safeInvoke('remove_canvas_from_history', { canvas_id: canvasId }, () =>
+  return safeInvoke('remove_canvas_from_history', { canvasId }, () =>
     devStorage.removeCanvasFromHistory(canvasId)
   );
 }
@@ -61,19 +61,19 @@ export async function getRecentCanvases(
   limit?: number
 ): Promise<CanvasHistoryEntry[]> {
   return safeInvoke('get_recent_canvases', {
-    vault_id: vaultId ?? null,
+    vaultId: vaultId ?? null,
     limit: limit ?? null
   }, () => devStorage.getRecentCanvases(vaultId, limit));
 }
 
 export async function findVaultById(vaultId: string): Promise<VaultHistoryEntry | null> {
-  return safeInvoke('find_vault_by_id', { vault_id: vaultId }, () =>
+  return safeInvoke('find_vault_by_id', { vaultId }, () =>
     devStorage.findVaultById(vaultId)
   );
 }
 
 export async function findCanvasById(canvasId: string): Promise<CanvasHistoryEntry | null> {
-  return safeInvoke('find_canvas_by_id', { canvas_id: canvasId }, () =>
+  return safeInvoke('find_canvas_by_id', { canvasId }, () =>
     devStorage.findCanvasById(canvasId)
   );
 }

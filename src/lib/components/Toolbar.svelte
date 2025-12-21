@@ -1,12 +1,9 @@
 <script lang="ts">
   import { workspace } from '$lib/stores/workspace.svelte';
   import { 
-    saveWorkspace, 
     openWorkspaceDialog, 
-    saveWorkspaceAsDialog,
     exportAsZip,
     exportAsPng,
-    createWorkspace 
   } from '$lib/services/fileOperations';
   import { MousePointer2, Hand, Group } from 'lucide-svelte';
 
@@ -14,26 +11,12 @@
   let showExportMenu = $state(false);
 
   async function handleNew() {
-    if (workspace.isModified) {
-      const confirm = window.confirm('You have unsaved changes. Create new workspace anyway?');
-      if (!confirm) return;
-    }
     workspace.clear();
     showMenu = false;
   }
 
   async function handleOpen() {
     await openWorkspaceDialog();
-    showMenu = false;
-  }
-
-  async function handleSave() {
-    await saveWorkspace();
-    showMenu = false;
-  }
-
-  async function handleSaveAs() {
-    await saveWorkspaceAsDialog();
     showMenu = false;
   }
 
@@ -45,10 +28,6 @@
   async function handleExportPng() {
     await exportAsPng();
     showExportMenu = false;
-  }
-
-  function toggleAutoSave() {
-    workspace.settings.autoSave = !workspace.settings.autoSave;
   }
 
   function toggleMinimap() {
@@ -91,13 +70,6 @@
               <span>📂</span> Open Workspace
             </button>
             <div class="menu-separator"></div>
-            <button onclick={handleSave}>
-              <span>💾</span> Save
-            </button>
-            <button onclick={handleSaveAs}>
-              <span>📁</span> Save As...
-            </button>
-            <div class="menu-separator"></div>
             <button onclick={() => { showExportMenu = !showExportMenu; }}>
               <span>📤</span> Export ▸
             </button>
@@ -132,22 +104,12 @@
       class="workspace-name"
       bind:value={workspace.name}
       placeholder="Untitled Workspace"
+      onchange={() => workspace.saveWorkspaceManifest()}
     />
-    {#if workspace.isModified}
-      <span class="unsaved-indicator" title="Unsaved changes">●</span>
-    {/if}
   </div>
 
   <div class="toolbar-right">
     <div class="toolbar-toggles">
-      <button 
-        class="toggle-btn"
-        class:active={workspace.settings.autoSave}
-        onclick={toggleAutoSave}
-        title="Auto-save"
-      >
-        💾
-      </button>
       <button 
         class="toggle-btn"
         class:active={workspace.settings.showMinimap}
@@ -356,11 +318,6 @@
   .workspace-name:focus {
     border-color: #3b82f6;
     background: rgba(255, 255, 255, 0.05);
-  }
-
-  .unsaved-indicator {
-    color: #f59e0b;
-    font-size: 12px;
   }
 
   .toolbar-right {

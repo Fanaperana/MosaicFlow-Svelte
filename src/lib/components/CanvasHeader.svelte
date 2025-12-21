@@ -84,10 +84,6 @@
       </button>
     {/if}
   </div>
-  
-  {#if workspace.isModified}
-    <span class="modified-indicator" title="Unsaved changes">●</span>
-  {/if}
 
   <div class="right-actions">
     <button class="icon-btn" onclick={onToggleNodeList} title="Toggle Node List">
@@ -234,11 +230,6 @@
   .edit-btn.cancel:hover {
     color: #ef4444;
     background: rgba(239, 68, 68, 0.1);
-  }
-
-  .modified-indicator {
-    color: #f59e0b;
-    font-size: 0.75rem;
   }
 
   :global(.animate-spin) {

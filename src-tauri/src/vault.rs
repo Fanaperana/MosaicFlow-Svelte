@@ -317,7 +317,7 @@ fn create_canvas_internal(vault_path: &Path, name: &str) -> Result<CanvasInfo, S
     fs::create_dir_all(&final_path)
         .map_err(|e| format!("Failed to create canvas directory: {}", e))?;
     
-    let subdirs = ["notes", "images", "attachments"];
+    let subdirs = ["nodes", "edges", "images", "attachments"];
     for subdir in subdirs {
         let subdir_path = final_path.join(subdir);
         fs::create_dir_all(&subdir_path)

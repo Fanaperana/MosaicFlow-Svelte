@@ -1,76 +1,34 @@
 // Workspace File Operations
-// Handles saving and loading workspace files using Tauri file system
+// Handles loading workspace files using Tauri file system
+// Real-time saving is handled by nodeFileService and edgeFileService
 
 import { workspace } from '$lib/stores/workspace.svelte';
-import type { WorkspaceData, UIState } from '$lib/types';
+import type { WorkspaceData, UIState, NodeType } from '$lib/types';
 import { toPng } from 'html-to-image';
+import { loadAllNodes } from './nodeFileService';
+import { loadAllEdges } from './edgeFileService';
 
-// Debounce timer
-let saveTimer: ReturnType<typeof setTimeout> | null = null;
-
-// Debounced auto-save function
-export function scheduleAutoSave() {
-  if (!workspace.settings.autoSave || !workspace.workspacePath) return;
-  
-  if (saveTimer) {
-    clearTimeout(saveTimer);
-  }
-  
-  saveTimer = setTimeout(() => {
-    saveWorkspace();
-  }, workspace.settings.autoSaveInterval);
+// Workspace manifest format (v2 - minimal)
+interface WorkspaceManifest {
+  metadata: {
+    name: string;
+    description: string;
+    createdAt: string;
+    updatedAt: string;
+    version: string;
+    viewport: { x: number; y: number; zoom: number };
+    settings: Record<string, unknown>;
+  };
+  nodes: Record<string, { id: string; type: string }>;
+  edges: Record<string, { id: string }>;
 }
 
-// Save workspace to file
-export async function saveWorkspace(): Promise<boolean> {
-  if (!workspace.workspacePath) {
-    console.log('No workspace path set');
-    return false;
-  }
-
-  try {
-    const { writeTextFile, mkdir, exists } = await import('@tauri-apps/plugin-fs');
-    
-    const basePath = workspace.workspacePath;
-    
-    // Ensure directories exist
-    const dirs = ['notes', 'images', 'properties', 'exports'];
-    for (const dir of dirs) {
-      const dirPath = `${basePath}/${dir}`;
-      if (!(await exists(dirPath))) {
-        await mkdir(dirPath, { recursive: true });
-      }
-    }
-    
-    // Save workspace.json
-    const workspaceData = workspace.toWorkspaceData();
-    await writeTextFile(
-      `${basePath}/workspace.json`,
-      JSON.stringify(workspaceData, null, 2)
-    );
-    
-    // Save state.json
-    const uiState = workspace.toUIState();
-    await writeTextFile(
-      `${basePath}/state.json`,
-      JSON.stringify(uiState, null, 2)
-    );
-    
-    workspace.markSaved();
-    console.log('Workspace saved successfully');
-    return true;
-  } catch (error) {
-    console.error('Error saving workspace:', error);
-    return false;
-  }
-}
-
-// Load workspace from file
+// Load workspace from file (v2 format with individual node/edge files)
 export async function loadWorkspace(path: string): Promise<boolean> {
   try {
     const { readTextFile, exists } = await import('@tauri-apps/plugin-fs');
     
-    // Load workspace.json
+    // Load workspace.json (manifest)
     const workspacePath = `${path}/workspace.json`;
     if (!(await exists(workspacePath))) {
       console.error('workspace.json not found');
@@ -78,17 +36,77 @@ export async function loadWorkspace(path: string): Promise<boolean> {
     }
     
     const workspaceContent = await readTextFile(workspacePath);
-    const workspaceData: WorkspaceData = JSON.parse(workspaceContent);
+    const manifest: WorkspaceManifest = JSON.parse(workspaceContent);
     
-    workspace.loadFromData(workspaceData);
-    workspace.workspacePath = path;
+    // Check version to determine loading strategy
+    // Handle both v1 (no metadata) and v2 (with metadata) formats
+    const version = manifest.metadata?.version || '1.0.0';
+    const isV2 = version.startsWith('2.');
     
-    // Load state.json if exists
-    const statePath = `${path}/state.json`;
-    if (await exists(statePath)) {
-      const stateContent = await readTextFile(statePath);
-      const uiState: UIState = JSON.parse(stateContent);
-      workspace.loadUIState(uiState);
+    // Initialize file services with workspace path
+    workspace.initFileServices(path);
+    
+    if (isV2) {
+      // V2 format: Load nodes and edges from individual files
+      console.log('Loading workspace v2 format...');
+      
+      // Load metadata
+      workspace.name = manifest.metadata.name;
+      workspace.description = manifest.metadata.description;
+      workspace.createdAt = manifest.metadata.createdAt;
+      workspace.updatedAt = manifest.metadata.updatedAt;
+      workspace.viewport = manifest.metadata.viewport;
+      if (manifest.metadata.settings) {
+        const settings = manifest.metadata.settings as Record<string, unknown>;
+        workspace.settings = { 
+          ...workspace.settings, 
+          ...(settings as unknown as typeof workspace.settings)
+        };
+      }
+      
+      // Load nodes from individual files
+      const nodesManifest: Record<string, { type: NodeType }> = {};
+      for (const [nodeId, nodeInfo] of Object.entries(manifest.nodes)) {
+        nodesManifest[nodeId] = { type: nodeInfo.type as NodeType };
+      }
+      const nodes = await loadAllNodes(nodesManifest);
+      workspace.nodes = nodes;
+      
+      // Load edges from individual files
+      const edges = await loadAllEdges();
+      workspace.edges = edges;
+    } else {
+      // V1 format: Load from full workspace.json (backward compatibility)
+      console.log('Loading workspace v1 format (legacy)...');
+      const workspaceData = manifest as unknown as WorkspaceData;
+      workspace.loadFromData(workspaceData);
+      
+      // Migrate to v2 format by saving all nodes and edges to files
+      console.log('Migrating to v2 format...');
+      for (const node of workspace.nodes) {
+        const { saveNodeImmediate } = await import('./nodeFileService');
+        await saveNodeImmediate(node);
+      }
+      for (const edge of workspace.edges) {
+        const { saveEdgeImmediate } = await import('./edgeFileService');
+        await saveEdgeImmediate(edge);
+      }
+      // Save new manifest
+      await workspace.saveWorkspaceManifest();
+    }
+    
+    // Load state.json if exists (for viewport and selection state)
+    const statePath = `${path}/.mosaic/state.json`;
+    try {
+      const stateExists = await exists(statePath);
+      if (stateExists) {
+        const stateContent = await readTextFile(statePath);
+        const uiState: UIState = JSON.parse(stateContent);
+        workspace.loadUIState(uiState);
+      }
+    } catch (stateError) {
+      // State file is optional, ignore permission or read errors
+      console.warn('Could not load UI state (optional):', stateError);
     }
     
     console.log('Workspace loaded successfully');
@@ -99,7 +117,7 @@ export async function loadWorkspace(path: string): Promise<boolean> {
   }
 }
 
-// Create new workspace
+// Create new workspace with v2 folder structure
 export async function createWorkspace(path: string, name: string): Promise<boolean> {
   try {
     const { mkdir, exists } = await import('@tauri-apps/plugin-fs');
@@ -109,13 +127,22 @@ export async function createWorkspace(path: string, name: string): Promise<boole
       await mkdir(path, { recursive: true });
     }
     
+    // Create required subdirectories for v2 format
+    const dirs = ['nodes', 'edges', 'images', 'attachments', '.mosaic'];
+    for (const dir of dirs) {
+      const dirPath = `${path}/${dir}`;
+      if (!(await exists(dirPath))) {
+        await mkdir(dirPath, { recursive: true });
+      }
+    }
+    
     // Initialize workspace
     workspace.clear();
     workspace.name = name;
-    workspace.workspacePath = path;
+    workspace.initFileServices(path);
     
-    // Save initial files
-    await saveWorkspace();
+    // Save initial manifest
+    await workspace.saveWorkspaceManifest();
     
     return true;
   } catch (error) {
@@ -147,75 +174,31 @@ export async function openWorkspaceDialog(): Promise<string | null> {
   }
 }
 
-// Save as dialog
-export async function saveWorkspaceAsDialog(): Promise<string | null> {
-  try {
-    const { open } = await import('@tauri-apps/plugin-dialog');
-    
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      title: 'Save Workspace As',
-    });
-    
-    if (selected && typeof selected === 'string') {
-      workspace.workspacePath = selected;
-      const success = await saveWorkspace();
-      return success ? selected : null;
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('Error in save as dialog:', error);
-    return null;
-  }
-}
-
-// LocalStorage fallback functions
-function saveToLocalStorage() {
-  try {
-    const workspaceData = workspace.toWorkspaceData();
-    const uiState = workspace.toUIState();
-    
-    localStorage.setItem('mosaicflow_workspace', JSON.stringify(workspaceData));
-    localStorage.setItem('mosaicflow_state', JSON.stringify(uiState));
-    
-    workspace.markSaved();
-  } catch (error) {
-    console.error('Error saving to localStorage:', error);
-  }
-}
-
-function loadFromLocalStorage(): boolean {
-  try {
-    const workspaceStr = localStorage.getItem('mosaicflow_workspace');
-    const stateStr = localStorage.getItem('mosaicflow_state');
-    
-    if (workspaceStr) {
-      const workspaceData: WorkspaceData = JSON.parse(workspaceStr);
-      workspace.loadFromData(workspaceData);
-      
-      if (stateStr) {
-        const uiState: UIState = JSON.parse(stateStr);
-        workspace.loadUIState(uiState);
-      }
-      
-      return true;
-    }
-    
-    return false;
-  } catch (error) {
-    console.error('Error loading from localStorage:', error);
-    return false;
-  }
-}
-
-// Export workspace as ZIP
+// Export workspace as ZIP/JSON
 export async function exportAsZip(): Promise<boolean> {
-  // For now, just trigger a download of the JSON data
+  // Export full workspace data including all node content
   try {
-    const workspaceData = workspace.toWorkspaceData();
-    const dataStr = JSON.stringify(workspaceData, null, 2);
+    // Build full export with all node and edge data
+    const exportData = {
+      metadata: {
+        name: workspace.name,
+        description: workspace.description,
+        createdAt: workspace.createdAt,
+        updatedAt: workspace.updatedAt,
+        version: '2.0.0',
+        viewport: workspace.viewport,
+        settings: workspace.settings,
+        exportedAt: new Date().toISOString(),
+      },
+      nodes: Object.fromEntries(
+        workspace.nodes.map(node => [node.id, node])
+      ),
+      edges: Object.fromEntries(
+        workspace.edges.map(edge => [edge.id, edge])
+      ),
+    };
+    
+    const dataStr = JSON.stringify(exportData, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     
@@ -232,16 +215,6 @@ export async function exportAsZip(): Promise<boolean> {
     console.error('Error exporting workspace:', error);
     return false;
   }
-}
-
-// Initialize auto-save watcher
-export function initAutoSave() {
-  // Watch for changes and trigger auto-save
-  $effect(() => {
-    if (workspace.isModified) {
-      scheduleAutoSave();
-    }
-  });
 }
 
 // Export canvas as PNG image

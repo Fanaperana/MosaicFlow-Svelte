@@ -1,7 +1,6 @@
 <script lang="ts">
   import { 
     Plus, 
-    Save, 
     FolderOpen, 
     Download, 
     Settings, 
@@ -20,7 +19,6 @@
 
   interface Props {
     onHome: () => void;
-    onSave: () => void;
     onOpen: () => void;
     onExport: () => void;
     onExportPng: () => void;
@@ -31,7 +29,7 @@
     vaultName?: string;
   }
 
-  let { onHome, onSave, onOpen, onExport, onExportPng, onSettings, onNewCanvas, onSearch, canvasName, vaultName }: Props = $props();
+  let { onHome, onOpen, onExport, onExportPng, onSettings, onNewCanvas, onSearch, canvasName, vaultName }: Props = $props();
 
   let exportMenuOpen = $state(false);
 
@@ -61,10 +59,6 @@
       title="New Canvas"
     >
       <Plus size={20} strokeWidth={1.5} />
-    </button>
-
-    <button class="sidebar-btn" onclick={(e) => { e.stopPropagation(); onSave(); }} title="Save">
-      <Save size={20} strokeWidth={1.5} />
     </button>
     
     <button class="sidebar-btn" onclick={(e) => { e.stopPropagation(); onOpen(); }} title="Open">

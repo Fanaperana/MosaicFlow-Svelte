@@ -237,7 +237,7 @@ export async function removeVaultFromHistory(vaultId: string): Promise<void> {
     return;
   }
   
-  return invoke('remove_vault_from_history', { vault_id: vaultId });
+  return invoke('remove_vault_from_history', { vaultId });
 }
 
 /** Remove canvas from history */
@@ -248,7 +248,7 @@ export async function removeCanvasFromHistory(canvasId: string): Promise<void> {
     return;
   }
   
-  return invoke('remove_canvas_from_history', { canvas_id: canvasId });
+  return invoke('remove_canvas_from_history', { canvasId });
 }
 
 // ============================================================================
@@ -429,7 +429,7 @@ export async function openCanvasV2(canvasPath: string): Promise<CanvasInfoV2> {
     throw new Error('Canvas not found');
   }
   
-  return invoke<CanvasInfoV2>('open_canvas_v2', { canvas_path: canvasPath });
+  return invoke<CanvasInfoV2>('open_canvas_v2', { canvasPath });
 }
 
 /** List all canvases in a vault */
@@ -445,7 +445,7 @@ export async function listCanvasesV2(vaultPath: string): Promise<CanvasInfoV2[]>
     return [];
   }
   
-  return invoke<CanvasInfoV2[]>('list_canvases_v2', { vault_path: vaultPath });
+  return invoke<CanvasInfoV2[]>('list_canvases_v2', { vaultPath });
 }
 
 /** Rename a canvas */
@@ -488,7 +488,7 @@ export async function deleteCanvasV2(canvasPath: string): Promise<void> {
     return;
   }
   
-  return invoke('delete_canvas_v2', { canvas_path: canvasPath });
+  return invoke('delete_canvas_v2', { canvasPath });
 }
 
 // ============================================================================
@@ -530,7 +530,7 @@ export async function loadCanvasState(canvasPath: string): Promise<CanvasState> 
     };
   }
   
-  return invoke<CanvasState>('load_canvas_state', { canvas_path: canvasPath });
+  return invoke<CanvasState>('load_canvas_state', { canvasPath });
 }
 
 // ============================================================================
@@ -544,7 +544,7 @@ export async function findVaultById(vaultId: string): Promise<VaultHistoryEntry 
     return mockStorage.history.vaults.find(v => v.id === vaultId) ?? null;
   }
   
-  return invoke<VaultHistoryEntry | null>('find_vault_by_id', { vault_id: vaultId });
+  return invoke<VaultHistoryEntry | null>('find_vault_by_id', { vaultId });
 }
 
 /** Find a canvas by its UUID */
@@ -554,7 +554,7 @@ export async function findCanvasById(canvasId: string): Promise<CanvasHistoryEnt
     return mockStorage.history.canvases.find(c => c.id === canvasId) ?? null;
   }
   
-  return invoke<CanvasHistoryEntry | null>('find_canvas_by_id', { canvas_id: canvasId });
+  return invoke<CanvasHistoryEntry | null>('find_canvas_by_id', { canvasId });
 }
 
 // ============================================================================

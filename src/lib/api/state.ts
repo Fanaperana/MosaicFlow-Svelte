@@ -25,7 +25,7 @@ export async function updateLastOpened(
   canvasId?: string | null
 ): Promise<void> {
   return safeInvoke('update_last_opened', {
-    vault_id: vaultId ?? null,
-    canvas_id: canvasId ?? null
+    vaultId: vaultId ?? null,
+    canvasId: canvasId ?? null
   }, () => devStorage.updateLastOpened(vaultId, canvasId));
 }

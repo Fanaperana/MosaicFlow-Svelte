@@ -787,7 +787,7 @@ fn create_canvas_v2_internal(
     fs::create_dir_all(&final_canvas_path)
         .map_err(|e| format!("Failed to create canvas directory: {}", e))?;
     
-    let subdirs = [".mosaic", "notes", "images", "attachments"];
+    let subdirs = [".mosaic", "nodes", "edges", "images", "attachments"];
     for dir in subdirs {
         let dir_path = final_canvas_path.join(dir);
         fs::create_dir_all(&dir_path)

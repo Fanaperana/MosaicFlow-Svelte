@@ -10,7 +10,7 @@
   import WorkflowSearch from '$lib/components/WorkflowSearch.svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
-  import { saveWorkspace, loadWorkspace, exportAsPng } from '$lib/services/fileOperations';
+  import { loadWorkspace, exportAsPng } from '$lib/services/fileOperations';
   import { message } from '@tauri-apps/plugin-dialog';
   import type { CanvasInfo } from '$lib/services/vaultService';
   
@@ -49,8 +49,8 @@
       // Clear workspace first
       workspace.clear();
       
-      // Always set the workspace path to the canvas path
-      workspace.workspacePath = vaultStore.currentCanvas.path;
+      // Always set the workspace path to the canvas path and initialize file services
+      workspace.initFileServices(vaultStore.currentCanvas.path);
       // Sync name from canvas metadata
       workspace.name = vaultStore.currentCanvas.name;
       
@@ -66,36 +66,14 @@
   }
   
   async function handleHome() {
-    // Save current canvas first
-    if (workspace.isModified) {
-      await handleSave();
-    }
-    
-    // Go back to canvas list or vault picker
+    // Go back to canvas list or vault picker (auto-save handles persistence)
     currentCanvasId = null;
     workspace.clear();
     vaultStore.closeCanvas();
   }
 
-  async function handleSave() {
-    try {
-      const success = await saveWorkspace();
-      if (success) {
-        await message('Canvas saved successfully!', { title: 'Saved', kind: 'info' });
-      } else {
-        await message('Failed to save canvas', { title: 'Error', kind: 'error' });
-      }
-    } catch (err) {
-      console.error('Failed to save:', err);
-      await message('Failed to save canvas', { title: 'Error', kind: 'error' });
-    }
-  }
-
   async function handleOpen() {
-    // Save current, then go to canvas list
-    if (workspace.isModified) {
-      await handleSave();
-    }
+    // Go to canvas list (auto-save handles persistence)
     currentCanvasId = null;
     workspace.clear();
     vaultStore.closeCanvas();
@@ -123,10 +101,7 @@
   }
 
   async function handleNewCanvas() {
-    // Save current, then create new
-    if (workspace.isModified) {
-      await handleSave();
-    }
+    // Create new canvas (auto-save handles current canvas persistence)
     currentCanvasId = null;
     workspace.clear();
     await vaultStore.createCanvas('Untitled');
@@ -137,12 +112,7 @@
   }
 
   async function handleCanvasSelect(canvas: CanvasInfo) {
-    // Save current first
-    if (workspace.isModified) {
-      await handleSave();
-    }
-    
-    // Switch to selected canvas
+    // Switch to selected canvas (auto-save handles persistence)
     await vaultStore.openCanvas(canvas);
     showSearch = false;
   }
@@ -171,7 +141,6 @@
   <div class="app">
     <Sidebar 
       onHome={handleHome}
-      onSave={handleSave}
       onOpen={handleOpen}
       onExport={handleExport}
       onExportPng={handleExportPng}

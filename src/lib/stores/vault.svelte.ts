@@ -100,7 +100,7 @@ class VaultStore {
             this.appView = 'canvas-list';
           } else {
             // Create a default canvas
-            const newCanvas = await createCanvasApi(vault.path, 'Untitled');
+            const newCanvas = await createCanvasApi(vault.path, vault.id, 'Untitled');
             if (newCanvas) {
               this.canvases = [newCanvas];
               this.currentCanvas = newCanvas;
@@ -229,7 +229,7 @@ class VaultStore {
           this.appView = 'canvas-list';
         } else {
           // Create a default canvas
-          const newCanvas = await createCanvasApi(vault.path, 'Untitled');
+          const newCanvas = await createCanvasApi(vault.path, vault.id, 'Untitled');
           if (newCanvas) {
             this.canvases = [newCanvas];
             this.currentCanvas = newCanvas;

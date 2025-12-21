@@ -1,5 +1,6 @@
 // MosaicFlow Workspace Store
 // Manages the workspace state including nodes, edges, and settings
+// Uses real-time file operations for persistence (no save button needed)
 
 import { type Node, type Edge } from '@xyflow/svelte';
 import { v4 as uuidv4 } from 'uuid';
@@ -16,6 +17,21 @@ import type {
   CanvasMode,
 } from '$lib/types';
 import { DEFAULT_SETTINGS, DEFAULT_VIEWPORT } from '$lib/types';
+import {
+  initNodeFileService,
+  saveNodeContent,
+  saveNodeProperties,
+  saveNodeImmediate,
+  deleteNodeFolder,
+  resetNodeFileService,
+} from '$lib/services/nodeFileService';
+import {
+  initEdgeFileService,
+  saveEdge,
+  saveEdgeImmediate,
+  deleteEdgeFolder,
+  resetEdgeFileService,
+} from '$lib/services/edgeFileService';
 
 // Reactive state using Svelte 5 runes
 class WorkspaceStore {
@@ -77,7 +93,13 @@ class WorkspaceStore {
     };
     
     this.nodes = [...this.nodes, node];
-    this.markModified();
+    
+    // Save node to files immediately
+    if (this.workspacePath) {
+      saveNodeImmediate(node);
+      this.saveWorkspaceManifest();
+    }
+    
     return node;
   }
 
@@ -188,35 +210,69 @@ class WorkspaceStore {
 
   // Update a node
   updateNode(id: string, updates: Partial<MosaicNode>) {
-    this.nodes = this.nodes.map(node => 
-      node.id === id ? { ...node, ...updates } : node
-    );
-    this.markModified();
+    let updatedNode: MosaicNode | null = null;
+    this.nodes = this.nodes.map(node => {
+      if (node.id === id) {
+        updatedNode = { ...node, ...updates };
+        return updatedNode;
+      }
+      return node;
+    });
+    
+    // Save node properties to file (debounced)
+    if (this.workspacePath && updatedNode) {
+      saveNodeProperties(updatedNode);
+    }
   }
 
   // Update node data
   updateNodeData(id: string, dataUpdates: Partial<MosaicNodeData>) {
-    this.nodes = this.nodes.map(node => 
-      node.id === id 
-        ? { ...node, data: { ...node.data, ...dataUpdates } as MosaicNodeData } 
-        : node
-    );
-    this.markModified();
+    let updatedNode: MosaicNode | null = null;
+    this.nodes = this.nodes.map(node => {
+      if (node.id === id) {
+        updatedNode = { ...node, data: { ...node.data, ...dataUpdates } as MosaicNodeData };
+        return updatedNode;
+      }
+      return node;
+    });
+    
+    // Save to files (debounced) - content for text changes, properties for other data
+    if (this.workspacePath && updatedNode) {
+      saveNodeContent(updatedNode);
+      saveNodeProperties(updatedNode);
+    }
   }
 
   // Delete a node
   deleteNode(id: string) {
+    // Get edges to delete
+    const edgesToDelete = this.edges.filter(edge => edge.source === id || edge.target === id);
+    
     this.nodes = this.nodes.filter(node => node.id !== id);
-    // Also remove connected edges
     this.edges = this.edges.filter(edge => edge.source !== id && edge.target !== id);
-    this.markModified();
+    
+    // Delete node and edge files
+    if (this.workspacePath) {
+      deleteNodeFolder(id);
+      edgesToDelete.forEach(edge => deleteEdgeFolder(edge.id));
+      this.saveWorkspaceManifest();
+    }
   }
 
   // Delete multiple nodes
   deleteNodes(ids: string[]) {
+    // Get edges to delete
+    const edgesToDelete = this.edges.filter(edge => ids.includes(edge.source) || ids.includes(edge.target));
+    
     this.nodes = this.nodes.filter(node => !ids.includes(node.id));
     this.edges = this.edges.filter(edge => !ids.includes(edge.source) && !ids.includes(edge.target));
-    this.markModified();
+    
+    // Delete node and edge files
+    if (this.workspacePath) {
+      ids.forEach(id => deleteNodeFolder(id));
+      edgesToDelete.forEach(edge => deleteEdgeFolder(edge.id));
+      this.saveWorkspaceManifest();
+    }
   }
 
   // Create an edge
@@ -239,22 +295,65 @@ class WorkspaceStore {
     };
     
     this.edges = [...this.edges, edge];
-    this.markModified();
+    
+    // Save edge to file immediately
+    if (this.workspacePath) {
+      saveEdgeImmediate(edge);
+    }
+    
     return edge;
   }
 
   // Update an edge
   updateEdge(id: string, updates: Partial<MosaicEdge>) {
-    this.edges = this.edges.map(edge => 
-      edge.id === id ? { ...edge, ...updates } : edge
-    );
-    this.markModified();
+    let updatedEdge: MosaicEdge | null = null;
+    this.edges = this.edges.map(edge => {
+      if (edge.id === id) {
+        // Merge the edge with updates
+        const merged = { ...edge, ...updates };
+        
+        // If data was updated, also update the derived style properties
+        if (updates.data) {
+          const data = merged.data || {};
+          
+          // Build edge stroke style
+          const styleParts: string[] = [];
+          if (data.color) styleParts.push(`stroke: ${data.color}`);
+          if (data.strokeWidth) styleParts.push(`stroke-width: ${data.strokeWidth}px`);
+          if (data.strokeStyle === 'dashed') styleParts.push('stroke-dasharray: 8 4');
+          else if (data.strokeStyle === 'dotted') styleParts.push('stroke-dasharray: 2 2');
+          if (styleParts.length > 0) merged.style = styleParts.join('; ') + ';';
+          
+          // Build label style
+          const labelParts: string[] = [];
+          if (data.labelColor) labelParts.push(`color: ${data.labelColor}`);
+          if (data.labelFontSize) labelParts.push(`font-size: ${data.labelFontSize}px`);
+          if (labelParts.length > 0) merged.labelStyle = labelParts.join('; ') + ';';
+          
+          // Build label background style
+          if (data.labelBgColor) merged.labelBgStyle = `fill: ${data.labelBgColor};`;
+        }
+        
+        updatedEdge = merged;
+        return updatedEdge;
+      }
+      return edge;
+    });
+    
+    // Save edge to file (debounced)
+    if (this.workspacePath && updatedEdge) {
+      saveEdge(updatedEdge);
+    }
   }
 
   // Delete an edge
   deleteEdge(id: string) {
     this.edges = this.edges.filter(edge => edge.id !== id);
-    this.markModified();
+    
+    // Delete edge file
+    if (this.workspacePath) {
+      deleteEdgeFolder(id);
+    }
   }
 
   // Set canvas mode
@@ -461,19 +560,47 @@ class WorkspaceStore {
     this.viewport = { x, y, zoom: Math.max(zoom, 0.1) };
   }
 
-  // Set all nodes
+  // Set all nodes (for bulk operations like loading)
   setNodes(nodes: MosaicNode[]) {
+    // Track nodes that were removed
+    const removedIds = this.nodes
+      .filter(n => !nodes.find(newN => newN.id === n.id))
+      .map(n => n.id);
+    
     this.nodes = nodes.map(node => ({
       ...node,
       zIndex: node.type === 'group' ? -1 : 1
     }));
-    this.markModified();
+    
+    // Save changes to files if we have a workspace path
+    if (this.workspacePath) {
+      // Delete removed nodes
+      removedIds.forEach(id => deleteNodeFolder(id));
+      // Save all nodes (they will be debounced)
+      this.nodes.forEach(node => {
+        saveNodeProperties(node);
+        saveNodeContent(node);
+      });
+      this.saveWorkspaceManifest();
+    }
   }
 
-  // Set all edges
+  // Set all edges (for bulk operations like loading)
   setEdges(edges: MosaicEdge[]) {
+    // Track edges that were removed
+    const removedIds = this.edges
+      .filter(e => !edges.find(newE => newE.id === e.id))
+      .map(e => e.id);
+    
     this.edges = edges;
-    this.markModified();
+    
+    // Save changes to files if we have a workspace path
+    if (this.workspacePath) {
+      // Delete removed edges
+      removedIds.forEach(id => deleteEdgeFolder(id));
+      // Save all edges (they will be debounced)
+      this.edges.forEach(edge => saveEdge(edge));
+    }
   }
 
   // Mark workspace as modified
@@ -489,6 +616,10 @@ class WorkspaceStore {
 
   // Clear workspace
   clear() {
+    // Reset file services
+    resetNodeFileService();
+    resetEdgeFileService();
+    
     this.nodes = [];
     this.edges = [];
     this.selectedNodeIds = [];
@@ -499,24 +630,84 @@ class WorkspaceStore {
     this.updatedAt = new Date().toISOString();
     this.viewport = { x: 0, y: 0, zoom: 1 };
     this.workspacePath = null;
-    this.isModified = false;
+  }
+
+  // Initialize file services when workspace path is set
+  initFileServices(path: string) {
+    this.workspacePath = path;
+    initNodeFileService(path);
+    initEdgeFileService(path);
+  }
+
+  // Save workspace manifest (minimal workspace.json with just node/edge IDs and types)
+  async saveWorkspaceManifest() {
+    if (!this.workspacePath) return;
+    
+    try {
+      const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+      
+      // Create minimal node manifest (just id and type)
+      const nodesManifest: Record<string, { id: string; type: string }> = {};
+      this.nodes.forEach(node => {
+        nodesManifest[node.id] = {
+          id: node.id,
+          type: node.type as string,
+        };
+      });
+      
+      // Create edge manifest (just IDs, full data is in edge folders)
+      const edgesManifest: Record<string, { id: string }> = {};
+      this.edges.forEach(edge => {
+        edgesManifest[edge.id] = { id: edge.id };
+      });
+      
+      const manifest = {
+        metadata: {
+          name: this.name,
+          description: this.description,
+          createdAt: this.createdAt,
+          updatedAt: new Date().toISOString(),
+          version: '2.0.0', // New version for real-time format
+          viewport: this.viewport,
+          settings: this.settings,
+        },
+        nodes: nodesManifest,
+        edges: edgesManifest,
+      };
+      
+      await writeTextFile(
+        `${this.workspacePath}/workspace.json`,
+        JSON.stringify(manifest, null, 2)
+      );
+    } catch (error) {
+      console.error('Error saving workspace manifest:', error);
+    }
   }
 
   // Load workspace from data
   loadFromData(data: WorkspaceData) {
-    this.name = data.metadata.name;
-    this.description = data.metadata.description;
-    this.createdAt = data.metadata.createdAt;
-    this.updatedAt = data.metadata.updatedAt;
-    this.viewport = data.metadata.viewport;
-    this.settings = { ...this.settings, ...data.metadata.settings };
+    // Handle both v1 (no metadata) and v2 (with metadata) formats
+    if (data.metadata) {
+      this.name = data.metadata.name;
+      this.description = data.metadata.description;
+      this.createdAt = data.metadata.createdAt;
+      this.updatedAt = data.metadata.updatedAt;
+      this.viewport = data.metadata.viewport;
+      this.settings = { ...this.settings, ...data.metadata.settings };
+    } else {
+      // V1 format - use defaults or existing values
+      this.name = this.name || 'Untitled';
+      this.description = this.description || '';
+      this.createdAt = this.createdAt || new Date().toISOString();
+      this.updatedAt = new Date().toISOString();
+    }
     
     // Convert nodes and edges from Record to array
-    this.nodes = Object.values(data.nodes).map(node => ({
+    this.nodes = Object.values(data.nodes || {}).map(node => ({
       ...node,
       zIndex: node.type === 'group' ? -1 : 1
     }));
-    this.edges = Object.values(data.edges);
+    this.edges = Object.values(data.edges || []);
     
     this.isModified = false;
   }
@@ -542,17 +733,24 @@ class WorkspaceStore {
     });
   }
 
-  // Export to WorkspaceData format
+  // Export to WorkspaceData format (minimal - for manifest only)
   toWorkspaceData(): WorkspaceData {
     const nodesRecord: Record<string, MosaicNode> = {};
     const edgesRecord: Record<string, MosaicEdge> = {};
     
+    // For v2 format, we only store id and type in the manifest
+    // Full node data is stored in individual node folders
     this.nodes.forEach(node => {
-      nodesRecord[node.id] = node;
+      nodesRecord[node.id] = {
+        id: node.id,
+        type: node.type,
+      } as MosaicNode;
     });
     
     this.edges.forEach(edge => {
-      edgesRecord[edge.id] = edge;
+      edgesRecord[edge.id] = {
+        id: edge.id,
+      } as MosaicEdge;
     });
     
     return {
