@@ -102,10 +102,16 @@
   function applyMarkers(startMarker: MarkerShape, endMarker: MarkerShape) {
     if (selectedEdge) {
       const color = selectedEdge.data?.color || '#555555';
-      workspace.updateEdge(selectedEdge.id, {
-        markerStart: getMarkerConfig(startMarker, color),
-        markerEnd: getMarkerConfig(endMarker, color),
-      });
+      const markerStart = getMarkerConfig(startMarker, color);
+      const markerEnd = getMarkerConfig(endMarker, color);
+      
+      // Dispatch event to FlowHelper which uses SvelteFlow's updateEdge for immediate visual update
+      window.dispatchEvent(new CustomEvent('mosaicflow:updateEdge', {
+        detail: { id: selectedEdge.id, updates: { markerStart, markerEnd } }
+      }));
+      
+      // Also update workspace store for persistence
+      workspace.updateEdge(selectedEdge.id, { markerStart, markerEnd });
     }
   }
 

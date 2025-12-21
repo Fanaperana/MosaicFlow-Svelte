@@ -324,6 +324,8 @@ function applyContentToData(type: NodeType, data: Record<string, unknown>, conte
   switch (type) {
     case 'note':
       data.content = content;
+      // Always start in view mode on load to show content, not editor placeholder
+      data.viewMode = 'view';
       break;
     case 'code':
       data.code = content;

@@ -22,7 +22,8 @@
   const showHeader = $derived(data.showHeader ?? false);
   
   // View mode: 'edit' shows editor, 'view' shows rendered content
-  const viewMode = $derived(data.viewMode ?? 'edit');
+  // Default to 'view' on load so users see content, not placeholder
+  const viewMode = $derived(data.viewMode ?? 'view');
   
   // Check if node is locked
   const isLocked = $derived(data.locked ?? false);
@@ -35,6 +36,18 @@
   
   $effect(() => {
     content = data.content || '';
+  });
+
+  // Track previous selected state to detect deselection
+  let wasSelected = $state(false);
+  
+  // Switch to view mode when node is deselected
+  $effect(() => {
+    if (wasSelected && !selected && viewMode === 'edit') {
+      // Node was deselected while in edit mode - switch to view
+      workspace.updateNodeData(id, { content, viewMode: 'view' });
+    }
+    wasSelected = selected ?? false;
   });
 
   // Configure marked for safe rendering

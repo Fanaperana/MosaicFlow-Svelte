@@ -246,6 +246,10 @@ export async function loadEdge(edgeId: string): Promise<MosaicEdge | null> {
     // Get edge color for markers
     const edgeColor = edgeData.data?.color || '#555555';
     
+    // Build markers
+    const markerStart = buildMarker(edgeData.data?.markerStart, edgeColor);
+    const markerEnd = buildMarker(edgeData.data?.markerEnd, edgeColor);
+    
     // Reconstruct edge with proper style
     const edge: MosaicEdge = {
       id: edgeId,
@@ -260,8 +264,8 @@ export async function loadEdge(edgeId: string): Promise<MosaicEdge | null> {
       style: buildEdgeStyle(edgeData.data),
       labelStyle: buildLabelStyle(edgeData.data),
       labelBgStyle: buildLabelBgStyle(edgeData.data),
-      markerStart: buildMarker(edgeData.data?.markerStart, edgeColor),
-      markerEnd: buildMarker(edgeData.data?.markerEnd, edgeColor),
+      markerStart,
+      markerEnd,
     };
     
     return edge;

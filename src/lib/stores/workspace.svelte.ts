@@ -39,6 +39,9 @@ class WorkspaceStore {
   nodes = $state.raw<MosaicNode[]>([]);
   edges = $state.raw<MosaicEdge[]>([]);
   
+  // Version counter to force reactivity for edge updates (markers, etc.)
+  edgeVersion = $state(0);
+  
   // Metadata
   name = $state('Untitled Workspace');
   description = $state('');
@@ -342,6 +345,43 @@ class WorkspaceStore {
     
     // Save edge to file (debounced)
     if (this.workspacePath && updatedEdge) {
+      saveEdge(updatedEdge);
+    }
+  }
+
+  // Update an edge and force array refresh for SvelteFlow reactivity
+  // Use this for visual properties like markers that need immediate re-render
+  updateEdgeWithRefresh(id: string, updates: Partial<MosaicEdge>) {
+    const edgeIndex = this.edges.findIndex(e => e.id === id);
+    if (edgeIndex === -1) return;
+    
+    const edgeToUpdate = this.edges[edgeIndex];
+    
+    // Create a completely new edge object
+    const updatedEdge: MosaicEdge = { 
+      ...edgeToUpdate, 
+      ...updates,
+      data: {
+        ...edgeToUpdate.data,
+        ...updates.data,
+      }
+    };
+    
+    // Create new array with all new edge object references
+    // This ensures SvelteFlow detects the change
+    this.edges = this.edges.map((edge, index) => {
+      if (index === edgeIndex) {
+        return updatedEdge;
+      }
+      // Create new reference for each edge
+      return { ...edge };
+    });
+    
+    // Increment version to force Canvas to re-render edges
+    this.edgeVersion++;
+    
+    // Save edge to file (debounced)
+    if (this.workspacePath) {
       saveEdge(updatedEdge);
     }
   }

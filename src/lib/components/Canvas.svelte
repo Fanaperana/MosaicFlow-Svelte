@@ -1048,9 +1048,22 @@
     border-color: rgba(59, 130, 246, 0.3) !important;
   }
 
-  /* Make selection outline more subtle */
+  /* Make selection outline more subtle and prevent blur on selection */
   :global(.svelte-flow__node.selected) {
     outline: none !important;
+    /* Prevent transform-induced blur on selection */
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    text-rendering: optimizeLegibility !important;
+    /* Prevent layer promotion that causes blur */
+    transform: translate(0);
+    will-change: auto !important;
+  }
+
+  /* Ensure all text inside selected nodes stays sharp */
+  :global(.svelte-flow__node.selected *) {
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
   }
 
   /* Edge Drop Menu Styles */

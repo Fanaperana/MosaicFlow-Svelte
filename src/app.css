@@ -191,6 +191,7 @@
 
 /* Force subpixel rendering on node wrappers */
 .svelte-flow [data-id] {
-  -webkit-font-smoothing: subpixel-antialiased;
-  filter: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transform-origin: 0 0;
 }
