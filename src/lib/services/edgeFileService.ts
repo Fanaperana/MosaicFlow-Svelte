@@ -3,6 +3,26 @@
 // Each edge has its own folder with connection data
 
 import type { MosaicEdge } from '$lib/types';
+import { MarkerType, type EdgeMarker } from '@xyflow/svelte';
+
+// Migration helper: Convert old handle IDs to new format
+// Old format: "left", "right", "top", "bottom"
+// New format: "left-target", "left-source", "right-target", etc.
+function migrateHandleId(handleId: string | undefined | null, handleType: 'source' | 'target'): string | undefined {
+  if (!handleId) return undefined;
+  
+  // Already in new format
+  if (handleId.includes('-')) return handleId;
+  
+  // Old format - append the handle type
+  const validPositions = ['left', 'right', 'top', 'bottom'];
+  if (validPositions.includes(handleId)) {
+    return `${handleId}-${handleType}`;
+  }
+  
+  // Unknown format, return as-is
+  return handleId;
+}
 
 // Debounce timers for edge saves
 const edgeTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -187,6 +207,21 @@ function buildLabelBgStyle(data?: {
   return undefined;
 }
 
+// Build marker configuration from saved data
+// MarkerShape is 'none' | 'arrow' | 'arrowclosed'
+function buildMarker(shape: string | undefined, color: string): EdgeMarker | undefined {
+  if (!shape || shape === 'none') return undefined;
+  
+  const markerType = shape === 'arrowclosed' ? MarkerType.ArrowClosed : MarkerType.Arrow;
+  
+  return {
+    type: markerType,
+    color: color,
+    width: 20,
+    height: 20,
+  };
+}
+
 // Load a single edge from file
 export async function loadEdge(edgeId: string): Promise<MosaicEdge | null> {
   if (!workspacePath) return null;
@@ -204,13 +239,20 @@ export async function loadEdge(edgeId: string): Promise<MosaicEdge | null> {
     const content = await readTextFile(joinedPath);
     const edgeData = JSON.parse(content);
     
+    // Migrate old handle IDs to new format if needed
+    const migratedSourceHandle = migrateHandleId(edgeData.sourceHandle, 'source');
+    const migratedTargetHandle = migrateHandleId(edgeData.targetHandle, 'target');
+    
+    // Get edge color for markers
+    const edgeColor = edgeData.data?.color || '#555555';
+    
     // Reconstruct edge with proper style
     const edge: MosaicEdge = {
       id: edgeId,
       source: edgeData.source,
       target: edgeData.target,
-      sourceHandle: edgeData.sourceHandle,
-      targetHandle: edgeData.targetHandle,
+      sourceHandle: migratedSourceHandle,
+      targetHandle: migratedTargetHandle,
       label: edgeData.label,
       type: edgeData.type || 'default',
       animated: edgeData.animated || false,
@@ -218,6 +260,8 @@ export async function loadEdge(edgeId: string): Promise<MosaicEdge | null> {
       style: buildEdgeStyle(edgeData.data),
       labelStyle: buildLabelStyle(edgeData.data),
       labelBgStyle: buildLabelBgStyle(edgeData.data),
+      markerStart: buildMarker(edgeData.data?.markerStart, edgeColor),
+      markerEnd: buildMarker(edgeData.data?.markerEnd, edgeColor),
     };
     
     return edge;

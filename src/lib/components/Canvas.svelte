@@ -560,6 +560,7 @@
       role="application"
     >
       <SvelteFlow
+        id="mosaic-flow"
         bind:nodes
         bind:edges
         bind:viewport
