@@ -120,7 +120,7 @@ export interface NodeDimensions {
  * Default dimensions for each node type
  */
 export const NODE_DIMENSIONS: Record<NodeType, NodeDimensions> = {
-  note: { minWidth: 200, minHeight: 120, defaultWidth: 280, defaultHeight: 200 },
+  note: { minWidth: 120, minHeight: 60, defaultWidth: 280, defaultHeight: 200 },
   image: { minWidth: 150, minHeight: 150, defaultWidth: 300, defaultHeight: 250 },
   link: { minWidth: 200, minHeight: 100, defaultWidth: 250, defaultHeight: 140 },
   code: { minWidth: 300, minHeight: 200, defaultWidth: 400, defaultHeight: 300 },

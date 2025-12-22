@@ -89,8 +89,8 @@
 </script>
 
 <NodeResizer 
-  minWidth={200} 
-  minHeight={120} 
+  minWidth={120} 
+  minHeight={60} 
   isVisible={selected ?? false}
   lineStyle="border-color: #3b82f6"
   handleStyle="background: #3b82f6; width: 8px; height: 8px; border-radius: 2px;"
@@ -160,8 +160,8 @@
 
 <style>
   .note-node {
-    min-width: 200px;
-    min-height: 120px;
+    min-width: 120px;
+    min-height: 60px;
     width: 100%;
     height: 100%;
     font-family: 'Space Mono', monospace;
