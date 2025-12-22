@@ -140,6 +140,23 @@
       workspace.edges = edges as MosaicEdge[];
     }
   });
+  
+  // Sync local viewport to workspace viewport so other components can use it
+  $effect(() => {
+    workspace.setViewport(viewport);
+  });
+  
+  // Sync workspace.selectedNodeIds to nodes' selected property for visual selection
+  $effect(() => {
+    const selectedIds = workspace.selectedNodeIds;
+    const needsUpdate = nodes.some(n => n.selected !== selectedIds.includes(n.id));
+    if (needsUpdate) {
+      nodes = nodes.map(n => ({
+        ...n,
+        selected: selectedIds.includes(n.id)
+      }));
+    }
+  });
 
   // Handle edge connection
   function handleConnect(params: { source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }) {
@@ -314,7 +331,6 @@
     
     // Calculate position relative to the container
     const bounds = flowContainer.getBoundingClientRect();
-    const viewport = workspace.viewport;
     
     // Convert screen coordinates to flow coordinates
     const initialPosition = {
@@ -370,7 +386,6 @@
     if (!flowContainer) return;
     
     const bounds = flowContainer.getBoundingClientRect();
-    const viewport = workspace.viewport;
     
     // Convert screen coordinates to flow coordinates
     const initialPosition = {

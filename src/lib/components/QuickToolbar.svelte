@@ -95,7 +95,10 @@
     // Add node at center of viewport
     const centerX = (window.innerWidth / 2 - workspace.viewport.x) / workspace.viewport.zoom;
     const centerY = (window.innerHeight / 2 - workspace.viewport.y) / workspace.viewport.zoom;
-    workspace.createNode(type, { x: centerX - 100, y: centerY - 50 });
+    const newNode = workspace.createNode(type, { x: centerX - 100, y: centerY - 50 });
+    
+    // Select the newly created node
+    workspace.setSelectedNodes([newNode.id]);
   }
 </script>
 
