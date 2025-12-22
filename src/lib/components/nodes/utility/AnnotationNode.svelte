@@ -5,12 +5,14 @@
   - No background, just text
   - Font size scales with node size
   - Customizable arrow position
+  - Rotation handle for arrow when selected
   - Cannot be linked to other nodes (no handles)
 -->
 <script lang="ts">
   import { type NodeProps, type Node, NodeResizer } from '@xyflow/svelte';
   import type { AnnotationNodeData } from '$lib/types';
   import { workspace } from '$lib/stores/workspace.svelte';
+  import { RotateCw } from 'lucide-svelte';
 
   type AnnotationNodeType = Node<AnnotationNodeData, 'annotation'>;
 
@@ -19,6 +21,10 @@
   let isEditing = $state(false);
   let labelText = $state('');
   let textareaRef = $state<HTMLTextAreaElement | null>(null);
+  
+  // Rotation handle state
+  let isRotating = $state(false);
+  let rotationHandleRef = $state<HTMLDivElement | null>(null);
   
   $effect(() => {
     labelText = data.label || 'Double-click to edit...';
@@ -48,6 +54,7 @@
 
   const arrowPosition = $derived(data.arrowPosition || 'bottom-left');
   const arrowSymbol = $derived(data.arrow || arrowSymbols[arrowPosition] || '⤹');
+  const currentRotation = $derived(data.arrowRotation || 0);
   
   // Arrow transform (rotation and flip)
   const arrowTransform = $derived(() => {
@@ -63,6 +70,72 @@
     }
     return transforms.length > 0 ? transforms.join(' ') : 'none';
   });
+  
+  // Calculate arrow position offset based on arrow position setting
+  function getArrowCenter(): { x: number; y: number } {
+    const w = width || 200;
+    const h = height || 100;
+    const offset = 20; // Distance from edge
+    
+    switch (arrowPosition) {
+      case 'top-left': return { x: offset, y: offset };
+      case 'top-right': return { x: w - offset, y: offset };
+      case 'bottom-left': return { x: offset, y: h - offset };
+      case 'bottom-right': return { x: w - offset, y: h - offset };
+      case 'left': return { x: offset, y: h / 2 };
+      case 'right': return { x: w - offset, y: h / 2 };
+      default: return { x: w / 2, y: h / 2 };
+    }
+  }
+  
+  // Handle rotation drag
+  function handleRotationStart(e: MouseEvent | TouchEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    isRotating = true;
+    
+    const arrowCenter = getArrowCenter();
+    
+    const onMove = (moveEvent: MouseEvent | TouchEvent) => {
+      if (!isRotating) return;
+      
+      const clientX = 'touches' in moveEvent ? moveEvent.touches[0].clientX : moveEvent.clientX;
+      const clientY = 'touches' in moveEvent ? moveEvent.touches[0].clientY : moveEvent.clientY;
+      
+      // Get the node element's bounding box
+      const nodeElement = rotationHandleRef?.closest('.annotation-node');
+      if (!nodeElement) return;
+      
+      const rect = nodeElement.getBoundingClientRect();
+      
+      // Calculate angle from arrow center to mouse position
+      const centerX = rect.left + arrowCenter.x;
+      const centerY = rect.top + arrowCenter.y;
+      
+      const angle = Math.atan2(clientY - centerY, clientX - centerX) * (180 / Math.PI);
+      
+      // Snap to 15-degree increments for better control
+      const snappedAngle = Math.round(angle / 15) * 15;
+      
+      // Normalize to 0-360
+      const normalizedAngle = ((snappedAngle % 360) + 360) % 360;
+      
+      workspace.updateNodeData(id, { arrowRotation: normalizedAngle });
+    };
+    
+    const onEnd = () => {
+      isRotating = false;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onEnd);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+    };
+    
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onEnd);
+    window.addEventListener('touchmove', onMove);
+    window.addEventListener('touchend', onEnd);
+  }
 
   function handleDoubleClick() {
     isEditing = true;
@@ -143,6 +216,21 @@
       style="{data.arrowStyle || ''}; transform: {arrowTransform()};"
     >
       {arrowSymbol}
+      
+      <!-- Rotation handle - visible when selected -->
+      {#if selected}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          bind:this={rotationHandleRef}
+          class="rotation-handle nodrag"
+          class:rotating={isRotating}
+          onmousedown={handleRotationStart}
+          ontouchstart={handleRotationStart}
+          title="Drag to rotate arrow ({currentRotation}°)"
+        >
+          <RotateCw size={12} />
+        </div>
+      {/if}
     </div>
   {/if}
 </div>
@@ -245,6 +333,39 @@
     top: 50%;
     right: -1em;
     transform: translateY(-50%);
+  }
+
+  /* Rotation handle styles */
+  .rotation-handle {
+    position: absolute;
+    top: -24px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 20px;
+    height: 20px;
+    background: #3b82f6;
+    border: 2px solid #1e40af;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    color: white;
+    opacity: 0.9;
+    transition: opacity 0.15s, transform 0.15s;
+    z-index: 10;
+  }
+
+  .rotation-handle:hover {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.1);
+  }
+
+  .rotation-handle.rotating {
+    cursor: grabbing;
+    opacity: 1;
+    transform: translateX(-50%) scale(1.15);
+    background: #2563eb;
   }
 
   /* Selection state from svelte-flow */
