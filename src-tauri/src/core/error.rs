@@ -25,26 +25,26 @@ pub enum ErrorCode {
     AlreadyExists,
     PermissionDenied,
     IoError,
-    
+
     // Data errors
     InvalidJson,
     InvalidFormat,
     MigrationFailed,
-    
+
     // Vault errors
     VaultNotFound,
     VaultAlreadyExists,
     InvalidVault,
-    
+
     // Canvas errors
     CanvasNotFound,
     CanvasAlreadyExists,
     InvalidCanvas,
-    
+
     // State errors
     StateNotFound,
     StateSaveFailed,
-    
+
     // Generic
     Unknown,
 }
@@ -81,11 +81,17 @@ impl MosaicError {
     }
 
     pub fn vault_not_found(path: &str) -> Self {
-        Self::new(ErrorCode::VaultNotFound, format!("Vault not found at: {}", path))
+        Self::new(
+            ErrorCode::VaultNotFound,
+            format!("Vault not found at: {}", path),
+        )
     }
 
     pub fn canvas_not_found(path: &str) -> Self {
-        Self::new(ErrorCode::CanvasNotFound, format!("Canvas not found at: {}", path))
+        Self::new(
+            ErrorCode::CanvasNotFound,
+            format!("Canvas not found at: {}", path),
+        )
     }
 }
 

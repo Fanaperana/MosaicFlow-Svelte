@@ -2,9 +2,9 @@
 //
 // Handles app-level configuration persistence
 
-use tauri::AppHandle;
-use crate::core::{self, MosaicResult, paths::get_config_path};
+use crate::core::{self, paths::get_config_path, MosaicResult};
 use crate::models::AppConfig;
+use tauri::AppHandle;
 
 pub struct ConfigService;
 
@@ -12,7 +12,7 @@ impl ConfigService {
     /// Load app configuration from disk
     pub fn load(app_handle: &AppHandle) -> MosaicResult<AppConfig> {
         let path = get_config_path(app_handle)?;
-        
+
         if path.exists() {
             core::read_json(&path)
         } else {

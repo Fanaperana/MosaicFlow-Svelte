@@ -32,6 +32,7 @@
     "fs:scope-download-recursive",
     "fs:scope-appdata-recursive",
     "fs:scope-applocaldata-recursive",
-    "fs:scope-temp-recursive"
+    "fs:scope-temp-recursive",
+    "fs:scope-localdata-recursive"
   ]
 }

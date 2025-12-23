@@ -26,7 +26,7 @@ impl AppHistory {
     /// Add or update vault in history
     pub fn track_vault(&mut self, id: String, name: String, path: String) {
         let now = crate::core::now_iso();
-        
+
         if let Some(entry) = self.vaults.iter_mut().find(|v| v.id == id) {
             entry.name = name;
             entry.path = path;
@@ -42,10 +42,11 @@ impl AppHistory {
                 added_at: now,
             });
         }
-        
+
         // Sort by last_opened descending
-        self.vaults.sort_by(|a, b| b.last_opened.cmp(&a.last_opened));
-        
+        self.vaults
+            .sort_by(|a, b| b.last_opened.cmp(&a.last_opened));
+
         // Trim to max items
         if self.vaults.len() > self.max_items {
             self.vaults.truncate(self.max_items);
@@ -55,7 +56,7 @@ impl AppHistory {
     /// Add or update canvas in history
     pub fn track_canvas(&mut self, id: String, vault_id: String, name: String, path: String) {
         let now = crate::core::now_iso();
-        
+
         if let Some(entry) = self.canvases.iter_mut().find(|c| c.id == id) {
             entry.name = name;
             entry.path = path;
@@ -72,10 +73,11 @@ impl AppHistory {
                 added_at: now,
             });
         }
-        
+
         // Sort by last_opened descending
-        self.canvases.sort_by(|a, b| b.last_opened.cmp(&a.last_opened));
-        
+        self.canvases
+            .sort_by(|a, b| b.last_opened.cmp(&a.last_opened));
+
         // Trim to max items
         if self.canvases.len() > self.max_items {
             self.canvases.truncate(self.max_items);
@@ -99,7 +101,11 @@ impl AppHistory {
     }
 
     /// Get recent canvases (optionally filtered by vault)
-    pub fn recent_canvases(&self, vault_id: Option<&str>, limit: usize) -> Vec<&CanvasHistoryEntry> {
+    pub fn recent_canvases(
+        &self,
+        vault_id: Option<&str>,
+        limit: usize,
+    ) -> Vec<&CanvasHistoryEntry> {
         self.canvases
             .iter()
             .filter(|c| vault_id.map_or(true, |vid| c.vault_id == vid))

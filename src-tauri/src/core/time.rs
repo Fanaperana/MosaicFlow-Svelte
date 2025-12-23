@@ -28,38 +28,42 @@ pub fn relative_time(iso: &str) -> String {
         Ok(dt) => dt.with_timezone(&Utc),
         Err(_) => return iso.to_string(),
     };
-    
+
     let diff = now.signed_duration_since(then);
     let seconds = diff.num_seconds();
-    
+
     if seconds < 0 {
         return "in the future".to_string();
     }
-    
+
     if seconds < 60 {
         return "just now".to_string();
     }
-    
+
     let minutes = seconds / 60;
     if minutes < 60 {
-        return format!("{} minute{} ago", minutes, if minutes == 1 { "" } else { "s" });
+        return format!(
+            "{} minute{} ago",
+            minutes,
+            if minutes == 1 { "" } else { "s" }
+        );
     }
-    
+
     let hours = minutes / 60;
     if hours < 24 {
         return format!("{} hour{} ago", hours, if hours == 1 { "" } else { "s" });
     }
-    
+
     let days = hours / 24;
     if days < 30 {
         return format!("{} day{} ago", days, if days == 1 { "" } else { "s" });
     }
-    
+
     let months = days / 30;
     if months < 12 {
         return format!("{} month{} ago", months, if months == 1 { "" } else { "s" });
     }
-    
+
     let years = months / 12;
     format!("{} year{} ago", years, if years == 1 { "" } else { "s" })
 }

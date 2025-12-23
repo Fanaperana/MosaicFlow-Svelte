@@ -2,16 +2,15 @@
 //
 // Tauri command handlers for history operations
 
-use tauri::AppHandle;
-use crate::models::{AppHistory, VaultHistoryEntry, CanvasHistoryEntry};
-use crate::services::HistoryService;
 use crate::events::EventEmitter;
+use crate::models::{AppHistory, CanvasHistoryEntry, VaultHistoryEntry};
+use crate::services::HistoryService;
+use tauri::AppHandle;
 
 /// Load history
 #[tauri::command]
 pub async fn load_history(app_handle: AppHandle) -> Result<AppHistory, String> {
-    HistoryService::load(&app_handle)
-        .map_err(|e| e.to_string())
+    HistoryService::load(&app_handle).map_err(|e| e.to_string())
 }
 
 /// Track vault open
@@ -22,14 +21,13 @@ pub async fn track_vault_open(
     name: String,
     path: String,
 ) -> Result<(), String> {
-    HistoryService::track_vault(&app_handle, id, name, path)
-        .map_err(|e| e.to_string())?;
-    
+    HistoryService::track_vault(&app_handle, id, name, path).map_err(|e| e.to_string())?;
+
     // Emit event
     let history = HistoryService::load(&app_handle).map_err(|e| e.to_string())?;
     let emitter = EventEmitter::new(&app_handle);
     emitter.history_changed(history.vaults.len(), history.canvases.len());
-    
+
     Ok(())
 }
 
@@ -44,12 +42,12 @@ pub async fn track_canvas_open(
 ) -> Result<(), String> {
     HistoryService::track_canvas(&app_handle, id, vault_id, name, path)
         .map_err(|e| e.to_string())?;
-    
+
     // Emit event
     let history = HistoryService::load(&app_handle).map_err(|e| e.to_string())?;
     let emitter = EventEmitter::new(&app_handle);
     emitter.history_changed(history.vaults.len(), history.canvases.len());
-    
+
     Ok(())
 }
 
@@ -59,14 +57,13 @@ pub async fn remove_vault_from_history(
     app_handle: AppHandle,
     vault_id: String,
 ) -> Result<(), String> {
-    HistoryService::remove_vault(&app_handle, &vault_id)
-        .map_err(|e| e.to_string())?;
-    
+    HistoryService::remove_vault(&app_handle, &vault_id).map_err(|e| e.to_string())?;
+
     // Emit event
     let history = HistoryService::load(&app_handle).map_err(|e| e.to_string())?;
     let emitter = EventEmitter::new(&app_handle);
     emitter.history_changed(history.vaults.len(), history.canvases.len());
-    
+
     Ok(())
 }
 
@@ -76,14 +73,13 @@ pub async fn remove_canvas_from_history(
     app_handle: AppHandle,
     canvas_id: String,
 ) -> Result<(), String> {
-    HistoryService::remove_canvas(&app_handle, &canvas_id)
-        .map_err(|e| e.to_string())?;
-    
+    HistoryService::remove_canvas(&app_handle, &canvas_id).map_err(|e| e.to_string())?;
+
     // Emit event
     let history = HistoryService::load(&app_handle).map_err(|e| e.to_string())?;
     let emitter = EventEmitter::new(&app_handle);
     emitter.history_changed(history.vaults.len(), history.canvases.len());
-    
+
     Ok(())
 }
 
@@ -93,8 +89,7 @@ pub async fn get_recent_vaults(
     app_handle: AppHandle,
     limit: Option<usize>,
 ) -> Result<Vec<VaultHistoryEntry>, String> {
-    HistoryService::get_recent_vaults(&app_handle, limit.unwrap_or(10))
-        .map_err(|e| e.to_string())
+    HistoryService::get_recent_vaults(&app_handle, limit.unwrap_or(10)).map_err(|e| e.to_string())
 }
 
 /// Get recent canvases
@@ -114,8 +109,7 @@ pub async fn find_vault_by_id(
     app_handle: AppHandle,
     vault_id: String,
 ) -> Result<Option<VaultHistoryEntry>, String> {
-    HistoryService::find_vault(&app_handle, &vault_id)
-        .map_err(|e| e.to_string())
+    HistoryService::find_vault(&app_handle, &vault_id).map_err(|e| e.to_string())
 }
 
 /// Find canvas by ID
@@ -124,6 +118,5 @@ pub async fn find_canvas_by_id(
     app_handle: AppHandle,
     canvas_id: String,
 ) -> Result<Option<CanvasHistoryEntry>, String> {
-    HistoryService::find_canvas(&app_handle, &canvas_id)
-        .map_err(|e| e.to_string())
+    HistoryService::find_canvas(&app_handle, &canvas_id).map_err(|e| e.to_string())
 }

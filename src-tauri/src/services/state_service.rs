@@ -2,10 +2,10 @@
 //
 // Handles app-level state persistence
 
+use crate::core::{self, paths::get_data_dir, MosaicResult};
+use crate::models::AppState;
 use std::path::PathBuf;
 use tauri::AppHandle;
-use crate::core::{self, MosaicResult, paths::get_data_dir};
-use crate::models::AppState;
 
 pub struct StateService;
 
@@ -19,7 +19,7 @@ impl StateService {
     /// Load app state from disk
     pub fn load(app_handle: &AppHandle) -> MosaicResult<AppState> {
         let path = Self::state_path(app_handle)?;
-        
+
         if path.exists() {
             core::read_json(&path)
         } else {

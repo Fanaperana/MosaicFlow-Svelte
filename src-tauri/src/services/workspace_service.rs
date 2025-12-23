@@ -2,9 +2,9 @@
 //
 // Handles workspace data operations (nodes, edges)
 
+use crate::core::{self, paths::CanvasPaths, MosaicResult};
+use crate::models::{WorkspaceData, WorkspaceEdge, WorkspaceNode};
 use std::path::Path;
-use crate::core::{self, MosaicResult, paths::CanvasPaths};
-use crate::models::{WorkspaceData, WorkspaceNode, WorkspaceEdge};
 
 pub struct WorkspaceService;
 
@@ -12,7 +12,7 @@ impl WorkspaceService {
     /// Load workspace data from canvas
     pub fn load(canvas_path: &Path) -> MosaicResult<WorkspaceData> {
         let canvas_paths = CanvasPaths::from_root(&canvas_path.to_path_buf());
-        
+
         if canvas_paths.workspace_json.exists() {
             core::read_json(&canvas_paths.workspace_json)
         } else {
@@ -77,7 +77,7 @@ impl WorkspaceService {
         edges_to_remove: Vec<String>,
     ) -> MosaicResult<()> {
         let mut data = Self::load(canvas_path)?;
-        
+
         // Remove items first
         for node_id in nodes_to_remove {
             data.remove_node(&node_id);
@@ -85,7 +85,7 @@ impl WorkspaceService {
         for edge_id in edges_to_remove {
             data.remove_edge(&edge_id);
         }
-        
+
         // Add new items
         for node in nodes_to_add {
             data.add_node(node);
@@ -93,7 +93,7 @@ impl WorkspaceService {
         for edge in edges_to_add {
             data.add_edge(edge);
         }
-        
+
         Self::save(canvas_path, &data)
     }
 }

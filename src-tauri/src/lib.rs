@@ -8,11 +8,11 @@
 // └── events/       - Real-time event system for reactive updates
 
 // Module declarations
+pub mod commands;
 pub mod core;
+pub mod events;
 pub mod models;
 pub mod services;
-pub mod commands;
-pub mod events;
 
 // Re-export commands for Tauri registration
 use commands::*;
@@ -24,6 +24,7 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_persisted_scope::init())
         .plugin(tauri_plugin_dialog::init())
         // Command handlers
         .invoke_handler(tauri::generate_handler![

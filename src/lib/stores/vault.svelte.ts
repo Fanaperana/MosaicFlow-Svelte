@@ -25,6 +25,7 @@ class VaultStore {
   // Configuration
   private _config = $state<AppConfig>({
     current_vault_path: null,
+    current_canvas_path: null,
     recent_vaults: [],
   });
   
@@ -92,8 +93,20 @@ class VaultStore {
           this.currentVault = vault;
           this.canvases = await listCanvasesApi(vault.path);
           
-          // If there's only one canvas, open it directly
-          if (this.canvases.length === 1) {
+          // Try to open last canvas if path is saved
+          if (this._config.current_canvas_path) {
+            const lastCanvas = this.canvases.find(c => c.path === this._config.current_canvas_path);
+            if (lastCanvas) {
+              this.currentCanvas = lastCanvas;
+              this.appView = 'canvas';
+            } else {
+              // Canvas no longer exists, show list
+              this._config.current_canvas_path = null;
+              await this.saveConfig();
+              this.appView = this.canvases.length > 0 ? 'canvas-list' : 'vault-picker';
+            }
+          } else if (this.canvases.length === 1) {
+            // If there's only one canvas, open it directly
             this.currentCanvas = this.canvases[0];
             this.appView = 'canvas';
           } else if (this.canvases.length > 0) {
@@ -110,6 +123,7 @@ class VaultStore {
         } else {
           // Vault no longer exists, clear it
           this._config.current_vault_path = null;
+          this._config.current_canvas_path = null;
           await this.saveConfig();
         }
       }
@@ -281,6 +295,8 @@ class VaultStore {
       if (canvas) {
         this.canvases = [...this.canvases, canvas];
         this.currentCanvas = canvas;
+        this._config.current_canvas_path = canvas.path;
+        this.saveConfig();
         this.appView = 'canvas';
         return canvas;
       } else {
@@ -301,6 +317,8 @@ class VaultStore {
    */
   openCanvas(canvas: CanvasInfo): void {
     this.currentCanvas = canvas;
+    this._config.current_canvas_path = canvas.path;
+    this.saveConfig();
     this.appView = 'canvas';
   }
 
@@ -309,6 +327,8 @@ class VaultStore {
    */
   closeCanvas(): void {
     this.currentCanvas = null;
+    this._config.current_canvas_path = null;
+    this.saveConfig();
     this.appView = this.canvases.length > 0 ? 'canvas-list' : 'vault-picker';
   }
 

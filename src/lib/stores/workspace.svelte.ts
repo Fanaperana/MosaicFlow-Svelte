@@ -294,6 +294,7 @@ class WorkspaceStore {
       data: {
         color: this.settings.defaultEdgeColor,
         strokeWidth: 2,
+        animated: false,
       },
     };
     
@@ -314,6 +315,11 @@ class WorkspaceStore {
       if (edge.id === id) {
         // Merge the edge with updates
         const merged = { ...edge, ...updates };
+        
+        // Sync animated flag to data for custom edge component access
+        if (updates.animated !== undefined) {
+          merged.data = { ...merged.data, animated: updates.animated };
+        }
         
         // If data was updated, also update the derived style properties
         if (updates.data) {

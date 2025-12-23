@@ -104,9 +104,8 @@ export async function loadWorkspace(path: string): Promise<boolean> {
         const uiState: UIState = JSON.parse(stateContent);
         workspace.loadUIState(uiState);
       }
-    } catch (stateError) {
-      // State file is optional, ignore permission or read errors
-      console.warn('Could not load UI state (optional):', stateError);
+    } catch {
+      // State file is optional, silently ignore permission or read errors
     }
     
     console.log('Workspace loaded successfully');

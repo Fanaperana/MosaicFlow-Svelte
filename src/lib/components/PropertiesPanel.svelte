@@ -105,13 +105,8 @@
       const markerStart = getMarkerConfig(startMarker, color);
       const markerEnd = getMarkerConfig(endMarker, color);
       
-      // Dispatch event to FlowHelper which uses SvelteFlow's updateEdge for immediate visual update
-      window.dispatchEvent(new CustomEvent('mosaicflow:updateEdge', {
-        detail: { id: selectedEdge.id, updates: { markerStart, markerEnd } }
-      }));
-      
-      // Also update workspace store for persistence
-      workspace.updateEdge(selectedEdge.id, { markerStart, markerEnd });
+      // Use updateEdgeWithRefresh for immediate visual update
+      workspace.updateEdgeWithRefresh(selectedEdge.id, { markerStart, markerEnd });
     }
   }
 
@@ -220,7 +215,16 @@
           <label>Edge Type</label>
           <select 
             value={selectedEdge.type || 'default'}
-            onchange={(e) => updateEdge({ type: (e.target as HTMLSelectElement).value as any })}
+            onchange={(e) => {
+              const edgeType = (e.target as HTMLSelectElement).value;
+              // Map edge type to path type for GlowEdge
+              const pathType = edgeType === 'default' ? 'bezier' : edgeType;
+              // Use updateEdgeWithRefresh for immediate visual update
+              workspace.updateEdgeWithRefresh(selectedEdge.id, { 
+                type: edgeType as any,
+                data: { ...selectedEdge.data, pathType }
+              });
+            }}
           >
             <option value="default">Bezier</option>
             <option value="straight">Straight</option>

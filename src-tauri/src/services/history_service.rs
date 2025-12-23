@@ -2,10 +2,10 @@
 //
 // Handles history tracking and persistence
 
+use crate::core::{self, paths::get_data_dir, MosaicResult};
+use crate::models::{AppHistory, CanvasHistoryEntry, VaultHistoryEntry};
 use std::path::PathBuf;
 use tauri::AppHandle;
-use crate::core::{self, MosaicResult, paths::get_data_dir};
-use crate::models::{AppHistory, VaultHistoryEntry, CanvasHistoryEntry};
 
 pub struct HistoryService;
 
@@ -19,7 +19,7 @@ impl HistoryService {
     /// Load history from disk
     pub fn load(app_handle: &AppHandle) -> MosaicResult<AppHistory> {
         let path = Self::history_path(app_handle)?;
-        
+
         if path.exists() {
             core::read_json(&path)
         } else {
@@ -88,7 +88,11 @@ impl HistoryService {
         limit: usize,
     ) -> MosaicResult<Vec<CanvasHistoryEntry>> {
         let history = Self::load(app_handle)?;
-        Ok(history.recent_canvases(vault_id, limit).into_iter().cloned().collect())
+        Ok(history
+            .recent_canvases(vault_id, limit)
+            .into_iter()
+            .cloned()
+            .collect())
     }
 
     /// Find vault by ID

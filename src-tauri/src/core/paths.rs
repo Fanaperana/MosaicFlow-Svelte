@@ -29,10 +29,10 @@ pub fn get_data_dir(app_handle: &tauri::AppHandle) -> MosaicResult<PathBuf> {
         .path()
         .app_config_dir()
         .map_err(|e| MosaicError::io_error(e))?;
-    
+
     let data_dir = config_dir.join("data");
     super::fs::ensure_dir(&data_dir)?;
-    
+
     Ok(data_dir)
 }
 
@@ -42,7 +42,7 @@ pub fn get_config_path(app_handle: &tauri::AppHandle) -> MosaicResult<PathBuf> {
         .path()
         .app_config_dir()
         .map_err(|e| MosaicError::io_error(e))?;
-    
+
     super::fs::ensure_dir(&config_dir)?;
     Ok(config_dir.join("config.json"))
 }

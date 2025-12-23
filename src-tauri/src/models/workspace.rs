@@ -117,14 +117,30 @@ pub struct WorkspaceSettings {
     pub default_edge_color: String,
 }
 
-fn default_grid_size() -> u32 { 20 }
-fn default_snap_to_grid() -> bool { true }
-fn default_show_minimap() -> bool { true }
-fn default_auto_save() -> bool { true }
-fn default_auto_save_interval() -> u32 { 1000 }
-fn default_theme() -> String { "dark".to_string() }
-fn default_node_color() -> String { "#1e1e1e".to_string() }
-fn default_edge_color() -> String { "#555555".to_string() }
+fn default_grid_size() -> u32 {
+    20
+}
+fn default_snap_to_grid() -> bool {
+    true
+}
+fn default_show_minimap() -> bool {
+    true
+}
+fn default_auto_save() -> bool {
+    true
+}
+fn default_auto_save_interval() -> u32 {
+    1000
+}
+fn default_theme() -> String {
+    "dark".to_string()
+}
+fn default_node_color() -> String {
+    "#1e1e1e".to_string()
+}
+fn default_edge_color() -> String {
+    "#555555".to_string()
+}
 
 impl Default for WorkspaceSettings {
     fn default() -> Self {
@@ -160,7 +176,8 @@ impl WorkspaceData {
     /// Remove a node and its connected edges
     pub fn remove_node(&mut self, node_id: &str) {
         self.nodes.retain(|n| n.id != node_id);
-        self.edges.retain(|e| e.source != node_id && e.target != node_id);
+        self.edges
+            .retain(|e| e.source != node_id && e.target != node_id);
     }
 
     /// Remove an edge

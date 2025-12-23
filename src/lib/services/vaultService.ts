@@ -27,6 +27,7 @@ export interface CanvasInfo {
 
 export interface AppConfig {
   current_vault_path: string | null;
+  current_canvas_path: string | null;
   recent_vaults: RecentVault[];
 }
 
@@ -50,7 +51,7 @@ export async function loadAppConfig(): Promise<AppConfig> {
     return await invoke<AppConfig>('load_app_config');
   } catch (error) {
     console.error('Failed to load app config:', error);
-    return { current_vault_path: null, recent_vaults: [] };
+    return { current_vault_path: null, current_canvas_path: null, recent_vaults: [] };
   }
 }
 

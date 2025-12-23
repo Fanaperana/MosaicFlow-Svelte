@@ -12,6 +12,9 @@ pub struct AppConfig {
     /// Path to the currently open vault
     #[serde(default)]
     pub current_vault_path: Option<String>,
+    /// Path to the currently open canvas
+    #[serde(default)]
+    pub current_canvas_path: Option<String>,
     /// List of recently opened vaults
     #[serde(default)]
     pub recent_vaults: Vec<RecentVault>,

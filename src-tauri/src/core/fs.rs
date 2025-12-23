@@ -18,12 +18,12 @@ pub fn read_json<T: DeserializeOwned>(path: &Path) -> MosaicResult<T> {
 /// Write data as pretty JSON to file
 pub fn write_json<T: Serialize>(path: &Path, data: &T) -> MosaicResult<()> {
     let content = serde_json::to_string_pretty(data)?;
-    
+
     // Ensure parent directory exists
     if let Some(parent) = path.parent() {
         ensure_dir(parent)?;
     }
-    
+
     fs::write(path, content)?;
     Ok(())
 }
@@ -69,12 +69,12 @@ pub fn list_dir(path: &Path) -> MosaicResult<Vec<std::path::PathBuf>> {
     if !path.exists() {
         return Ok(vec![]);
     }
-    
+
     let entries = fs::read_dir(path)?
         .filter_map(|e| e.ok())
         .map(|e| e.path())
         .collect();
-    
+
     Ok(entries)
 }
 
@@ -83,13 +83,13 @@ pub fn list_subdirs(path: &Path) -> MosaicResult<Vec<std::path::PathBuf>> {
     if !path.exists() {
         return Ok(vec![]);
     }
-    
+
     let entries = fs::read_dir(path)?
         .filter_map(|e| e.ok())
         .map(|e| e.path())
         .filter(|p| p.is_dir())
         .collect();
-    
+
     Ok(entries)
 }
 
@@ -99,7 +99,7 @@ pub fn copy_file(from: &Path, to: &Path) -> MosaicResult<u64> {
     if let Some(parent) = to.parent() {
         ensure_dir(parent)?;
     }
-    
+
     let bytes = fs::copy(from, to)?;
     Ok(bytes)
 }
@@ -116,7 +116,7 @@ pub fn write_string(path: &Path, content: &str) -> MosaicResult<()> {
     if let Some(parent) = path.parent() {
         ensure_dir(parent)?;
     }
-    
+
     fs::write(path, content)?;
     Ok(())
 }
@@ -133,7 +133,7 @@ pub fn write_bytes(path: &Path, content: &[u8]) -> MosaicResult<()> {
     if let Some(parent) = path.parent() {
         ensure_dir(parent)?;
     }
-    
+
     fs::write(path, content)?;
     Ok(())
 }

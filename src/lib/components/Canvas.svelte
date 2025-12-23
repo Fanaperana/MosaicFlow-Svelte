@@ -64,8 +64,13 @@
   } from 'lucide-svelte';
 
   // Custom edge types with glow effect on selection
+  // All edge types use GlowEdge which renders the path based on data.pathType
   const edgeTypes = {
     default: GlowEdge,
+    straight: GlowEdge,
+    step: GlowEdge,
+    smoothstep: GlowEdge,
+    bezier: GlowEdge,
   };
 
   // Two-way binding with workspace state - using $state.raw for better performance
@@ -111,7 +116,17 @@
   });
   
   $effect(() => {
-    edges = workspace.edges as Edge[];
+    // Ensure all edges have the 'default' type for custom GlowEdge rendering
+    const workspaceEdges = workspace.edges;
+    const needsTypeUpdate = workspaceEdges.some(edge => !edge.type);
+    if (needsTypeUpdate) {
+      edges = workspaceEdges.map(edge => ({
+        ...edge,
+        type: edge.type || 'default'
+      })) as Edge[];
+    } else {
+      edges = workspaceEdges as Edge[];
+    }
   });
   
   // Sync local state changes back to workspace and detect dimension changes
@@ -1001,6 +1016,12 @@
 
   :global(.svelte-flow__edge-path) {
     stroke: #555555 !important;
+  }
+
+  /* Prevent animation on glow paths inside animated edges */
+  :global(.svelte-flow__edge.animated .glow-path-inner) {
+    stroke-dasharray: none !important;
+    animation: none !important;
   }
 
   /* Edge markers (arrowheads) */
