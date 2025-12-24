@@ -102,9 +102,10 @@
 
   async function handleNewCanvas() {
     // Create new canvas (auto-save handles current canvas persistence)
+    // Name is auto-generated as "Untitled 1", "Untitled 2", etc.
     currentCanvasId = null;
     workspace.clear();
-    await vaultStore.createCanvas('Untitled');
+    await vaultStore.createCanvas();
   }
 
   function handleSearch() {

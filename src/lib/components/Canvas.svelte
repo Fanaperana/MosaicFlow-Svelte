@@ -294,12 +294,136 @@
     }
   }
 
-  // Handle node drag stop - resolve collisions, save positions, and clear snap guides
+  /**
+   * Check if a node is inside a group's bounds
+   */
+  function isNodeInsideGroup(node: Node, group: Node): boolean {
+    const nodeWidth = node.measured?.width ?? node.width ?? 200;
+    const nodeHeight = node.measured?.height ?? node.height ?? 100;
+    const groupWidth = group.measured?.width ?? group.width ?? 400;
+    const groupHeight = group.measured?.height ?? group.height ?? 300;
+    
+    // Node center point
+    const nodeCenterX = node.position.x + nodeWidth / 2;
+    const nodeCenterY = node.position.y + nodeHeight / 2;
+    
+    // Check if center is inside group
+    return (
+      nodeCenterX > group.position.x &&
+      nodeCenterX < group.position.x + groupWidth &&
+      nodeCenterY > group.position.y &&
+      nodeCenterY < group.position.y + groupHeight
+    );
+  }
+
+  /**
+   * Add a node as a child of a group (subflow)
+   */
+  function addNodeToGroup(nodeId: string, groupId: string) {
+    const node = nodes.find(n => n.id === nodeId);
+    const group = nodes.find(n => n.id === groupId);
+    if (!node || !group) return;
+    
+    // Calculate relative position within the group
+    const relativePosition = {
+      x: node.position.x - group.position.x,
+      y: node.position.y - group.position.y,
+    };
+    
+    // Update the node to be a child of the group
+    workspace.updateNode(nodeId, {
+      parentId: groupId,
+      position: relativePosition,
+      extent: 'parent' as const,
+      expandParent: true,
+    });
+  }
+
+  /**
+   * Remove a node from its parent group
+   */
+  function removeNodeFromGroup(nodeId: string) {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node || !node.parentId) return;
+    
+    const parent = nodes.find(n => n.id === node.parentId);
+    if (!parent) return;
+    
+    // Calculate absolute position
+    const absolutePosition = {
+      x: node.position.x + parent.position.x,
+      y: node.position.y + parent.position.y,
+    };
+    
+    // Update the node to remove parent relationship
+    workspace.updateNode(nodeId, {
+      parentId: undefined,
+      position: absolutePosition,
+      extent: undefined,
+      expandParent: undefined,
+    });
+  }
+
+  // Handle node drag stop - resolve collisions, save positions, handle subflow, and clear snap guides
   function handleNodeDragStop(event: { nodes: Node[] }) {
     // Clear snap guides
     snapGuides = [];
     
-    // Resolve collisions
+    // Handle subflow: check if nodes are dragged into/out of groups
+    for (const draggedNode of event.nodes) {
+      // Skip group nodes themselves
+      if (draggedNode.type === 'group') continue;
+      
+      const currentNode = nodes.find(n => n.id === draggedNode.id);
+      if (!currentNode) continue;
+      
+      // Find all group nodes
+      const groups = nodes.filter(n => n.type === 'group' && n.id !== draggedNode.id);
+      
+      // Check if node is inside any group
+      let foundGroup: Node | null = null;
+      for (const group of groups) {
+        // For child nodes, we need to calculate absolute position
+        let absolutePos = { ...currentNode.position };
+        if (currentNode.parentId) {
+          const parent = nodes.find(n => n.id === currentNode.parentId);
+          if (parent) {
+            absolutePos = {
+              x: currentNode.position.x + parent.position.x,
+              y: currentNode.position.y + parent.position.y,
+            };
+          }
+        }
+        
+        // Create a temporary node with absolute position for checking
+        const tempNode = { ...currentNode, position: absolutePos };
+        if (isNodeInsideGroup(tempNode, group)) {
+          foundGroup = group;
+          break;
+        }
+      }
+      
+      // Handle entering a group
+      if (foundGroup && currentNode.parentId !== foundGroup.id) {
+        // If currently in a different group, remove from old first
+        if (currentNode.parentId) {
+          removeNodeFromGroup(currentNode.id);
+          // Recalculate after removal
+          const updatedNode = nodes.find(n => n.id === currentNode.id);
+          if (updatedNode) {
+            addNodeToGroup(updatedNode.id, foundGroup.id);
+          }
+        } else {
+          addNodeToGroup(currentNode.id, foundGroup.id);
+        }
+      }
+      // Handle exiting a group - only if explicitly dragged outside
+      else if (!foundGroup && currentNode.parentId) {
+        removeNodeFromGroup(currentNode.id);
+      }
+    }
+    
+    // Resolve collisions (will skip child nodes and groups)
     nodes = resolveCollisions(nodes, { 
       maxIterations: 100, 
       overlapThreshold: 0.5, 
@@ -1023,6 +1147,20 @@
   :global(.svelte-flow__edge.animated .glow-path-inner) {
     stroke-dasharray: none !important;
     animation: none !important;
+  }
+
+  /* Group node (subflow container) styling */
+  :global(.svelte-flow__node-group) {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    /* Ensure proper click detection on the group node */
+    pointer-events: all !important;
+  }
+
+  /* Ensure the group node's content area is clickable */
+  :global(.svelte-flow__node-group > .group-container) {
+    pointer-events: all;
   }
 
   /* Edge markers (arrowheads) */
