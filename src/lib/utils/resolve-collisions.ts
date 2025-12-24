@@ -15,11 +15,16 @@ interface NodeBounds {
   centerX: number;
   centerY: number;
   type?: string;
+  parentId?: string;
 }
 
 /**
  * Resolves overlapping nodes by moving them apart.
  * Uses a naive O(n²) algorithm that works well for typical canvas sizes (<100 nodes).
+ * 
+ * Skips:
+ * - Group nodes (they contain other nodes)
+ * - Child nodes (nodes with parentId - they are part of a subflow)
  */
 export function resolveCollisions<T extends Node>(
   nodes: T[],
@@ -45,6 +50,7 @@ export function resolveCollisions<T extends Node>(
       centerX: node.position.x + width / 2,
       centerY: node.position.y + height / 2,
       type: node.type,
+      parentId: node.parentId,
     });
   }
 
@@ -65,6 +71,9 @@ export function resolveCollisions<T extends Node>(
 
         // Skip collision detection if either node is a group
         if (nodeA.type === 'group' || nodeB.type === 'group') continue;
+        
+        // Skip collision detection if either node has a parent (is inside a subflow)
+        if (nodeA.parentId || nodeB.parentId) continue;
 
         // Check for overlap
         const overlapX = Math.max(0,
@@ -145,6 +154,10 @@ export function resolveCollisions<T extends Node>(
 /**
  * Check if a new node position would overlap with existing nodes.
  * Returns a non-overlapping position by trying right, then down.
+ * 
+ * Skips:
+ * - Group nodes (they contain other nodes)
+ * - Child nodes (nodes with parentId - they are part of a subflow)
  */
 export function findNonOverlappingPosition<T extends Node>(
   newPosition: { x: number; y: number },
@@ -163,6 +176,9 @@ export function findNonOverlappingPosition<T extends Node>(
     for (const node of existingNodes) {
       // Skip collision check for group nodes
       if (node.type === 'group') continue;
+      
+      // Skip collision check for child nodes (nodes inside a subflow)
+      if (node.parentId) continue;
 
       const nodeWidth = node.measured?.width ?? node.width ?? 200;
       const nodeHeight = node.measured?.height ?? node.height ?? 100;
