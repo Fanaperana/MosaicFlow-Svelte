@@ -26,6 +26,11 @@
     interactionWidth,
   }: EdgeProps = $props();
 
+  // Extract label styling from data for reactive updates
+  const labelColor = $derived((data?.labelColor as string) || '#e0e0e0');
+  const labelFontSize = $derived((data?.labelFontSize as number) || 12);
+  const labelBgColor = $derived((data?.labelBgColor as string) || '#1a1d21');
+
   // Get the edge path type from data (default to bezier)
   const pathType = $derived((data?.pathType as string) || 'bezier');
 
@@ -94,7 +99,10 @@
 <!-- Edge label using EdgeLabel for proper positioning -->
 {#if label}
   <EdgeLabel x={labelX} y={labelY} style={labelStyle}>
-    <div class="edge-label-content">
+    <div 
+      class="edge-label-content"
+      style="background: {labelBgColor}; color: {labelColor}; font-size: {labelFontSize}px;"
+    >
       {label}
     </div>
   </EdgeLabel>
@@ -107,11 +115,8 @@
   }
 
   .edge-label-content {
-    background: #1a1d21;
-    padding: 4px 8px;
+    padding: 2px 6px;
     border-radius: 4px;
-    font-size: 12px;
-    color: #e0e0e0;
-    border: 1px solid #333;
+    border: 1px solid #1e1e1e;
   }
 </style>
