@@ -47,6 +47,7 @@ export function getNodeBounds(node: Node): NodeBounds {
 
 /**
  * Calculate snap guides for a dragging node relative to other nodes
+ * Only snaps to sibling nodes (nodes with the same parentId)
  * @param draggingNode The node being dragged
  * @param otherNodes Other nodes to align against
  * @param threshold Distance threshold to show guides (default 5px)
@@ -59,13 +60,22 @@ export function calculateSnapGuides(
 ): SnapGuide[] {
   const guides: SnapGuide[] = [];
   const dragBounds = getNodeBounds(draggingNode);
+  
+  // Get the parent of the dragging node
+  const draggingParentId = draggingNode.parentId;
 
-  // Collect all potential alignment positions from other nodes
+  // Collect all potential alignment positions from sibling nodes only
   const verticalAlignments: { position: number; type: 'left' | 'center' | 'right'; nodeBounds: NodeBounds }[] = [];
   const horizontalAlignments: { position: number; type: 'top' | 'middle' | 'bottom'; nodeBounds: NodeBounds }[] = [];
 
   for (const node of otherNodes) {
     if (node.id === draggingNode.id) continue;
+    
+    // Only consider sibling nodes (same parent) and skip group nodes
+    // If dragging a child node, only snap to other children of the same parent
+    // If dragging a top-level node, only snap to other top-level nodes (exclude children)
+    if (node.parentId !== draggingParentId) continue;
+    if (node.type === 'group') continue;
     
     const bounds = getNodeBounds(node);
     
@@ -165,6 +175,7 @@ export function calculateSnapGuides(
 
 /**
  * Calculate snap guides for multiple dragging nodes (selection)
+ * Only snaps to sibling nodes (nodes with the same parentId as the selection)
  */
 export function calculateSelectionSnapGuides(
   draggingNodes: Node[],
@@ -175,7 +186,20 @@ export function calculateSelectionSnapGuides(
   
   // Get IDs of dragging nodes for exclusion
   const draggingIds = new Set(draggingNodes.map(n => n.id));
-  const otherNodes = allNodes.filter(n => !draggingIds.has(n.id));
+  
+  // Determine the common parent of dragging nodes
+  // If they have different parents, use undefined (treat as mixed)
+  const firstParentId = draggingNodes[0].parentId;
+  const hasCommonParent = draggingNodes.every(n => n.parentId === firstParentId);
+  const commonParentId = hasCommonParent ? firstParentId : undefined;
+  
+  // Filter to only sibling nodes
+  const otherNodes = allNodes.filter(n => {
+    if (draggingIds.has(n.id)) return false;
+    if (n.type === 'group') return false;
+    // Only include nodes with the same parent
+    return n.parentId === commonParentId;
+  });
   
   // Calculate combined bounds of selection
   const selectionBounds = getSelectionBounds(draggingNodes);
@@ -185,6 +209,7 @@ export function calculateSelectionSnapGuides(
     id: '__selection__',
     position: { x: selectionBounds.left, y: selectionBounds.top },
     data: {},
+    parentId: commonParentId, // Preserve parent info for snap guide filtering
     measured: {
       width: selectionBounds.width,
       height: selectionBounds.height,
