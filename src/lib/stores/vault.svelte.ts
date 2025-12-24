@@ -21,6 +21,32 @@ import {
 // App view states
 export type AppView = 'vault-picker' | 'canvas-list' | 'canvas';
 
+/**
+ * Generate a unique canvas name based on existing canvases
+ * Returns "Untitled 1", "Untitled 2", etc.
+ */
+function generateUniqueCanvasName(existingCanvases: CanvasInfo[], baseName: string = 'Untitled'): string {
+  // Extract numbers from existing canvas names that match the pattern "BaseName N"
+  const usedNumbers = new Set<number>();
+  const pattern = new RegExp(`^${baseName}\\s*(\\d+)?$`, 'i');
+  
+  for (const canvas of existingCanvases) {
+    const match = canvas.name.match(pattern);
+    if (match) {
+      const num = match[1] ? parseInt(match[1], 10) : 0;
+      usedNumbers.add(num);
+    }
+  }
+  
+  // Find the next available number starting from 1
+  let nextNum = 1;
+  while (usedNumbers.has(nextNum)) {
+    nextNum++;
+  }
+  
+  return `${baseName} ${nextNum}`;
+}
+
 class VaultStore {
   // Configuration
   private _config = $state<AppConfig>({
@@ -112,8 +138,9 @@ class VaultStore {
           } else if (this.canvases.length > 0) {
             this.appView = 'canvas-list';
           } else {
-            // Create a default canvas
-            const newCanvas = await createCanvasApi(vault.path, vault.id, 'Untitled');
+            // Create a default canvas with unique name
+            const canvasName = generateUniqueCanvasName(this.canvases);
+            const newCanvas = await createCanvasApi(vault.path, vault.id, canvasName);
             if (newCanvas) {
               this.canvases = [newCanvas];
               this.currentCanvas = newCanvas;
@@ -242,8 +269,9 @@ class VaultStore {
           // Show canvas list if multiple canvases
           this.appView = 'canvas-list';
         } else {
-          // Create a default canvas
-          const newCanvas = await createCanvasApi(vault.path, vault.id, 'Untitled');
+          // Create a default canvas with unique name
+          const canvasName = generateUniqueCanvasName(this.canvases);
+          const newCanvas = await createCanvasApi(vault.path, vault.id, canvasName);
           if (newCanvas) {
             this.canvases = [newCanvas];
             this.currentCanvas = newCanvas;
@@ -279,8 +307,9 @@ class VaultStore {
 
   /**
    * Create a new canvas in current vault
+   * Automatically generates a unique name if not provided
    */
-  async createCanvas(name: string = 'Untitled'): Promise<CanvasInfo | null> {
+  async createCanvas(name?: string): Promise<CanvasInfo | null> {
     if (!this.currentVault) {
       this.error = 'No vault open';
       return null;
@@ -290,7 +319,9 @@ class VaultStore {
     this.error = null;
     
     try {
-      const canvas = await createCanvasApi(this.currentVault.path, this.currentVault.id, name);
+      // Generate unique name if not provided or if using default
+      const canvasName = name || generateUniqueCanvasName(this.canvases);
+      const canvas = await createCanvasApi(this.currentVault.path, this.currentVault.id, canvasName);
       
       if (canvas) {
         this.canvases = [...this.canvases, canvas];
@@ -373,8 +404,8 @@ class VaultStore {
           if (this.canvases.length > 0) {
             this.appView = 'canvas-list';
           } else {
-            // Create a new default canvas
-            await this.createCanvas('Untitled');
+            // Create a new default canvas with unique name
+            await this.createCanvas();
           }
         }
         
