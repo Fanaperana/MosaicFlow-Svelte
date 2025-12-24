@@ -1088,10 +1088,65 @@
                 />
               </div>
 
+              <!-- Group Color (Border) -->
+              <div class="input-group">
+                <label class="input-label">Border Color</label>
+                <div class="color-input-row">
+                  <input 
+                    type="color" 
+                    class="color-input"
+                    value={(selectedNode.data as any).groupColor || '#3b82f6'}
+                    oninput={(e) => updateNodeData('groupColor', (e.target as HTMLInputElement).value)}
+                  />
+                  <input 
+                    type="text" 
+                    class="color-text-input"
+                    value={(selectedNode.data as any).groupColor || '#3b82f6'}
+                    oninput={(e) => updateNodeData('groupColor', (e.target as HTMLInputElement).value)}
+                  />
+                </div>
+              </div>
+
+              <!-- Background Color -->
+              <div class="input-group">
+                <label class="input-label">Background Color</label>
+                <div class="color-input-row">
+                  <input 
+                    type="color" 
+                    class="color-input"
+                    value={(selectedNode.data as any).groupBgColor || (selectedNode.data as any).groupColor || '#3b82f6'}
+                    oninput={(e) => updateNodeData('groupBgColor', (e.target as HTMLInputElement).value)}
+                  />
+                  <input 
+                    type="text" 
+                    class="color-text-input"
+                    value={(selectedNode.data as any).groupBgColor || (selectedNode.data as any).groupColor || '#3b82f6'}
+                    oninput={(e) => updateNodeData('groupBgColor', (e.target as HTMLInputElement).value)}
+                  />
+                </div>
+              </div>
+
+              <!-- Background Opacity -->
+              <div class="input-group">
+                <label class="input-label">Background Opacity</label>
+                <div class="slider-row">
+                  <input 
+                    type="range" 
+                    class="slider-input"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={(selectedNode.data as any).groupBgOpacity ?? 0.05}
+                    oninput={(e) => updateNodeData('groupBgOpacity', parseFloat((e.target as HTMLInputElement).value))}
+                  />
+                  <span class="slider-value">{Math.round(((selectedNode.data as any).groupBgOpacity ?? 0.05) * 100)}%</span>
+                </div>
+              </div>
+
               <div class="section-divider"></div>
 
               <!-- Font Settings -->
-              <div class="subsection-header">Font Settings</div>
+              <div class="subsection-header">Label Settings</div>
               
               <div class="input-group">
                 <label class="input-label">Label Color</label>
@@ -1099,13 +1154,13 @@
                   <input 
                     type="color" 
                     class="color-input"
-                    value={(selectedNode.data as any).labelColor || '#c4b5fd'}
+                    value={(selectedNode.data as any).labelColor || (selectedNode.data as any).groupColor || '#3b82f6'}
                     oninput={(e) => updateNodeData('labelColor', (e.target as HTMLInputElement).value)}
                   />
                   <input 
                     type="text" 
                     class="color-text-input"
-                    value={(selectedNode.data as any).labelColor || '#c4b5fd'}
+                    value={(selectedNode.data as any).labelColor || (selectedNode.data as any).groupColor || '#3b82f6'}
                     oninput={(e) => updateNodeData('labelColor', (e.target as HTMLInputElement).value)}
                   />
                 </div>

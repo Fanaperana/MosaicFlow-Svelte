@@ -182,6 +182,8 @@ export interface GroupNodeData extends BaseNodeData {
   collapsed?: boolean;
   // Group styling
   groupColor?: string;
+  groupBgColor?: string;
+  groupBgOpacity?: number;
   description?: string;
 }
 
