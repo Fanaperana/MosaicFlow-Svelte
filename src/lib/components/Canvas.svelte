@@ -1014,8 +1014,9 @@
     fill: currentColor !important;
   }
 
+  /* Removed !important to allow inline styles to override */
   :global(.svelte-flow__edge-path) {
-    stroke: #555555 !important;
+    stroke: #555555;
   }
 
   /* Prevent animation on glow paths inside animated edges */

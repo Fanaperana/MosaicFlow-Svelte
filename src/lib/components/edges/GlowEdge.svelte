@@ -6,7 +6,7 @@
   Supports all edge path types: bezier, straight, step, smoothstep
 -->
 <script lang="ts">
-  import { BaseEdge, getBezierPath, getStraightPath, getSmoothStepPath, type EdgeProps } from '@xyflow/svelte';
+  import { BaseEdge, EdgeLabel, getBezierPath, getStraightPath, getSmoothStepPath, type EdgeProps } from '@xyflow/svelte';
 
   let {
     id,
@@ -21,35 +21,47 @@
     markerEnd,
     selected,
     data,
+    label,
+    labelStyle,
+    interactionWidth,
   }: EdgeProps = $props();
 
   // Get the edge path type from data (default to bezier)
   const pathType = $derived((data?.pathType as string) || 'bezier');
 
-  // Calculate the path based on type
-  const pathData = $derived(() => {
-    const commonParams = {
-      sourceX,
-      sourceY,
-      sourcePosition,
-      targetX,
-      targetY,
-      targetPosition,
-    };
+  // Calculate the path and label position based on type
+  const commonParams = $derived({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+  });
 
+  // Get path data based on path type - returns [path, labelX, labelY, offsetX, offsetY]
+  const bezierResult = $derived(getBezierPath(commonParams));
+  const straightResult = $derived(getStraightPath(commonParams));
+  const stepResult = $derived(getSmoothStepPath({ ...commonParams, borderRadius: 0 }));
+  const smoothStepResult = $derived(getSmoothStepPath({ ...commonParams, borderRadius: 8 }));
+
+  // Select the appropriate result based on path type
+  const pathResult = $derived.by(() => {
     switch (pathType) {
       case 'straight':
-        return getStraightPath(commonParams);
+        return straightResult;
       case 'step':
-        return getSmoothStepPath({ ...commonParams, borderRadius: 0 });
+        return stepResult;
       case 'smoothstep':
-        return getSmoothStepPath({ ...commonParams, borderRadius: 8 });
+        return smoothStepResult;
       default: // bezier
-        return getBezierPath(commonParams);
+        return bezierResult;
     }
   });
 
-  const edgePath = $derived(pathData()[0]);
+  const edgePath = $derived(pathResult[0]);
+  const labelX = $derived(pathResult[1]);
+  const labelY = $derived(pathResult[2]);
   
   // Get edge properties from data
   const strokeWidth = $derived((data?.strokeWidth as number) || 2);
@@ -75,12 +87,31 @@
     {style}
     {markerStart}
     {markerEnd}
+    {interactionWidth}
   />
 </g>
+
+<!-- Edge label using EdgeLabel for proper positioning -->
+{#if label}
+  <EdgeLabel x={labelX} y={labelY} style={labelStyle}>
+    <div class="edge-label-content">
+      {label}
+    </div>
+  </EdgeLabel>
+{/if}
 
 <style>
   .glow-edge .glow-path-inner {
     filter: blur(2px);
     pointer-events: none;
+  }
+
+  .edge-label-content {
+    background: #1a1d21;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #e0e0e0;
+    border: 1px solid #333;
   }
 </style>

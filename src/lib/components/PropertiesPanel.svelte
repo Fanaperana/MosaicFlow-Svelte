@@ -66,6 +66,11 @@
 
   function updateEdge(updates: Partial<MosaicEdge>) {
     if (selectedEdge) {
+      // Dispatch event to FlowHelper for immediate SvelteFlow update
+      window.dispatchEvent(new CustomEvent('mosaicflow:updateEdge', {
+        detail: { id: selectedEdge.id, updates }
+      }));
+      // Also update workspace store for persistence
       workspace.updateEdge(selectedEdge.id, updates);
     }
   }
@@ -73,9 +78,14 @@
   function updateEdgeData(key: string, value: unknown) {
     if (selectedEdge) {
       const currentData = selectedEdge.data || {};
-      workspace.updateEdge(selectedEdge.id, { 
-        data: { ...currentData, [key]: value } 
-      });
+      const newData = { ...currentData, [key]: value };
+      
+      // Dispatch event to FlowHelper for immediate SvelteFlow update
+      window.dispatchEvent(new CustomEvent('mosaicflow:updateEdge', {
+        detail: { id: selectedEdge.id, updates: { data: newData } }
+      }));
+      // Also update workspace store for persistence
+      workspace.updateEdge(selectedEdge.id, { data: newData });
     }
   }
 
@@ -102,11 +112,34 @@
   function applyMarkers(startMarker: MarkerShape, endMarker: MarkerShape) {
     if (selectedEdge) {
       const color = selectedEdge.data?.color || '#555555';
+      // When marker is 'none', we must explicitly pass undefined to remove it
+      // But Svelte Flow might need null or a specific way to clear it
+      // Let's try passing undefined which is what getMarkerConfig returns for 'none'
       const markerStart = getMarkerConfig(startMarker, color);
       const markerEnd = getMarkerConfig(endMarker, color);
       
-      // Use updateEdgeWithRefresh for immediate visual update
-      workspace.updateEdgeWithRefresh(selectedEdge.id, { markerStart, markerEnd });
+      // Dispatch event to FlowHelper for immediate SvelteFlow update
+      // We need to ensure we're passing the correct structure for Svelte Flow
+      window.dispatchEvent(new CustomEvent('mosaicflow:updateEdge', {
+        detail: { 
+          id: selectedEdge.id, 
+          updates: { 
+            markerStart: markerStart || null, // Try null instead of undefined for clearing
+            markerEnd: markerEnd || null 
+          } 
+        }
+      }));
+      
+      // Also update workspace store for persistence (includes data)
+      workspace.updateEdge(selectedEdge.id, { 
+        markerStart, 
+        markerEnd,
+        data: {
+          ...selectedEdge.data,
+          markerStart: startMarker,
+          markerEnd: endMarker,
+        }
+      });
     }
   }
 
@@ -157,18 +190,44 @@
     const width = updates.strokeWidth ?? selectedEdge.data?.strokeWidth ?? 2;
     const strokeStyle = updates.strokeStyle ?? selectedEdge.data?.strokeStyle ?? 'solid';
     
-    // Update data fields
-    if (updates.color !== undefined) updateEdgeData('color', color);
-    if (updates.strokeWidth !== undefined) updateEdgeData('strokeWidth', width);
-    if (updates.strokeStyle !== undefined) updateEdgeData('strokeStyle', strokeStyle);
+    // Build updated data
+    const newData = {
+      ...selectedEdge.data,
+      color,
+      strokeWidth: width,
+      strokeStyle,
+    };
     
-    // Update style string
-    updateEdge({ style: getEdgeStyleString(color, width, strokeStyle) });
+    const styleString = getEdgeStyleString(color, width, strokeStyle);
     
-    // Update marker colors if needed
+    // Build markers with new color if color changed
+    let markerStart = selectedEdge.markerStart;
+    let markerEnd = selectedEdge.markerEnd;
+    
     if (updates.color !== undefined) {
-      applyMarkers(selectedEdge.data?.markerStart || 'none', selectedEdge.data?.markerEnd || 'none');
+      markerStart = getMarkerConfig(selectedEdge.data?.markerStart || 'none', color);
+      markerEnd = getMarkerConfig(selectedEdge.data?.markerEnd || 'none', color);
     }
+    
+    // Dispatch event to FlowHelper for immediate SvelteFlow update
+    window.dispatchEvent(new CustomEvent('mosaicflow:updateEdge', {
+      detail: { 
+        id: selectedEdge.id, 
+        updates: { 
+          style: styleString, 
+          markerStart: markerStart || null, 
+          markerEnd: markerEnd || null 
+        } 
+      }
+    }));
+    
+    // Update workspace store for persistence
+    workspace.updateEdge(selectedEdge.id, {
+      style: styleString,
+      data: newData,
+      markerStart,
+      markerEnd,
+    });
   }
 </script>
 
@@ -252,7 +311,6 @@
             value={selectedEdge.data?.markerStart || 'none'}
             onchange={(e) => {
               const value = (e.target as HTMLSelectElement).value as 'none' | 'arrow' | 'arrowclosed';
-              updateEdgeData('markerStart', value);
               applyMarkers(value, selectedEdge.data?.markerEnd || 'none');
             }}
           >
@@ -268,7 +326,6 @@
             value={selectedEdge.data?.markerEnd || 'none'}
             onchange={(e) => {
               const value = (e.target as HTMLSelectElement).value as 'none' | 'arrow' | 'arrowclosed';
-              updateEdgeData('markerEnd', value);
               applyMarkers(selectedEdge.data?.markerStart || 'none', value);
             }}
           >
