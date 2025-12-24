@@ -80,6 +80,38 @@ class WorkspaceStore {
   private undoStack: Array<{ nodes: MosaicNode[]; edges: MosaicEdge[] }> = [];
   private redoStack: Array<{ nodes: MosaicNode[]; edges: MosaicEdge[] }> = [];
 
+  /**
+   * Reorder nodes so that parent nodes come before their children.
+   * This is required for SvelteFlow subflows to work correctly.
+   */
+  private reorderNodesForSubflows(nodes: MosaicNode[]): MosaicNode[] {
+    // Separate parent nodes (groups) and other nodes
+    const parentNodes = nodes.filter(n => n.type === 'group');
+    const childNodes = nodes.filter(n => n.parentId);
+    const regularNodes = nodes.filter(n => n.type !== 'group' && !n.parentId);
+    
+    // Order: parent nodes first, then regular nodes, then child nodes
+    // Child nodes should come after their parent
+    const orderedNodes: MosaicNode[] = [];
+    
+    // Add parent nodes first
+    for (const parent of parentNodes) {
+      orderedNodes.push(parent);
+      // Add children of this parent immediately after
+      const children = childNodes.filter(n => n.parentId === parent.id);
+      orderedNodes.push(...children);
+    }
+    
+    // Add orphaned child nodes (parent was deleted but child still has parentId)
+    const orphanedChildren = childNodes.filter(n => !parentNodes.some(p => p.id === n.parentId));
+    orderedNodes.push(...orphanedChildren);
+    
+    // Add regular nodes
+    orderedNodes.push(...regularNodes);
+    
+    return orderedNodes;
+  }
+
   // Create a new node
   createNode(type: NodeType, position: { x: number; y: number }, data?: Partial<MosaicNodeData>): MosaicNode {
     const id = uuidv4();
@@ -214,6 +246,8 @@ class WorkspaceStore {
   // Update a node
   updateNode(id: string, updates: Partial<MosaicNode>) {
     let updatedNode: MosaicNode | null = null;
+    const parentIdChanged = updates.parentId !== undefined;
+    
     this.nodes = this.nodes.map(node => {
       if (node.id === id) {
         updatedNode = { ...node, ...updates };
@@ -221,6 +255,11 @@ class WorkspaceStore {
       }
       return node;
     });
+    
+    // If parentId changed, reorder nodes to maintain proper subflow ordering
+    if (parentIdChanged) {
+      this.nodes = this.reorderNodesForSubflows(this.nodes);
+    }
     
     // Save node properties to file (debounced)
     if (this.workspacePath && updatedNode) {
@@ -444,7 +483,7 @@ class WorkspaceStore {
     groupNode.height = maxY - minY;
     
     // Update nodes to be children of group (set parentId)
-    this.nodes = this.nodes.map(node => {
+    let updatedNodes = this.nodes.map(node => {
       if (this.selectedNodeIds.includes(node.id)) {
         return {
           ...node,
@@ -454,7 +493,7 @@ class WorkspaceStore {
             y: node.position.y - minY,
           },
           expandParent: true,
-          extent: 'parent', // Default to contained within parent
+          extent: 'parent' as const, // Constrain within parent bounds
         };
       }
       if (node.id === groupNode.id) {
@@ -462,6 +501,9 @@ class WorkspaceStore {
       }
       return node;
     });
+    
+    // Reorder nodes so parent comes before children (required for SvelteFlow subflows)
+    this.nodes = this.reorderNodesForSubflows(updatedNodes);
 
     // Clear selection and select the group
     this.setSelectedNodes([groupNode.id]);
@@ -619,10 +661,13 @@ class WorkspaceStore {
       .filter(n => !nodes.find(newN => newN.id === n.id))
       .map(n => n.id);
     
-    this.nodes = nodes.map(node => ({
+    const processedNodes = nodes.map(node => ({
       ...node,
       zIndex: node.type === 'group' ? -1 : 1
     }));
+    
+    // Reorder nodes so parent nodes come before children (required for SvelteFlow subflows)
+    this.nodes = this.reorderNodesForSubflows(processedNodes);
     
     // Save changes to files if we have a workspace path
     if (this.workspacePath) {
@@ -755,10 +800,13 @@ class WorkspaceStore {
     }
     
     // Convert nodes and edges from Record to array
-    this.nodes = Object.values(data.nodes || {}).map(node => ({
+    const loadedNodes = Object.values(data.nodes || {}).map(node => ({
       ...node,
       zIndex: node.type === 'group' ? -1 : 1
-    }));
+    })) as MosaicNode[];
+    
+    // Reorder nodes so parent nodes come before children (required for SvelteFlow subflows)
+    this.nodes = this.reorderNodesForSubflows(loadedNodes);
     this.edges = Object.values(data.edges || []);
     
     this.isModified = false;
@@ -766,9 +814,9 @@ class WorkspaceStore {
 
   // Load UI state
   loadUIState(state: UIState) {
-    this.viewport = state.viewport;
-    this.selectedNodeIds = state.selectedNodeIds;
-    this.selectedEdgeIds = state.selectedEdgeIds;
+    this.viewport = state.viewport ?? DEFAULT_VIEWPORT;
+    this.selectedNodeIds = state.selectedNodeIds ?? [];
+    this.selectedEdgeIds = state.selectedEdgeIds ?? [];
     
     // Update node positions from state
     this.nodes = this.nodes.map(node => {
