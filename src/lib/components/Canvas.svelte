@@ -282,7 +282,33 @@
 
   // Handle selection changes
   function handleSelectionChange(params: { nodes: Node[]; edges: Edge[] }) {
-    workspace.setSelectedNodes(params.nodes.map(n => n.id));
+    // Get the selected nodes from the event
+    let selectedNodes = params.nodes;
+    
+    // Fix for issue: clicking on a single node shouldn't accidentally select child nodes inside groups
+    // This can happen due to overlapping bounds or z-index issues with subflows
+    if (selectedNodes.length > 1) {
+      // Check if we have a mix of root nodes and child nodes
+      const hasRootNodes = selectedNodes.some(n => !n.parentId);
+      const hasChildNodes = selectedNodes.some(n => n.parentId);
+      
+      if (hasRootNodes && hasChildNodes) {
+        // Mixed selection - this could be intentional (box selection) or not (click overlap)
+        // If a group is selected along with its children, that's likely intentional
+        const selectedGroupIds = new Set(selectedNodes.filter(n => n.type === 'group').map(n => n.id));
+        const childrenOfSelectedGroups = selectedNodes.filter(n => n.parentId && selectedGroupIds.has(n.parentId));
+        const orphanChildren = selectedNodes.filter(n => n.parentId && !selectedGroupIds.has(n.parentId));
+        
+        if (orphanChildren.length > 0 && !selectedNodes.some(n => n.type === 'group')) {
+          // We have child nodes selected but their parent group is NOT selected
+          // This is likely unintended (click on root node accidentally selecting children)
+          // Keep only root nodes
+          selectedNodes = selectedNodes.filter(n => !n.parentId);
+        }
+      }
+    }
+    
+    workspace.setSelectedNodes(selectedNodes.map(n => n.id));
     workspace.setSelectedEdges(params.edges.map(e => e.id));
   }
 
@@ -446,12 +472,20 @@
   // Handle node drag - calculate snap alignment guides
   function handleNodeDrag(event: { targetNode: Node | null; nodes: Node[]; event: MouseEvent | TouchEvent }) {
     // Get the nodes being dragged
-    const draggingNodes = event.nodes.length > 0 ? event.nodes : (event.targetNode ? [event.targetNode] : []);
+    const eventDraggingNodes = event.nodes.length > 0 ? event.nodes : (event.targetNode ? [event.targetNode] : []);
     
-    if (draggingNodes.length === 0) {
+    if (eventDraggingNodes.length === 0) {
       snapGuides = [];
       return;
     }
+    
+    // Look up the full node data from our local nodes array to ensure we have correct parentId
+    // The event nodes may not have all properties correctly set
+    const draggingNodes = eventDraggingNodes.map(eventNode => {
+      const fullNode = nodes.find(n => n.id === eventNode.id);
+      // Merge event node position (which is current during drag) with full node data
+      return fullNode ? { ...fullNode, position: eventNode.position } : eventNode;
+    });
     
     // Calculate guides based on single or multiple nodes being dragged
     if (draggingNodes.length === 1) {
