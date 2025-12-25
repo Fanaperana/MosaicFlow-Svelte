@@ -16,10 +16,12 @@
   
   let { onClose }: Props = $props();
 
-  // Accordion states
+  // Accordion states for PropertyGroup
+  let generalOpen = $state(true);
   let nodeSettingsOpen = $state(false);
   let appearanceOpen = $state(true);
   let optionsOpen = $state(true);
+  let actionsOpen = $state(true);
 
   let selectedNode = $derived(
     workspace.selectedNodeIds.length === 1
@@ -441,9 +443,7 @@
       </div>
 
       <!-- General Section -->
-      <div class="section">
-        <div class="section-header">General</div>
-        
+      <PropertyGroup title="General" bind:open={generalOpen}>
         <div class="field">
           <label>Title</label>
           <input 
@@ -462,663 +462,585 @@
             class="readonly"
           />
         </div>
-      </div>
+      </PropertyGroup>
 
-      <!-- Appearance Section (Accordion) -->
-      <div class="section accordion">
-        <button class="accordion-header" onclick={() => appearanceOpen = !appearanceOpen}>
-          {#if appearanceOpen}
-            <ChevronDown size={14} />
-          {:else}
-            <ChevronRight size={14} />
+      <!-- Appearance Section -->
+      <PropertyGroup title="Appearance" bind:open={appearanceOpen}>
+        <!-- Notion-like Color Toolbar -->
+        <div class="notion-toolbar">
+          <div class="toolbar-group" title="Background color">
+            <span class="toolbar-label">BG</span>
+            <ColorInput 
+              value={selectedNode.data.color || (selectedNode.type === 'group' ? 'rgba(59, 130, 246, 0.05)' : '#1e1e1e')}
+              onchange={(color) => updateNodeData('color', color)}
+              size="sm"
+            />
+          </div>
+          <div class="toolbar-divider"></div>
+          <div class="toolbar-group" title="Border color">
+            <Square size={14} />
+            <ColorInput 
+              value={selectedNode.data.borderColor || (selectedNode.type === 'group' ? '#3b82f6' : '#333333')}
+              onchange={(color) => updateNodeData('borderColor', color)}
+              size="sm"
+            />
+          </div>
+          {#if selectedNode.type === 'group'}
+          <div class="toolbar-divider"></div>
+          <div class="toolbar-group" title="Label text color">
+            <Type size={14} />
+            <ColorInput 
+              value={(selectedNode.data as any).labelColor || selectedNode.data.borderColor || '#3b82f6'}
+              onchange={(color) => updateNodeData('labelColor', color)}
+              size="sm"
+            />
+          </div>
+          {:else if selectedNode.type !== 'image' && selectedNode.type !== 'annotation'}
+          <div class="toolbar-divider"></div>
+          <div class="toolbar-group" title="Text color">
+            <Type size={14} />
+            <ColorInput 
+              value={selectedNode.data.textColor || '#e0e0e0'}
+              onchange={(color) => updateNodeData('textColor', color)}
+              size="sm"
+            />
+          </div>
           {/if}
-          <span>Appearance</span>
-        </button>
-        
-        {#if appearanceOpen}
-          <div class="accordion-content">
-            <!-- Notion-like Color Toolbar -->
-            <div class="notion-toolbar">
-              <div class="toolbar-group" title="Background color">
-                <span class="toolbar-label">BG</span>
-                <ColorInput 
-                  value={selectedNode.data.color || (selectedNode.type === 'group' ? 'rgba(59, 130, 246, 0.05)' : '#1e1e1e')}
-                  onchange={(color) => updateNodeData('color', color)}
-                  size="sm"
-                />
-              </div>
-              <div class="toolbar-divider"></div>
-              <div class="toolbar-group" title="Border color">
-                <Square size={14} />
-                <ColorInput 
-                  value={selectedNode.data.borderColor || (selectedNode.type === 'group' ? '#3b82f6' : '#333333')}
-                  onchange={(color) => updateNodeData('borderColor', color)}
-                  size="sm"
-                />
-              </div>
-              {#if selectedNode.type === 'group'}
-              <div class="toolbar-divider"></div>
-              <div class="toolbar-group" title="Label text color">
-                <Type size={14} />
-                <ColorInput 
-                  value={(selectedNode.data as any).labelColor || selectedNode.data.borderColor || '#3b82f6'}
-                  onchange={(color) => updateNodeData('labelColor', color)}
-                  size="sm"
-                />
-              </div>
-              {:else if selectedNode.type !== 'image' && selectedNode.type !== 'annotation'}
-              <div class="toolbar-divider"></div>
-              <div class="toolbar-group" title="Text color">
-                <Type size={14} />
-                <ColorInput 
-                  value={selectedNode.data.textColor || '#e0e0e0'}
-                  onchange={(color) => updateNodeData('textColor', color)}
-                  size="sm"
-                />
-              </div>
-              {/if}
-            </div>
+        </div>
 
-            <!-- Border Settings Toolbar -->
-            <div class="notion-toolbar">
-              <div class="toolbar-group compact" title="Border width (0-10px)">
-                <span class="toolbar-label">W</span>
-                <input 
-                  type="number" 
-                  class="toolbar-input"
-                  value={(selectedNode.data.borderWidth as number) ?? 1}
-                  oninput={(e) => updateNodeData('borderWidth', parseInt((e.target as HTMLInputElement).value) || 1)}
-                  min="0"
-                  max="10"
-                />
-              </div>
-              <div class="toolbar-divider"></div>
-              <div class="toolbar-group compact" title="Border radius (0-50px)">
-                <SquareRoundCorner size={14} />
-                <input 
-                  type="number" 
-                  class="toolbar-input"
-                  value={(selectedNode.data.borderRadius as number) ?? 4}
-                  oninput={(e) => updateNodeData('borderRadius', parseInt((e.target as HTMLInputElement).value) || 0)}
-                  min="0"
-                  max="50"
-                />
-              </div>
-              <div class="toolbar-divider"></div>
-              <div class="toolbar-group" title="Border style">
-                <select 
-                  class="toolbar-select"
-                  value={(selectedNode.data.borderStyle as string) || 'solid'}
-                  onchange={(e) => updateNodeData('borderStyle', (e.target as HTMLSelectElement).value)}
-                >
-                  <option value="solid">━</option>
-                  <option value="dashed">┅</option>
-                  <option value="dotted">┈</option>
-                  <option value="none">✕</option>
-                </select>
-              </div>
-            </div>
+        <!-- Border Settings Toolbar -->
+        <div class="notion-toolbar">
+          <div class="toolbar-group compact" title="Border width (0-10px)">
+            <span class="toolbar-label">W</span>
+            <input 
+              type="number" 
+              class="toolbar-input"
+              value={(selectedNode.data.borderWidth as number) ?? 1}
+              oninput={(e) => updateNodeData('borderWidth', parseInt((e.target as HTMLInputElement).value) || 1)}
+              min="0"
+              max="10"
+            />
+          </div>
+          <div class="toolbar-divider"></div>
+          <div class="toolbar-group compact" title="Border radius (0-50px)">
+            <SquareRoundCorner size={14} />
+            <input 
+              type="number" 
+              class="toolbar-input"
+              value={(selectedNode.data.borderRadius as number) ?? 4}
+              oninput={(e) => updateNodeData('borderRadius', parseInt((e.target as HTMLInputElement).value) || 0)}
+              min="0"
+              max="50"
+            />
+          </div>
+          <div class="toolbar-divider"></div>
+          <div class="toolbar-group" title="Border style">
+            <select 
+              class="toolbar-select"
+              value={(selectedNode.data.borderStyle as string) || 'solid'}
+              onchange={(e) => updateNodeData('borderStyle', (e.target as HTMLSelectElement).value)}
+            >
+              <option value="solid">━</option>
+              <option value="dashed">┅</option>
+              <option value="dotted">┈</option>
+              <option value="none">✕</option>
+            </select>
+          </div>
+        </div>
 
-            {#if selectedNode.parentId}
-              <label class="checkbox-row">
-                <input 
-                  type="checkbox" 
-                  checked={selectedNode.extent === 'parent'}
-                  onchange={(e) => updateNodeExtent((e.target as HTMLInputElement).checked)}
-                />
-                <span>Contain within Group</span>
-              </label>
-            {/if}
+        {#if selectedNode.parentId}
+          <label class="checkbox-row">
+            <input 
+              type="checkbox" 
+              checked={selectedNode.extent === 'parent'}
+              onchange={(e) => updateNodeExtent((e.target as HTMLInputElement).checked)}
+            />
+            <span>Contain within Group</span>
+          </label>
+        {/if}
 
-            <label class="checkbox-row">
+        <label class="checkbox-row">
+          <input 
+            type="checkbox" 
+            checked={selectedNode.data.showHeader ?? false}
+            onchange={(e) => updateNodeData('showHeader', (e.target as HTMLInputElement).checked)}
+          />
+          <span>Show Header</span>
+        </label>
+      </PropertyGroup>
+
+      <!-- Layout & Position Section -->
+      <PropertyGroup title="Layout" bind:open={nodeSettingsOpen}>
+        <div class="field-with-lock">
+          <div class="field-row">
+            <div class="field">
+              <label class="muted">X</label>
               <input 
-                type="checkbox" 
-                checked={selectedNode.data.showHeader ?? false}
-                onchange={(e) => updateNodeData('showHeader', (e.target as HTMLInputElement).checked)}
+                type="number" 
+                value={Math.round(selectedNode.position.x)}
+                oninput={(e) => updateNodePosition('x', parseInt((e.target as HTMLInputElement).value))}
+                disabled={selectedNode.data.locked}
               />
-              <span>Show Header</span>
-            </label>
-          </div>
-        {/if}
-      </div>
-
-      <!-- Node Settings Section (Accordion) -->
-      <div class="section accordion">
-        <button class="accordion-header" onclick={() => nodeSettingsOpen = !nodeSettingsOpen}>
-          {#if nodeSettingsOpen}
-            <ChevronDown size={14} />
-          {:else}
-            <ChevronRight size={14} />
-          {/if}
-          <span>Node Settings</span>
-        </button>
-        
-        {#if nodeSettingsOpen}
-          <div class="accordion-content">
-            <div class="field-with-lock">
-              <div class="field-row">
-                <div class="field">
-                  <label class="muted">X</label>
-                  <input 
-                    type="number" 
-                    value={Math.round(selectedNode.position.x)}
-                    oninput={(e) => updateNodePosition('x', parseInt((e.target as HTMLInputElement).value))}
-                    disabled={selectedNode.data.locked}
-                  />
-                </div>
-                <div class="field">
-                  <label class="muted">Y</label>
-                  <input 
-                    type="number" 
-                    value={Math.round(selectedNode.position.y)}
-                    oninput={(e) => updateNodePosition('y', parseInt((e.target as HTMLInputElement).value))}
-                    disabled={selectedNode.data.locked}
-                  />
-                </div>
-              </div>
-              <button 
-                class="lock-btn" 
-                onclick={() => updateNodeData('locked', !selectedNode.data.locked)}
-                title={selectedNode.data.locked ? 'Unlock position' : 'Lock position'}
-              >
-                {#if selectedNode.data.locked}
-                  <Lock size={14} />
-                {:else}
-                  <Unlock size={14} />
-                {/if}
-              </button>
             </div>
-
-            <div class="field-with-lock">
-              <div class="field-row">
-                <div class="field">
-                  <label class="muted">Width</label>
-                  <input 
-                    type="number" 
-                    value={selectedNode.width || 200}
-                    oninput={(e) => updateNodeSize('width', parseInt((e.target as HTMLInputElement).value))}
-                    disabled={selectedNode.data.sizeLocked}
-                    min="50"
-                  />
-                </div>
-                <div class="field">
-                  <label class="muted">Height</label>
-                  <input 
-                    type="number" 
-                    value={selectedNode.height || 100}
-                    oninput={(e) => updateNodeSize('height', parseInt((e.target as HTMLInputElement).value))}
-                    disabled={selectedNode.data.sizeLocked}
-                    min="50"
-                  />
-                </div>
-              </div>
-              <button 
-                class="lock-btn" 
-                onclick={() => updateNodeData('sizeLocked', !selectedNode.data.sizeLocked)}
-                title={selectedNode.data.sizeLocked ? 'Unlock size' : 'Lock size'}
-              >
-                {#if selectedNode.data.sizeLocked}
-                  <Lock size={14} />
-                {:else}
-                  <Unlock size={14} />
-                {/if}
-              </button>
+            <div class="field">
+              <label class="muted">Y</label>
+              <input 
+                type="number" 
+                value={Math.round(selectedNode.position.y)}
+                oninput={(e) => updateNodePosition('y', parseInt((e.target as HTMLInputElement).value))}
+                disabled={selectedNode.data.locked}
+              />
             </div>
           </div>
-        {/if}
-      </div>
+          <button 
+            class="lock-btn" 
+            onclick={() => updateNodeData('locked', !selectedNode.data.locked)}
+            title={selectedNode.data.locked ? 'Unlock position' : 'Lock position'}
+          >
+            {#if selectedNode.data.locked}
+              <Lock size={14} />
+            {:else}
+              <Unlock size={14} />
+            {/if}
+          </button>
+        </div>
+
+        <div class="field-with-lock">
+          <div class="field-row">
+            <div class="field">
+              <label class="muted">Width</label>
+              <input 
+                type="number" 
+                value={selectedNode.width || 200}
+                oninput={(e) => updateNodeSize('width', parseInt((e.target as HTMLInputElement).value))}
+                disabled={selectedNode.data.sizeLocked}
+                min="50"
+              />
+            </div>
+            <div class="field">
+              <label class="muted">Height</label>
+              <input 
+                type="number" 
+                value={selectedNode.height || 100}
+                oninput={(e) => updateNodeSize('height', parseInt((e.target as HTMLInputElement).value))}
+                disabled={selectedNode.data.sizeLocked}
+                min="50"
+              />
+            </div>
+          </div>
+          <button 
+            class="lock-btn" 
+            onclick={() => updateNodeData('sizeLocked', !selectedNode.data.sizeLocked)}
+            title={selectedNode.data.sizeLocked ? 'Unlock size' : 'Lock size'}
+          >
+            {#if selectedNode.data.sizeLocked}
+              <Lock size={14} />
+            {:else}
+              <Unlock size={14} />
+            {/if}
+          </button>
+        </div>
+      </PropertyGroup>
 
       <!-- Note-specific Options -->
       {#if selectedNode.type === 'note'}
-        <div class="section accordion">
-          <button class="accordion-header" onclick={() => optionsOpen = !optionsOpen}>
-            {#if optionsOpen}
-              <ChevronDown size={14} />
-            {:else}
-              <ChevronRight size={14} />
-            {/if}
-            <span>Note Options</span>
-          </button>
-          
-          {#if optionsOpen}
-            <div class="accordion-content">
-              <div class="field">
-                <label>Mode</label>
-                <div class="mode-toggle">
-                  <button 
-                    class="mode-btn" 
-                    class:active={(selectedNode.data as any).viewMode !== 'view'}
-                    onclick={() => updateNodeData('viewMode', 'edit')}
-                  >
-                    <Pencil size={14} />
-                    <span>Edit</span>
-                  </button>
-                  <button 
-                    class="mode-btn"
-                    class:active={(selectedNode.data as any).viewMode === 'view'}
-                    onclick={() => updateNodeData('viewMode', 'view')}
-                  >
-                    <Eye size={14} />
-                    <span>View</span>
-                  </button>
-                </div>
-              </div>
+        <PropertyGroup title="Note Options" bind:open={optionsOpen}>
+          <div class="field">
+            <label>Mode</label>
+            <div class="mode-toggle">
+              <button 
+                class="mode-btn" 
+                class:active={(selectedNode.data as any).viewMode !== 'view'}
+                onclick={() => updateNodeData('viewMode', 'edit')}
+              >
+                <Pencil size={14} />
+                <span>Edit</span>
+              </button>
+              <button 
+                class="mode-btn"
+                class:active={(selectedNode.data as any).viewMode === 'view'}
+                onclick={() => updateNodeData('viewMode', 'view')}
+              >
+                <Eye size={14} />
+                <span>View</span>
+              </button>
             </div>
-          {/if}
-        </div>
+          </div>
+        </PropertyGroup>
       {/if}
 
       <!-- Timestamp-specific Options -->
       {#if selectedNode.type === 'timestamp'}
-        <div class="section accordion">
-          <button class="accordion-header" onclick={() => optionsOpen = !optionsOpen}>
-            {#if optionsOpen}
-              <ChevronDown size={14} />
-            {:else}
-              <ChevronRight size={14} />
+        <PropertyGroup title="Display Options" bind:open={optionsOpen}>
+          <!-- Custom Timestamp Picker -->
+          <div class="input-group">
+            <label class="input-label">Custom Date/Time</label>
+            <input 
+              type="datetime-local" 
+              class="datetime-input nodrag"
+              value={(selectedNode.data as any).customTimestamp ? new Date((selectedNode.data as any).customTimestamp).toISOString().slice(0, 16) : ''}
+              onchange={(e) => {
+                const value = (e.target as HTMLInputElement).value;
+                updateNodeData('customTimestamp', value ? new Date(value).toISOString() : null);
+              }}
+            />
+            <span class="input-hint">Leave empty for live time</span>
+            {#if (selectedNode.data as any).customTimestamp}
+              <button 
+                class="clear-btn"
+                onclick={() => updateNodeData('customTimestamp', null)}
+              >
+                Use Live Time
+              </button>
             {/if}
-            <span>Display Options</span>
-          </button>
-          
-          {#if optionsOpen}
-            <div class="accordion-content">
-              <!-- Custom Timestamp Picker -->
-              <div class="input-group">
-                <label class="input-label">Custom Date/Time</label>
-                <input 
-                  type="datetime-local" 
-                  class="datetime-input nodrag"
-                  value={(selectedNode.data as any).customTimestamp ? new Date((selectedNode.data as any).customTimestamp).toISOString().slice(0, 16) : ''}
-                  onchange={(e) => {
-                    const value = (e.target as HTMLInputElement).value;
-                    updateNodeData('customTimestamp', value ? new Date(value).toISOString() : null);
-                  }}
-                />
-                <span class="input-hint">Leave empty for live time</span>
-                {#if (selectedNode.data as any).customTimestamp}
-                  <button 
-                    class="clear-btn"
-                    onclick={() => updateNodeData('customTimestamp', null)}
-                  >
-                    Use Live Time
-                  </button>
-                {/if}
-              </div>
+          </div>
 
-              <div class="section-divider"></div>
+          <div class="section-divider"></div>
 
-              <label class="checkbox-row">
-                <input 
-                  type="checkbox" 
-                  checked={(selectedNode.data as any).showHeader ?? false}
-                  onchange={(e) => updateNodeData('showHeader', (e.target as HTMLInputElement).checked)}
-                />
-                <span>Show Title</span>
-              </label>
+          <label class="checkbox-row">
+            <input 
+              type="checkbox" 
+              checked={(selectedNode.data as any).showHeader ?? false}
+              onchange={(e) => updateNodeData('showHeader', (e.target as HTMLInputElement).checked)}
+            />
+            <span>Show Title</span>
+          </label>
 
-              <label class="checkbox-row">
-                <input 
-                  type="checkbox" 
-                  checked={(selectedNode.data as any).multiLine ?? false}
-                  onchange={(e) => updateNodeData('multiLine', (e.target as HTMLInputElement).checked)}
-                />
-                <span>Multi-line Display</span>
-              </label>
+          <label class="checkbox-row">
+            <input 
+              type="checkbox" 
+              checked={(selectedNode.data as any).multiLine ?? false}
+              onchange={(e) => updateNodeData('multiLine', (e.target as HTMLInputElement).checked)}
+            />
+            <span>Multi-line Display</span>
+          </label>
 
-              <div class="section-divider"></div>
+          <div class="section-divider"></div>
 
-              <div class="checkbox-group">
-                <label class="checkbox-row">
-                  <input 
-                    type="checkbox" 
-                    checked={(selectedNode.data as any).showMonth ?? true}
-                    onchange={(e) => updateNodeData('showMonth', (e.target as HTMLInputElement).checked)}
-                  />
-                  <span>Month</span>
-                </label>
-                <label class="checkbox-row">
-                  <input 
-                    type="checkbox" 
-                    checked={(selectedNode.data as any).showDay ?? true}
-                    onchange={(e) => updateNodeData('showDay', (e.target as HTMLInputElement).checked)}
-                  />
-                  <span>Day</span>
-                </label>
-                <label class="checkbox-row">
-                  <input 
-                    type="checkbox" 
-                    checked={(selectedNode.data as any).showYear ?? false}
-                    onchange={(e) => updateNodeData('showYear', (e.target as HTMLInputElement).checked)}
-                  />
-                  <span>Year</span>
-                </label>
-                <label class="checkbox-row">
-                  <input 
-                    type="checkbox" 
-                    checked={(selectedNode.data as any).showDayOfWeek ?? false}
-                    onchange={(e) => updateNodeData('showDayOfWeek', (e.target as HTMLInputElement).checked)}
-                  />
-                  <span>Day of Week</span>
-                </label>
-                <label class="checkbox-row">
-                  <input 
-                    type="checkbox" 
-                    checked={(selectedNode.data as any).showHour ?? true}
-                    onchange={(e) => updateNodeData('showHour', (e.target as HTMLInputElement).checked)}
-                  />
-                  <span>Hour</span>
-                </label>
-                <label class="checkbox-row">
-                  <input 
-                    type="checkbox" 
-                    checked={(selectedNode.data as any).showMinute ?? true}
-                    onchange={(e) => updateNodeData('showMinute', (e.target as HTMLInputElement).checked)}
-                  />
-                  <span>Minute</span>
-                </label>
-                <label class="checkbox-row">
-                  <input 
-                    type="checkbox" 
-                    checked={(selectedNode.data as any).showSecond ?? false}
-                    onchange={(e) => updateNodeData('showSecond', (e.target as HTMLInputElement).checked)}
-                  />
-                  <span>Second</span>
-                </label>
-                <label class="checkbox-row">
-                  <input 
-                    type="checkbox" 
-                    checked={(selectedNode.data as any).showMillisecond ?? false}
-                    onchange={(e) => updateNodeData('showMillisecond', (e.target as HTMLInputElement).checked)}
-                  />
-                  <span>Millisecond</span>
-                </label>
-              </div>
+          <div class="checkbox-group">
+            <label class="checkbox-row">
+              <input 
+                type="checkbox" 
+                checked={(selectedNode.data as any).showMonth ?? true}
+                onchange={(e) => updateNodeData('showMonth', (e.target as HTMLInputElement).checked)}
+              />
+              <span>Month</span>
+            </label>
+            <label class="checkbox-row">
+              <input 
+                type="checkbox" 
+                checked={(selectedNode.data as any).showDay ?? true}
+                onchange={(e) => updateNodeData('showDay', (e.target as HTMLInputElement).checked)}
+              />
+              <span>Day</span>
+            </label>
+            <label class="checkbox-row">
+              <input 
+                type="checkbox" 
+                checked={(selectedNode.data as any).showYear ?? false}
+                onchange={(e) => updateNodeData('showYear', (e.target as HTMLInputElement).checked)}
+              />
+              <span>Year</span>
+            </label>
+            <label class="checkbox-row">
+              <input 
+                type="checkbox" 
+                checked={(selectedNode.data as any).showDayOfWeek ?? false}
+                onchange={(e) => updateNodeData('showDayOfWeek', (e.target as HTMLInputElement).checked)}
+              />
+              <span>Day of Week</span>
+            </label>
+            <label class="checkbox-row">
+              <input 
+                type="checkbox" 
+                checked={(selectedNode.data as any).showHour ?? true}
+                onchange={(e) => updateNodeData('showHour', (e.target as HTMLInputElement).checked)}
+              />
+              <span>Hour</span>
+            </label>
+            <label class="checkbox-row">
+              <input 
+                type="checkbox" 
+                checked={(selectedNode.data as any).showMinute ?? true}
+                onchange={(e) => updateNodeData('showMinute', (e.target as HTMLInputElement).checked)}
+              />
+              <span>Minute</span>
+            </label>
+            <label class="checkbox-row">
+              <input 
+                type="checkbox" 
+                checked={(selectedNode.data as any).showSecond ?? false}
+                onchange={(e) => updateNodeData('showSecond', (e.target as HTMLInputElement).checked)}
+              />
+              <span>Second</span>
+            </label>
+            <label class="checkbox-row">
+              <input 
+                type="checkbox" 
+                checked={(selectedNode.data as any).showMillisecond ?? false}
+                onchange={(e) => updateNodeData('showMillisecond', (e.target as HTMLInputElement).checked)}
+              />
+              <span>Millisecond</span>
+            </label>
+          </div>
+
+          <!-- Time Format -->
+          <div class="checkbox-group" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #333;">
+            <label class="checkbox-row">
+              <input 
+                type="checkbox" 
+                checked={(selectedNode.data as any).use24HourFormat ?? false}
+                onchange={(e) => updateNodeData('use24HourFormat', (e.target as HTMLInputElement).checked)}
+              />
+              <span>24-Hour Format (Military Time)</span>
+            </label>
+            <div class="hint" style="font-size: 10px; color: #666; margin-left: 22px;">
+              {(selectedNode.data as any).use24HourFormat ? 'Shows 13:00, 14:30, etc.' : 'Shows 1:00 PM, 2:30 PM, etc.'}
             </div>
-
-            <!-- Time Format -->
-            <div class="checkbox-group" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #333;">
-              <label class="checkbox-row">
-                <input 
-                  type="checkbox" 
-                  checked={(selectedNode.data as any).use24HourFormat ?? false}
-                  onchange={(e) => updateNodeData('use24HourFormat', (e.target as HTMLInputElement).checked)}
-                />
-                <span>24-Hour Format (Military Time)</span>
-              </label>
-              <div class="hint" style="font-size: 10px; color: #666; margin-left: 22px;">
-                {(selectedNode.data as any).use24HourFormat ? 'Shows 13:00, 14:30, etc.' : 'Shows 1:00 PM, 2:30 PM, etc.'}
-              </div>
-            </div>
-          {/if}
-        </div>
+          </div>
+        </PropertyGroup>
       {/if}
 
       <!-- Annotation-specific Options -->
       {#if selectedNode.type === 'annotation'}
-        <div class="section accordion">
-          <button class="accordion-header" onclick={() => optionsOpen = !optionsOpen}>
-            {#if optionsOpen}
-              <ChevronDown size={14} />
-            {:else}
-              <ChevronRight size={14} />
-            {/if}
-            <span>Annotation Options</span>
-          </button>
-          
-          {#if optionsOpen}
-            <div class="accordion-content">
-              <!-- Text Color -->
-              <div class="field">
-                <label>Text Color</label>
-                <ColorInput 
-                  value={(selectedNode.data as any).textColor || '#999999'}
-                  onchange={(color) => updateNodeData('textColor', color)}
-                />
-              </div>
+        <PropertyGroup title="Annotation Options" bind:open={optionsOpen}>
+          <!-- Text Color -->
+          <div class="field">
+            <label>Text Color</label>
+            <ColorInput 
+              value={(selectedNode.data as any).textColor || '#999999'}
+              onchange={(color) => updateNodeData('textColor', color)}
+            />
+          </div>
 
-              <div class="section-divider"></div>
+          <div class="section-divider"></div>
 
-              <!-- Arrow Position -->
-              <div class="field">
-                <label>Arrow Position</label>
-                <select 
-                  class="select-input"
-                  value={(selectedNode.data as any).arrowPosition || 'bottom-left'}
-                  onchange={(e) => updateNodeData('arrowPosition', (e.target as HTMLSelectElement).value)}
-                >
-                  <option value="none">No Arrow</option>
-                  <option value="top-left">Top Left ↖</option>
-                  <option value="top-right">Top Right ↗</option>
-                  <option value="bottom-left">Bottom Left ↙</option>
-                  <option value="bottom-right">Bottom Right ↘</option>
-                  <option value="left">Left ←</option>
-                  <option value="right">Right →</option>
-                </select>
-              </div>
+          <!-- Arrow Position -->
+          <div class="field">
+            <label>Arrow Position</label>
+            <select 
+              class="select-input"
+              value={(selectedNode.data as any).arrowPosition || 'bottom-left'}
+              onchange={(e) => updateNodeData('arrowPosition', (e.target as HTMLSelectElement).value)}
+            >
+              <option value="none">No Arrow</option>
+              <option value="top-left">Top Left ↖</option>
+              <option value="top-right">Top Right ↗</option>
+              <option value="bottom-left">Bottom Left ↙</option>
+              <option value="bottom-right">Bottom Right ↘</option>
+              <option value="left">Left ←</option>
+              <option value="right">Right →</option>
+            </select>
+          </div>
 
-              <!-- Arrow Rotation -->
-              <div class="field">
-                <label>Arrow Rotation</label>
-                <select 
-                  class="select-input"
-                  value={(selectedNode.data as any).arrowRotation || 0}
-                  onchange={(e) => updateNodeData('arrowRotation', parseInt((e.target as HTMLSelectElement).value))}
-                >
-                  <option value={0}>0°</option>
-                  <option value={45}>45°</option>
-                  <option value={90}>90°</option>
-                  <option value={135}>135°</option>
-                  <option value={180}>180°</option>
-                  <option value={225}>225°</option>
-                  <option value={270}>270°</option>
-                  <option value={315}>315°</option>
-                </select>
-              </div>
+          <!-- Arrow Rotation -->
+          <div class="field">
+            <label>Arrow Rotation</label>
+            <select 
+              class="select-input"
+              value={(selectedNode.data as any).arrowRotation || 0}
+              onchange={(e) => updateNodeData('arrowRotation', parseInt((e.target as HTMLSelectElement).value))}
+            >
+              <option value={0}>0°</option>
+              <option value={45}>45°</option>
+              <option value={90}>90°</option>
+              <option value={135}>135°</option>
+              <option value={180}>180°</option>
+              <option value={225}>225°</option>
+              <option value={270}>270°</option>
+              <option value={315}>315°</option>
+            </select>
+          </div>
 
-              <!-- Arrow Flip -->
-              <div class="field">
-                <label>Arrow Flip</label>
-                <div class="mode-toggle">
-                  <button 
-                    class="mode-btn" 
-                    class:active={(selectedNode.data as any).arrowFlipX}
-                    onclick={() => updateNodeData('arrowFlipX', !(selectedNode.data as any).arrowFlipX)}
-                  >
-                    <span>Flip X</span>
-                  </button>
-                  <button 
-                    class="mode-btn"
-                    class:active={(selectedNode.data as any).arrowFlipY}
-                    onclick={() => updateNodeData('arrowFlipY', !(selectedNode.data as any).arrowFlipY)}
-                  >
-                    <span>Flip Y</span>
-                  </button>
-                </div>
-              </div>
-
-              <div class="section-divider"></div>
-
-              <!-- Font Style -->
-              <div class="field">
-                <label>Font Weight</label>
-                <select 
-                  class="select-input"
-                  value={(selectedNode.data as any).fontWeight || '400'}
-                  onchange={(e) => updateNodeData('fontWeight', (e.target as HTMLSelectElement).value)}
-                >
-                  <option value="300">Light</option>
-                  <option value="400">Normal</option>
-                  <option value="500">Medium</option>
-                  <option value="600">Semi Bold</option>
-                  <option value="700">Bold</option>
-                </select>
-              </div>
-
-              <div class="field">
-                <label>Font Style</label>
-                <div class="mode-toggle">
-                  <button 
-                    class="mode-btn" 
-                    class:active={(selectedNode.data as any).fontStyle !== 'italic'}
-                    onclick={() => updateNodeData('fontStyle', 'normal')}
-                  >
-                    <span>Normal</span>
-                  </button>
-                  <button 
-                    class="mode-btn"
-                    class:active={(selectedNode.data as any).fontStyle === 'italic'}
-                    onclick={() => updateNodeData('fontStyle', 'italic')}
-                  >
-                    <span style="font-style: italic;">Italic</span>
-                  </button>
-                </div>
-              </div>
-
-              <!-- Text Align -->
-              <div class="field">
-                <label>Text Align</label>
-                <div class="mode-toggle">
-                  <button 
-                    class="mode-btn" 
-                    class:active={(selectedNode.data as any).textAlign === 'left' || !(selectedNode.data as any).textAlign}
-                    onclick={() => updateNodeData('textAlign', 'left')}
-                  >
-                    <span>Left</span>
-                  </button>
-                  <button 
-                    class="mode-btn"
-                    class:active={(selectedNode.data as any).textAlign === 'center'}
-                    onclick={() => updateNodeData('textAlign', 'center')}
-                  >
-                    <span>Center</span>
-                  </button>
-                  <button 
-                    class="mode-btn"
-                    class:active={(selectedNode.data as any).textAlign === 'right'}
-                    onclick={() => updateNodeData('textAlign', 'right')}
-                  >
-                    <span>Right</span>
-                  </button>
-                </div>
-              </div>
+          <!-- Arrow Flip -->
+          <div class="field">
+            <label>Arrow Flip</label>
+            <div class="mode-toggle">
+              <button 
+                class="mode-btn" 
+                class:active={(selectedNode.data as any).arrowFlipX}
+                onclick={() => updateNodeData('arrowFlipX', !(selectedNode.data as any).arrowFlipX)}
+              >
+                <span>Flip X</span>
+              </button>
+              <button 
+                class="mode-btn"
+                class:active={(selectedNode.data as any).arrowFlipY}
+                onclick={() => updateNodeData('arrowFlipY', !(selectedNode.data as any).arrowFlipY)}
+              >
+                <span>Flip Y</span>
+              </button>
             </div>
-          {/if}
-        </div>
+          </div>
+
+          <div class="section-divider"></div>
+
+          <!-- Font Style -->
+          <div class="field">
+            <label>Font Weight</label>
+            <select 
+              class="select-input"
+              value={(selectedNode.data as any).fontWeight || '400'}
+              onchange={(e) => updateNodeData('fontWeight', (e.target as HTMLSelectElement).value)}
+            >
+              <option value="300">Light</option>
+              <option value="400">Normal</option>
+              <option value="500">Medium</option>
+              <option value="600">Semi Bold</option>
+              <option value="700">Bold</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Font Style</label>
+            <div class="mode-toggle">
+              <button 
+                class="mode-btn" 
+                class:active={(selectedNode.data as any).fontStyle !== 'italic'}
+                onclick={() => updateNodeData('fontStyle', 'normal')}
+              >
+                <span>Normal</span>
+              </button>
+              <button 
+                class="mode-btn"
+                class:active={(selectedNode.data as any).fontStyle === 'italic'}
+                onclick={() => updateNodeData('fontStyle', 'italic')}
+              >
+                <span style="font-style: italic;">Italic</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Text Align -->
+          <div class="field">
+            <label>Text Align</label>
+            <div class="mode-toggle">
+              <button 
+                class="mode-btn" 
+                class:active={(selectedNode.data as any).textAlign === 'left' || !(selectedNode.data as any).textAlign}
+                onclick={() => updateNodeData('textAlign', 'left')}
+              >
+                <span>Left</span>
+              </button>
+              <button 
+                class="mode-btn"
+                class:active={(selectedNode.data as any).textAlign === 'center'}
+                onclick={() => updateNodeData('textAlign', 'center')}
+              >
+                <span>Center</span>
+              </button>
+              <button 
+                class="mode-btn"
+                class:active={(selectedNode.data as any).textAlign === 'right'}
+                onclick={() => updateNodeData('textAlign', 'right')}
+              >
+                <span>Right</span>
+              </button>
+            </div>
+          </div>
+        </PropertyGroup>
       {/if}
 
       <!-- Group-specific Options -->
       {#if selectedNode.type === 'group'}
-        <div class="section accordion">
-          <button class="accordion-header" onclick={() => optionsOpen = !optionsOpen}>
-            {#if optionsOpen}
-              <ChevronDown size={14} />
-            {:else}
-              <ChevronRight size={14} />
-            {/if}
-            <span>Group Options</span>
-          </button>
-          
-          {#if optionsOpen}
-            <div class="accordion-content">
-              <!-- Label -->
-              <div class="input-group">
-                <label class="input-label">Label</label>
-                <input 
-                  type="text" 
-                  class="text-input"
-                  value={(selectedNode.data as any).label || 'Group'}
-                  oninput={(e) => updateNodeData('label', (e.target as HTMLInputElement).value)}
-                  placeholder="Group label"
-                />
-              </div>
+        <PropertyGroup title="Group Options" bind:open={optionsOpen}>
+          <!-- Label -->
+          <div class="input-group">
+            <label class="input-label">Label</label>
+            <input 
+              type="text" 
+              class="text-input"
+              value={(selectedNode.data as any).label || 'Group'}
+              oninput={(e) => updateNodeData('label', (e.target as HTMLInputElement).value)}
+              placeholder="Group label"
+            />
+          </div>
 
-              <!-- Font Settings -->
-              <div class="subsection-header">Label Settings</div>
+          <!-- Font Settings -->
+          <div class="subsection-header">Label Settings</div>
 
-              <div class="input-group">
-                <label class="input-label">Font Size</label>
-                <input 
-                  type="number" 
-                  class="text-input"
-                  value={(selectedNode.data as any).fontSize ?? 14}
-                  oninput={(e) => updateNodeData('fontSize', parseInt((e.target as HTMLInputElement).value) || 14)}
-                  min="10"
-                  max="32"
-                />
-              </div>
+          <div class="input-group">
+            <label class="input-label">Font Size</label>
+            <input 
+              type="number" 
+              class="text-input"
+              value={(selectedNode.data as any).fontSize ?? 14}
+              oninput={(e) => updateNodeData('fontSize', parseInt((e.target as HTMLInputElement).value) || 14)}
+              min="10"
+              max="32"
+            />
+          </div>
 
-              <div class="input-group">
-                <label class="input-label">Font Weight</label>
-                <select 
-                  class="select-input"
-                  value={(selectedNode.data as any).fontWeight || 'semibold'}
-                  onchange={(e) => updateNodeData('fontWeight', (e.target as HTMLSelectElement).value)}
-                >
-                  <option value="normal">Normal</option>
-                  <option value="medium">Medium</option>
-                  <option value="semibold">Semibold</option>
-                  <option value="bold">Bold</option>
-                </select>
-              </div>
+          <div class="input-group">
+            <label class="input-label">Font Weight</label>
+            <select 
+              class="select-input"
+              value={(selectedNode.data as any).fontWeight || 'semibold'}
+              onchange={(e) => updateNodeData('fontWeight', (e.target as HTMLSelectElement).value)}
+            >
+              <option value="normal">Normal</option>
+              <option value="medium">Medium</option>
+              <option value="semibold">Semibold</option>
+              <option value="bold">Bold</option>
+            </select>
+          </div>
 
-              <div class="input-group">
-                <label class="input-label">Font Style</label>
-                <select 
-                  class="select-input"
-                  value={(selectedNode.data as any).fontStyle || 'normal'}
-                  onchange={(e) => updateNodeData('fontStyle', (e.target as HTMLSelectElement).value)}
-                >
-                  <option value="normal">Normal</option>
-                  <option value="italic">Italic</option>
-                </select>
-              </div>
+          <div class="input-group">
+            <label class="input-label">Font Style</label>
+            <select 
+              class="select-input"
+              value={(selectedNode.data as any).fontStyle || 'normal'}
+              onchange={(e) => updateNodeData('fontStyle', (e.target as HTMLSelectElement).value)}
+            >
+              <option value="normal">Normal</option>
+              <option value="italic">Italic</option>
+            </select>
+          </div>
 
-              <div class="section-divider"></div>
+          <div class="section-divider"></div>
 
-              <!-- Contained Child Nodes -->
-              {#if true}
-                {@const childNodes = workspace.getChildNodes(selectedNode.id)}
-                <div class="input-group">
-                  <label class="input-label">Contained Nodes ({childNodes.length})</label>
-                  {#if childNodes.length > 0}
-                    <div class="child-nodes-list">
-                      {#each childNodes as childNode (childNode.id)}
-                        <div class="child-node-item">
-                          <label class="child-node-checkbox">
-                            <input 
-                              type="checkbox" 
-                              checked={childNode.extent === 'parent'}
-                              onchange={(e) => workspace.setNodeContained(childNode.id, (e.target as HTMLInputElement).checked)}
-                            />
-                            <span class="child-node-label" title={String(childNode.data?.label || childNode.id)}>
-                              {childNode.data?.label || childNode.type || childNode.id}
-                            </span>
-                          </label>
-                        </div>
-                      {/each}
+          <!-- Contained Child Nodes -->
+          {#if true}
+            {@const childNodes = workspace.getChildNodes(selectedNode.id)}
+            <div class="input-group">
+              <label class="input-label">Contained Nodes ({childNodes.length})</label>
+              {#if childNodes.length > 0}
+                <div class="child-nodes-list">
+                  {#each childNodes as childNode (childNode.id)}
+                    <div class="child-node-item">
+                      <label class="child-node-checkbox">
+                        <input 
+                          type="checkbox" 
+                          checked={childNode.extent === 'parent'}
+                          onchange={(e) => workspace.setNodeContained(childNode.id, (e.target as HTMLInputElement).checked)}
+                        />
+                        <span class="child-node-label" title={String(childNode.data?.label || childNode.id)}>
+                          {childNode.data?.label || childNode.type || childNode.id}
+                        </span>
+                      </label>
                     </div>
-                    <div class="info-text" style="margin-top: 6px; font-size: 10px;">
-                      Checked nodes stay within group bounds
-                    </div>
-                  {:else}
-                    <div class="info-text">No child nodes</div>
-                  {/if}
+                  {/each}
                 </div>
-
-                <!-- Ungroup Button -->
-                {#if childNodes.length > 0}
-                  <button 
-                    class="action-btn secondary"
-                    onclick={() => workspace.ungroupNode(selectedNode.id)}
-                    style="width: 100%; margin-top: 8px;"
-                  >
-                    <span>Ungroup Nodes</span>
-                  </button>
-                {/if}
+                <div class="info-text" style="margin-top: 6px; font-size: 10px;">
+                  Checked nodes stay within group bounds
+                </div>
+              {:else}
+                <div class="info-text">No child nodes</div>
               {/if}
             </div>
+
+            <!-- Ungroup Button -->
+            {#if childNodes.length > 0}
+              <button 
+                class="action-btn secondary"
+                onclick={() => workspace.ungroupNode(selectedNode.id)}
+                style="width: 100%; margin-top: 8px;"
+              >
+                <span>Ungroup Nodes</span>
+              </button>
+            {/if}
           {/if}
-        </div>
+        </PropertyGroup>
       {/if}
 
       <!-- Quick Actions -->
@@ -1276,35 +1198,6 @@
     color: #8b949e;
     padding-bottom: 6px;
     border-bottom: 1px solid #21262d;
-  }
-
-  .accordion-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    width: 100%;
-    padding: 8px 0;
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid #21262d;
-    color: #8b949e;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    cursor: pointer;
-    text-align: left;
-  }
-
-  .accordion-header:hover {
-    color: #c9d1d9;
-  }
-
-  .accordion-content {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding-top: 10px;
   }
 
   .field {
