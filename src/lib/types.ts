@@ -306,6 +306,7 @@ export type CanvasMode = 'select' | 'drag';
 
 // Edge stroke style types
 export type EdgeStrokeStyle = 'solid' | 'dashed' | 'dotted';
+export type EdgePathType = 'bezier' | 'straight' | 'step' | 'smoothstep';
 
 export interface MosaicEdge extends Edge {
   label?: string;
@@ -323,6 +324,8 @@ export interface MosaicEdge extends Edge {
     labelFontSize?: number;
     markerStart?: MarkerShape;
     markerEnd?: MarkerShape;
+    pathType?: EdgePathType;
+    animated?: boolean;
   };
 }
 

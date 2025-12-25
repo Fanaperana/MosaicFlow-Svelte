@@ -14,41 +14,68 @@
   
   const groupColor = $derived(data.groupColor || '#3b82f6');
   const labelColor = $derived(data.labelColor || groupColor);
-  const bgColor = $derived(data.groupBgColor || '');
-  const bgOpacity = $derived(data.groupBgOpacity ?? 0.05);
+  // Default to almost transparent background (5% opacity)
+  const bgColor = $derived(data.groupBgColor || 'rgba(59, 130, 246, 0.05)');
   
-  // Helper to convert hex to rgba
-  function hexToRgba(hex: string, opacity: number): string {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    if (result) {
-      const r = parseInt(result[1], 16);
-      const g = parseInt(result[2], 16);
-      const b = parseInt(result[3], 16);
-      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+  // Helper to parse color and extract rgba values
+  function parseColor(color: string): { r: number; g: number; b: number; a: number } {
+    // Check if it's an rgba string
+    const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    if (rgbaMatch) {
+      return {
+        r: parseInt(rgbaMatch[1]),
+        g: parseInt(rgbaMatch[2]),
+        b: parseInt(rgbaMatch[3]),
+        a: rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1
+      };
     }
-    return `rgba(59, 130, 246, ${opacity})`;
+    
+    // Check if it's a hex color
+    const hexMatch = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(color);
+    if (hexMatch) {
+      return {
+        r: parseInt(hexMatch[1], 16),
+        g: parseInt(hexMatch[2], 16),
+        b: parseInt(hexMatch[3], 16),
+        a: 1
+      };
+    }
+    
+    // Default fallback
+    return { r: 59, g: 130, b: 246, a: 1 };
   }
   
-  const backgroundColor = $derived(
-    bgColor ? hexToRgba(bgColor, bgOpacity) : hexToRgba(groupColor, bgOpacity)
-  );
-  const selectedBgColor = $derived(
-    bgColor ? hexToRgba(bgColor, Math.min(bgOpacity + 0.03, 1)) : hexToRgba(groupColor, Math.min(bgOpacity + 0.03, 1))
-  );
+  // Get the background color - use the alpha from the color if it has one
+  const backgroundColor = $derived(() => {
+    const parsed = parseColor(bgColor);
+    return `rgba(${parsed.r}, ${parsed.g}, ${parsed.b}, ${parsed.a})`;
+  });
+  
+  const selectedBgColor = $derived(() => {
+    const parsed = parseColor(bgColor);
+    const selectedAlpha = Math.min(parsed.a + 0.05, 1);
+    return `rgba(${parsed.r}, ${parsed.g}, ${parsed.b}, ${selectedAlpha})`;
+  });
+  
+  // Extract solid color for border (without alpha)
+  const borderColor = $derived(() => {
+    const parsed = parseColor(groupColor);
+    return `rgb(${parsed.r}, ${parsed.g}, ${parsed.b})`;
+  });
 </script>
 
 <NodeResizer 
   minWidth={200} 
   minHeight={150} 
   isVisible={selected}
-  lineStyle="border-color: {groupColor}"
-  handleStyle="background: {groupColor}; width: 8px; height: 8px; border-radius: 2px;"
+  lineStyle="border-color: {borderColor()}"
+  handleStyle="background: {borderColor()}; width: 8px; height: 8px; border-radius: 2px;"
 />
 
 <div 
   class="group-container"
   class:selected
-  style="--group-color: {groupColor}; --bg-color: {backgroundColor}; --selected-bg-color: {selectedBgColor}"
+  style="--group-color: {borderColor()}; --bg-color: {backgroundColor()}; --selected-bg-color: {selectedBgColor()}"
 >
   {#if data.label}
     <div class="group-label" style="color: {labelColor}">

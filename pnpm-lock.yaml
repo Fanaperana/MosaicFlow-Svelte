@@ -71,6 +71,9 @@ importers:
       tailwind-merge:
         specifier: ^3.4.0
         version: 3.4.0
+      tippy.js:
+        specifier: ^6.3.7
+        version: 6.3.7
       uuid:
         specifier: ^13.0.0
         version: 13.0.0
@@ -111,6 +114,9 @@ importers:
       svelte:
         specifier: ^5.0.0
         version: 5.46.0
+      svelte-awesome-color-picker:
+        specifier: ^4.1.0
+        version: 4.1.0(svelte@5.46.0)
       svelte-check:
         specifier: ^4.0.0
         version: 4.3.4(picomatch@4.0.3)(svelte@5.46.0)(typescript@5.6.3)
@@ -476,6 +482,9 @@ packages:
 
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
+
+  '@popperjs/core@2.11.8':
+    resolution: {integrity: sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==}
 
   '@rollup/rollup-android-arm-eabi@4.53.5':
     resolution: {integrity: sha512-iDGS/h7D8t7tvZ1t6+WPK04KD0MwzLZrG0se1hzBjSi5fyxlsiggoJHwh18PCFNn7tG43OWb6pdZ6Y+rMlmyNQ==}
@@ -904,6 +913,9 @@ packages:
     resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
     engines: {node: '>=6'}
 
+  colord@2.9.3:
+    resolution: {integrity: sha512-jeC1axXpnb0/2nn/Y1LPuLdgXBLH7aDcHu4KEKfqw3CUhX7ZpfBSlPKyqXE6btIgEzfWtrX3/tyBCaCvXvMkOw==}
+
   cookie@0.6.0:
     resolution: {integrity: sha512-U71cyTamuh1CRNCfpGY6to28lxvNwPG4Guz/EVjgf3Jmzv0vlDp1atT9eS5dDjMYHucpHbWns6Lwf3BKz6svdw==}
     engines: {node: '>= 0.6'}
@@ -1198,6 +1210,16 @@ packages:
   style-to-object@1.0.14:
     resolution: {integrity: sha512-LIN7rULI0jBscWQYaSswptyderlarFkjQ+t79nzty8tcIAceVomEVlLzH5VP4Cmsv6MtKhs7qaAiwlcp+Mgaxw==}
 
+  svelte-awesome-color-picker@4.1.0:
+    resolution: {integrity: sha512-afiSB3eTBlqu96f4+rjBvqG3eCaLwuneNYHe587Wr4Ien6yQWeztGZunPT0FmiI7wFFBVNUlJQLYutII8LfQUg==}
+    peerDependencies:
+      svelte: ^5.0.0
+
+  svelte-awesome-slider@2.0.0:
+    resolution: {integrity: sha512-YBkOdYm1Feaqsn2JkJBRs+Kc/X3Qy/3GuVmI7GmoYDjBaHkjx9uH4khTuED22z57Hg3gGWeDhp/clIjWDdLNaw==}
+    peerDependencies:
+      svelte: ^5.0.0
+
   svelte-check@4.3.4:
     resolution: {integrity: sha512-DVWvxhBrDsd+0hHWKfjP99lsSXASeOhHJYyuKOFYJcP7ThfSCKgjVarE8XfuMWpS5JV3AlDf+iK1YGGo2TACdw==}
     engines: {node: '>= 18.0.0'}
@@ -1242,6 +1264,9 @@ packages:
   tinyglobby@0.2.15:
     resolution: {integrity: sha512-j2Zq4NyQYG5XMST4cbs02Ak8iJUdxRM0XI5QyxXuZOzKOINmWurp3smXu3y5wDcJrptwpSjgXHzIQxR0omXljQ==}
     engines: {node: '>=12.0.0'}
+
+  tippy.js@6.3.7:
+    resolution: {integrity: sha512-E1d3oP2emgJ9dRQZdf3Kkn0qJgI6ZLpyS5z6ZkY1DF3kaQaBsGZsndEpHwx+eC+tYM41HaSNvNtLx8tU57FzTQ==}
 
   totalist@3.0.1:
     resolution: {integrity: sha512-sf4i37nQ2LBx4m3wB74y+ubopq6W/dIzXg0FDGjsYnZHVa1Da8FH853wlL2gtUhg+xJXjfk3kUZS3BRoQeoQBQ==}
@@ -1784,6 +1809,8 @@ snapshots:
 
   '@polka/url@1.0.0-next.29': {}
 
+  '@popperjs/core@2.11.8': {}
+
   '@rollup/rollup-android-arm-eabi@4.53.5':
     optional: true
 
@@ -2147,6 +2174,8 @@ snapshots:
 
   clsx@2.1.1: {}
 
+  colord@2.9.3: {}
+
   cookie@0.6.0: {}
 
   crelt@1.0.6: {}
@@ -2412,6 +2441,16 @@ snapshots:
     dependencies:
       inline-style-parser: 0.2.7
 
+  svelte-awesome-color-picker@4.1.0(svelte@5.46.0):
+    dependencies:
+      colord: 2.9.3
+      svelte: 5.46.0
+      svelte-awesome-slider: 2.0.0(svelte@5.46.0)
+
+  svelte-awesome-slider@2.0.0(svelte@5.46.0):
+    dependencies:
+      svelte: 5.46.0
+
   svelte-check@4.3.4(picomatch@4.0.3)(svelte@5.46.0)(typescript@5.6.3):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
@@ -2469,6 +2508,10 @@ snapshots:
     dependencies:
       fdir: 6.5.0(picomatch@4.0.3)
       picomatch: 4.0.3
+
+  tippy.js@6.3.7:
+    dependencies:
+      '@popperjs/core': 2.11.8
 
   totalist@3.0.1: {}
 

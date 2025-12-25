@@ -3,7 +3,12 @@
   import type { NodeType, MosaicEdge, MarkerShape, EdgeStrokeStyle } from '$lib/types';
   import { NODE_TYPE_INFO } from '$lib/types';
   import { MarkerType } from '@xyflow/svelte';
-  import { X, Copy, Trash2, StickyNote, Image, Link, Code, Clock, User, Building2, Globe, FileDigit, KeyRound, MessageSquare, Router, Camera, FolderOpen, MapPin, List, CheckSquare, ExternalLink, ChevronDown, ChevronRight, Lock, Unlock, Eye, Pencil } from 'lucide-svelte';
+  import { X, Copy, Trash2, StickyNote, Image, Link, Code, Clock, User, Building2, Globe, FileDigit, KeyRound, MessageSquare, Router, Camera, FolderOpen, MapPin, List, CheckSquare, ExternalLink, ChevronDown, ChevronRight, Lock, Unlock, Eye, Pencil, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Type, Palette, Settings2, Move, Maximize2 } from 'lucide-svelte';
+  import { ColorInput } from '$lib/components/ui/color-picker';
+  import { IconButton } from '$lib/components/ui/icon-button';
+  import { PropertyGroup } from '$lib/components/ui/property-group';
+  import { PropertyRow } from '$lib/components/ui/property-row';
+  import { NumberInput } from '$lib/components/ui/number-input';
 
   interface Props {
     onClose: () => void;
@@ -281,7 +286,7 @@
               // Use updateEdgeWithRefresh for immediate visual update
               workspace.updateEdgeWithRefresh(selectedEdge.id, { 
                 type: edgeType as any,
-                data: { ...selectedEdge.data, pathType }
+                data: { ...selectedEdge.data, pathType: pathType as any }
               });
             }}
           >
@@ -341,24 +346,10 @@
         
         <div class="field">
           <label>Edge Color</label>
-          <div class="color-row">
-            <input 
-              type="color" 
-              value={selectedEdge.data?.color || '#555555'}
-              oninput={(e) => {
-                updateEdgeAppearance({ color: (e.target as HTMLInputElement).value });
-              }}
-              class="color-picker"
-            />
-            <input 
-              type="text" 
-              value={selectedEdge.data?.color || '#555555'}
-              oninput={(e) => {
-                updateEdgeAppearance({ color: (e.target as HTMLInputElement).value });
-              }}
-              class="color-text"
-            />
-          </div>
+          <ColorInput 
+            value={selectedEdge.data?.color || '#555555'}
+            onchange={(color) => updateEdgeAppearance({ color })}
+          />
         </div>
 
         <div class="field">
@@ -390,38 +381,18 @@
 
         <div class="field">
           <label>Label Color</label>
-          <div class="color-row">
-            <input 
-              type="color" 
-              value={selectedEdge.data?.labelColor || '#ffffff'}
-              oninput={(e) => updateEdgeData('labelColor', (e.target as HTMLInputElement).value)}
-              class="color-picker"
-            />
-            <input 
-              type="text" 
-              value={selectedEdge.data?.labelColor || '#ffffff'}
-              oninput={(e) => updateEdgeData('labelColor', (e.target as HTMLInputElement).value)}
-              class="color-text"
-            />
-          </div>
+          <ColorInput 
+            value={selectedEdge.data?.labelColor || '#ffffff'}
+            onchange={(color) => updateEdgeData('labelColor', color)}
+          />
         </div>
 
         <div class="field">
           <label>Label Background</label>
-          <div class="color-row">
-            <input 
-              type="color" 
-              value={selectedEdge.data?.labelBgColor || '#1a1d21'}
-              oninput={(e) => updateEdgeData('labelBgColor', (e.target as HTMLInputElement).value)}
-              class="color-picker"
-            />
-            <input 
-              type="text" 
-              value={selectedEdge.data?.labelBgColor || '#1a1d21'}
-              oninput={(e) => updateEdgeData('labelBgColor', (e.target as HTMLInputElement).value)}
-              class="color-text"
-            />
-          </div>
+          <ColorInput 
+            value={selectedEdge.data?.labelBgColor || '#1a1d21'}
+            onchange={(color) => updateEdgeData('labelBgColor', color)}
+          />
         </div>
 
         <div class="field">
@@ -497,53 +468,18 @@
           <div class="accordion-content">
             <div class="field">
               <label>Background</label>
-              <div class="color-row">
-                <input 
-                  type="color" 
-                  value={selectedNode.data.color || '#1e1e1e'}
-                  oninput={(e) => updateNodeData('color', (e.target as HTMLInputElement).value)}
-                  class="color-picker"
-                />
-                <input 
-                  type="text" 
-                  value={selectedNode.data.color || '#1e1e1e'}
-                  oninput={(e) => updateNodeData('color', (e.target as HTMLInputElement).value)}
-                  class="color-text"
-                />
-              </div>
-            </div>
-
-            <div class="field">
-              <label>Background Opacity</label>
-              <div class="slider-row">
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="100" 
-                  value={((selectedNode.data.bgOpacity ?? 1) * 100)}
-                  oninput={(e) => updateNodeData('bgOpacity', parseInt((e.target as HTMLInputElement).value) / 100)}
-                  class="slider"
-                />
-                <span class="slider-value">{Math.round((selectedNode.data.bgOpacity ?? 1) * 100)}%</span>
-              </div>
+              <ColorInput 
+                value={selectedNode.data.color || '#1e1e1e'}
+                onchange={(color) => updateNodeData('color', color)}
+              />
             </div>
 
             <div class="field">
               <label>Border Color</label>
-              <div class="color-row">
-                <input 
-                  type="color" 
-                  value={selectedNode.data.borderColor || '#333333'}
-                  oninput={(e) => updateNodeData('borderColor', (e.target as HTMLInputElement).value)}
-                  class="color-picker"
-                />
-                <input 
-                  type="text" 
-                  value={selectedNode.data.borderColor || '#333333'}
-                  oninput={(e) => updateNodeData('borderColor', (e.target as HTMLInputElement).value)}
-                  class="color-text"
-                />
-              </div>
+              <ColorInput 
+                value={selectedNode.data.borderColor || '#333333'}
+                onchange={(color) => updateNodeData('borderColor', color)}
+              />
             </div>
 
             <div class="field-row">
@@ -598,20 +534,10 @@
             {#if selectedNode.type !== 'image' && selectedNode.type !== 'annotation'}
             <div class="field">
               <label>Text Color</label>
-              <div class="color-row">
-                <input 
-                  type="color" 
-                  value={selectedNode.data.textColor || '#e0e0e0'}
-                  oninput={(e) => updateNodeData('textColor', (e.target as HTMLInputElement).value)}
-                  class="color-picker"
-                />
-                <input 
-                  type="text" 
-                  value={selectedNode.data.textColor || '#e0e0e0'}
-                  oninput={(e) => updateNodeData('textColor', (e.target as HTMLInputElement).value)}
-                  class="color-text"
-                />
-              </div>
+              <ColorInput 
+                value={selectedNode.data.textColor || '#e0e0e0'}
+                onchange={(color) => updateNodeData('textColor', color)}
+              />
             </div>
             {/if}
 
@@ -915,21 +841,10 @@
               <!-- Text Color -->
               <div class="field">
                 <label>Text Color</label>
-                <div class="color-row">
-                  <input 
-                    type="color" 
-                    class="color-picker"
-                    value={(selectedNode.data as any).textColor || '#999999'}
-                    oninput={(e) => updateNodeData('textColor', (e.target as HTMLInputElement).value)}
-                  />
-                  <input 
-                    type="text" 
-                    class="color-text"
-                    value={(selectedNode.data as any).textColor || '#999999'}
-                    oninput={(e) => updateNodeData('textColor', (e.target as HTMLInputElement).value)}
-                    placeholder="#999999"
-                  />
-                </div>
+                <ColorInput 
+                  value={(selectedNode.data as any).textColor || '#999999'}
+                  onchange={(color) => updateNodeData('textColor', color)}
+                />
               </div>
 
               <div class="section-divider"></div>
@@ -1091,56 +1006,19 @@
               <!-- Group Color (Border) -->
               <div class="input-group">
                 <label class="input-label">Border Color</label>
-                <div class="color-input-row">
-                  <input 
-                    type="color" 
-                    class="color-input"
-                    value={(selectedNode.data as any).groupColor || '#3b82f6'}
-                    oninput={(e) => updateNodeData('groupColor', (e.target as HTMLInputElement).value)}
-                  />
-                  <input 
-                    type="text" 
-                    class="color-text-input"
-                    value={(selectedNode.data as any).groupColor || '#3b82f6'}
-                    oninput={(e) => updateNodeData('groupColor', (e.target as HTMLInputElement).value)}
-                  />
-                </div>
+                <ColorInput 
+                  value={(selectedNode.data as any).groupColor || '#3b82f6'}
+                  onchange={(color) => updateNodeData('groupColor', color)}
+                />
               </div>
 
               <!-- Background Color -->
               <div class="input-group">
                 <label class="input-label">Background Color</label>
-                <div class="color-input-row">
-                  <input 
-                    type="color" 
-                    class="color-input"
-                    value={(selectedNode.data as any).groupBgColor || (selectedNode.data as any).groupColor || '#3b82f6'}
-                    oninput={(e) => updateNodeData('groupBgColor', (e.target as HTMLInputElement).value)}
-                  />
-                  <input 
-                    type="text" 
-                    class="color-text-input"
-                    value={(selectedNode.data as any).groupBgColor || (selectedNode.data as any).groupColor || '#3b82f6'}
-                    oninput={(e) => updateNodeData('groupBgColor', (e.target as HTMLInputElement).value)}
-                  />
-                </div>
-              </div>
-
-              <!-- Background Opacity -->
-              <div class="input-group">
-                <label class="input-label">Background Opacity</label>
-                <div class="slider-row">
-                  <input 
-                    type="range" 
-                    class="slider-input"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={(selectedNode.data as any).groupBgOpacity ?? 0.05}
-                    oninput={(e) => updateNodeData('groupBgOpacity', parseFloat((e.target as HTMLInputElement).value))}
-                  />
-                  <span class="slider-value">{Math.round(((selectedNode.data as any).groupBgOpacity ?? 0.05) * 100)}%</span>
-                </div>
+                <ColorInput 
+                  value={(selectedNode.data as any).groupBgColor || 'rgba(59, 130, 246, 0.05)'}
+                  onchange={(color) => updateNodeData('groupBgColor', color)}
+                />
               </div>
 
               <div class="section-divider"></div>
@@ -1150,20 +1028,10 @@
               
               <div class="input-group">
                 <label class="input-label">Label Color</label>
-                <div class="color-input-row">
-                  <input 
-                    type="color" 
-                    class="color-input"
-                    value={(selectedNode.data as any).labelColor || (selectedNode.data as any).groupColor || '#3b82f6'}
-                    oninput={(e) => updateNodeData('labelColor', (e.target as HTMLInputElement).value)}
-                  />
-                  <input 
-                    type="text" 
-                    class="color-text-input"
-                    value={(selectedNode.data as any).labelColor || (selectedNode.data as any).groupColor || '#3b82f6'}
-                    oninput={(e) => updateNodeData('labelColor', (e.target as HTMLInputElement).value)}
-                  />
-                </div>
+                <ColorInput 
+                  value={(selectedNode.data as any).labelColor || (selectedNode.data as any).groupColor || '#3b82f6'}
+                  onchange={(color) => updateNodeData('labelColor', color)}
+                />
               </div>
 
               <div class="input-group">
@@ -1530,39 +1398,6 @@
   .lock-btn:hover {
     background: #21262d;
     color: #c9d1d9;
-  }
-
-  .color-row {
-    display: flex;
-    gap: 8px;
-  }
-
-  .color-picker {
-    width: 32px;
-    height: 28px;
-    padding: 2px;
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 4px;
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-
-  .color-text {
-    flex: 1;
-    min-width: 0;
-    padding: 6px 8px;
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 4px;
-    color: #c9d1d9;
-    font-size: 11px;
-    font-family: 'Space Mono', monospace;
-    outline: none;
-  }
-
-  .color-text:focus {
-    border-color: #58a6ff;
   }
 
   .checkbox-row {
