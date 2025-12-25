@@ -3,7 +3,7 @@
   import type { NodeType, MosaicEdge, MarkerShape, EdgeStrokeStyle } from '$lib/types';
   import { NODE_TYPE_INFO } from '$lib/types';
   import { MarkerType } from '@xyflow/svelte';
-  import { X, Copy, Trash2, StickyNote, Image, Link, Code, Clock, User, Building2, Globe, FileDigit, KeyRound, MessageSquare, Router, Camera, FolderOpen, MapPin, List, CheckSquare, ExternalLink, ChevronDown, ChevronRight, Lock, Unlock, Eye, Pencil, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Type, Palette, Settings2, Move, Maximize2 } from 'lucide-svelte';
+  import { X, Copy, Trash2, StickyNote, Image, Link, Code, Clock, User, Building2, Globe, FileDigit, KeyRound, MessageSquare, Router, Camera, FolderOpen, MapPin, List, CheckSquare, ExternalLink, ChevronDown, ChevronRight, Lock, Unlock, Eye, Pencil, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Type, Palette, Settings2, Move, Maximize2, Square, Minus, Circle, SquareRoundCorner } from 'lucide-svelte';
   import { ColorInput } from '$lib/components/ui/color-picker';
   import { IconButton } from '$lib/components/ui/icon-button';
   import { PropertyGroup } from '$lib/components/ui/property-group';
@@ -344,66 +344,77 @@
       <div class="section">
         <div class="section-header">Appearance</div>
         
-        <div class="field">
-          <label>Edge Color</label>
-          <ColorInput 
-            value={selectedEdge.data?.color || '#555555'}
-            onchange={(color) => updateEdgeAppearance({ color })}
-          />
+        <!-- Notion-like Color Toolbar for Edge -->
+        <div class="notion-toolbar">
+          <div class="toolbar-group" title="Line color">
+            <span class="toolbar-label">Line</span>
+            <ColorInput 
+              value={selectedEdge.data?.color || '#555555'}
+              onchange={(color) => updateEdgeAppearance({ color })}
+              size="sm"
+            />
+          </div>
+          <div class="toolbar-divider"></div>
+          <div class="toolbar-group compact" title="Line width (1-10px)">
+            <span class="toolbar-label">W</span>
+            <input 
+              type="number" 
+              class="toolbar-input"
+              value={selectedEdge.data?.strokeWidth || 2}
+              oninput={(e) => {
+                updateEdgeAppearance({ strokeWidth: parseInt((e.target as HTMLInputElement).value) || 2 });
+              }}
+              min="1"
+              max="10"
+            />
+          </div>
+          <div class="toolbar-divider"></div>
+          <div class="toolbar-group" title="Line style">
+            <select 
+              class="toolbar-select"
+              value={selectedEdge.data?.strokeStyle || 'solid'}
+              onchange={(e) => {
+                updateEdgeAppearance({ strokeStyle: (e.target as HTMLSelectElement).value as EdgeStrokeStyle });
+              }}
+            >
+              <option value="solid">━</option>
+              <option value="dashed">┅</option>
+              <option value="dotted">┈</option>
+            </select>
+          </div>
         </div>
 
-        <div class="field">
-          <label>Stroke Width</label>
-          <input 
-            type="number" 
-            value={selectedEdge.data?.strokeWidth || 2}
-            oninput={(e) => {
-              updateEdgeAppearance({ strokeWidth: parseInt((e.target as HTMLInputElement).value) || 2 });
-            }}
-            min="1"
-            max="10"
-          />
-        </div>
-
-        <div class="field">
-          <label>Stroke Style</label>
-          <select 
-            value={selectedEdge.data?.strokeStyle || 'solid'}
-            onchange={(e) => {
-              updateEdgeAppearance({ strokeStyle: (e.target as HTMLSelectElement).value as EdgeStrokeStyle });
-            }}
-          >
-            <option value="solid">Solid</option>
-            <option value="dashed">Dashed</option>
-            <option value="dotted">Dotted</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>Label Color</label>
-          <ColorInput 
-            value={selectedEdge.data?.labelColor || '#ffffff'}
-            onchange={(color) => updateEdgeData('labelColor', color)}
-          />
-        </div>
-
-        <div class="field">
-          <label>Label Background</label>
-          <ColorInput 
-            value={selectedEdge.data?.labelBgColor || '#1a1d21'}
-            onchange={(color) => updateEdgeData('labelBgColor', color)}
-          />
-        </div>
-
-        <div class="field">
-          <label>Label Font Size</label>
-          <input 
-            type="number" 
-            value={selectedEdge.data?.labelFontSize || 12}
-            oninput={(e) => updateEdgeData('labelFontSize', parseInt((e.target as HTMLInputElement).value))}
-            min="8"
-            max="24"
-          />
+        <!-- Label Styling Toolbar -->
+        <div class="notion-toolbar">
+          <div class="toolbar-group" title="Label text color">
+            <Type size={14} class="toolbar-icon" />
+            <ColorInput 
+              value={selectedEdge.data?.labelColor || '#ffffff'}
+              onchange={(color) => updateEdgeData('labelColor', color)}
+              size="sm"
+            />
+          </div>
+          <div class="toolbar-divider"></div>
+          <div class="toolbar-group" title="Label background color">
+            <span class="toolbar-label">BG</span>
+            <ColorInput 
+              value={selectedEdge.data?.labelBgColor || '#1a1d21'}
+              onchange={(color) => updateEdgeData('labelBgColor', color)}
+              size="sm"
+            />
+          </div>
+          <div class="toolbar-divider"></div>
+          <div class="toolbar-group compact" title="Label font size (8-24px)">
+            <span class="toolbar-label">Sz</span>
+            <input 
+              type="number" 
+              class="toolbar-input"
+              value={selectedEdge.data?.labelFontSize || 12}
+              oninput={(e) => updateEdgeData('labelFontSize', parseInt((e.target as HTMLInputElement).value))}
+              min="8"
+              max="24"
+            />
+          </div>
         </div>
       </div>
 
@@ -466,79 +477,97 @@
         
         {#if appearanceOpen}
           <div class="accordion-content">
-            <div class="field">
-              <label>Background</label>
-              <ColorInput 
-                value={selectedNode.data.color || '#1e1e1e'}
-                onchange={(color) => updateNodeData('color', color)}
-              />
+            <!-- Notion-like Color Toolbar -->
+            <div class="notion-toolbar">
+              <div class="toolbar-group" title="Background color">
+                <span class="toolbar-label">BG</span>
+                <ColorInput 
+                  value={selectedNode.data.color || (selectedNode.type === 'group' ? 'rgba(59, 130, 246, 0.05)' : '#1e1e1e')}
+                  onchange={(color) => updateNodeData('color', color)}
+                  size="sm"
+                />
+              </div>
+              <div class="toolbar-divider"></div>
+              <div class="toolbar-group" title="Border color">
+                <Square size={14} />
+                <ColorInput 
+                  value={selectedNode.data.borderColor || (selectedNode.type === 'group' ? '#3b82f6' : '#333333')}
+                  onchange={(color) => updateNodeData('borderColor', color)}
+                  size="sm"
+                />
+              </div>
+              {#if selectedNode.type === 'group'}
+              <div class="toolbar-divider"></div>
+              <div class="toolbar-group" title="Label text color">
+                <Type size={14} />
+                <ColorInput 
+                  value={(selectedNode.data as any).labelColor || selectedNode.data.borderColor || '#3b82f6'}
+                  onchange={(color) => updateNodeData('labelColor', color)}
+                  size="sm"
+                />
+              </div>
+              {:else if selectedNode.type !== 'image' && selectedNode.type !== 'annotation'}
+              <div class="toolbar-divider"></div>
+              <div class="toolbar-group" title="Text color">
+                <Type size={14} />
+                <ColorInput 
+                  value={selectedNode.data.textColor || '#e0e0e0'}
+                  onchange={(color) => updateNodeData('textColor', color)}
+                  size="sm"
+                />
+              </div>
+              {/if}
             </div>
 
-            <div class="field">
-              <label>Border Color</label>
-              <ColorInput 
-                value={selectedNode.data.borderColor || '#333333'}
-                onchange={(color) => updateNodeData('borderColor', color)}
-              />
-            </div>
-
-            <div class="field-row">
-              <div class="field">
-                <label>Border Width</label>
+            <!-- Border Settings Toolbar -->
+            <div class="notion-toolbar">
+              <div class="toolbar-group compact" title="Border width (0-10px)">
+                <span class="toolbar-label">W</span>
                 <input 
                   type="number" 
+                  class="toolbar-input"
                   value={(selectedNode.data.borderWidth as number) ?? 1}
                   oninput={(e) => updateNodeData('borderWidth', parseInt((e.target as HTMLInputElement).value) || 1)}
                   min="0"
                   max="10"
                 />
               </div>
-              <div class="field">
-                <label>Border Radius</label>
+              <div class="toolbar-divider"></div>
+              <div class="toolbar-group compact" title="Border radius (0-50px)">
+                <SquareRoundCorner size={14} />
                 <input 
                   type="number" 
+                  class="toolbar-input"
                   value={(selectedNode.data.borderRadius as number) ?? 4}
                   oninput={(e) => updateNodeData('borderRadius', parseInt((e.target as HTMLInputElement).value) || 0)}
                   min="0"
                   max="50"
                 />
               </div>
+              <div class="toolbar-divider"></div>
+              <div class="toolbar-group" title="Border style">
+                <select 
+                  class="toolbar-select"
+                  value={(selectedNode.data.borderStyle as string) || 'solid'}
+                  onchange={(e) => updateNodeData('borderStyle', (e.target as HTMLSelectElement).value)}
+                >
+                  <option value="solid">━</option>
+                  <option value="dashed">┅</option>
+                  <option value="dotted">┈</option>
+                  <option value="none">✕</option>
+                </select>
+              </div>
             </div>
 
             {#if selectedNode.parentId}
-              <div class="field">
-                <label class="checkbox-label">
-                  <input 
-                    type="checkbox" 
-                    checked={selectedNode.extent === 'parent'}
-                    onchange={(e) => updateNodeExtent((e.target as HTMLInputElement).checked)}
-                  />
-                  <span>Contain within Group</span>
-                </label>
-              </div>
-            {/if}
-
-            <div class="field">
-              <label>Border Style</label>
-              <select 
-                value={(selectedNode.data.borderStyle as string) || 'solid'}
-                onchange={(e) => updateNodeData('borderStyle', (e.target as HTMLSelectElement).value)}
-              >
-                <option value="solid">Solid</option>
-                <option value="dashed">Dashed</option>
-                <option value="dotted">Dotted</option>
-                <option value="none">None</option>
-              </select>
-            </div>
-
-            {#if selectedNode.type !== 'image' && selectedNode.type !== 'annotation'}
-            <div class="field">
-              <label>Text Color</label>
-              <ColorInput 
-                value={selectedNode.data.textColor || '#e0e0e0'}
-                onchange={(color) => updateNodeData('textColor', color)}
-              />
-            </div>
+              <label class="checkbox-row">
+                <input 
+                  type="checkbox" 
+                  checked={selectedNode.extent === 'parent'}
+                  onchange={(e) => updateNodeExtent((e.target as HTMLInputElement).checked)}
+                />
+                <span>Contain within Group</span>
+              </label>
             {/if}
 
             <label class="checkbox-row">
@@ -1003,36 +1032,8 @@
                 />
               </div>
 
-              <!-- Group Color (Border) -->
-              <div class="input-group">
-                <label class="input-label">Border Color</label>
-                <ColorInput 
-                  value={(selectedNode.data as any).groupColor || '#3b82f6'}
-                  onchange={(color) => updateNodeData('groupColor', color)}
-                />
-              </div>
-
-              <!-- Background Color -->
-              <div class="input-group">
-                <label class="input-label">Background Color</label>
-                <ColorInput 
-                  value={(selectedNode.data as any).groupBgColor || 'rgba(59, 130, 246, 0.05)'}
-                  onchange={(color) => updateNodeData('groupBgColor', color)}
-                />
-              </div>
-
-              <div class="section-divider"></div>
-
               <!-- Font Settings -->
               <div class="subsection-header">Label Settings</div>
-              
-              <div class="input-group">
-                <label class="input-label">Label Color</label>
-                <ColorInput 
-                  value={(selectedNode.data as any).labelColor || (selectedNode.data as any).groupColor || '#3b82f6'}
-                  onchange={(color) => updateNodeData('labelColor', color)}
-                />
-              </div>
 
               <div class="input-group">
                 <label class="input-label">Font Size</label>
@@ -1356,21 +1357,6 @@
     min-width: 0;
   }
 
-  .checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 11px;
-    color: #c9d1d9;
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .checkbox-label input[type="checkbox"] {
-    margin: 0;
-    cursor: pointer;
-  }
-
   .field-with-lock {
     display: flex;
     gap: 8px;
@@ -1553,47 +1539,6 @@
     border-color: #58a6ff;
   }
 
-  .slider-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .slider {
-    flex: 1;
-    height: 4px;
-    background: #30363d;
-    border-radius: 2px;
-    -webkit-appearance: none;
-    appearance: none;
-    cursor: pointer;
-  }
-
-  .slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 14px;
-    height: 14px;
-    background: #58a6ff;
-    border-radius: 50%;
-    cursor: pointer;
-  }
-
-  .slider::-moz-range-thumb {
-    width: 14px;
-    height: 14px;
-    background: #58a6ff;
-    border-radius: 50%;
-    cursor: pointer;
-    border: none;
-  }
-
-  .slider-value {
-    font-size: 11px;
-    color: #8b949e;
-    min-width: 36px;
-    text-align: right;
-  }
-
   .section-divider {
     height: 1px;
     background: #21262d;
@@ -1715,6 +1660,93 @@
   }
 
   .select-input:focus {
+    border-color: #58a6ff;
+  }
+
+  /* Notion-like Toolbar Styles */
+  .notion-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 8px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+  }
+
+  .toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .toolbar-group.compact {
+    gap: 4px;
+  }
+
+  .toolbar-label {
+    font-size: 10px;
+    font-weight: 500;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    min-width: 16px;
+  }
+
+  .toolbar-group :global(svg) {
+    color: #8b949e;
+    flex-shrink: 0;
+  }
+
+  .toolbar-divider {
+    width: 1px;
+    height: 20px;
+    background: #30363d;
+    margin: 0 6px;
+  }
+
+  .toolbar-input {
+    width: 40px;
+    padding: 4px 6px;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    color: #c9d1d9;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    text-align: center;
+    outline: none;
+  }
+
+  .toolbar-input:focus {
+    border-color: #58a6ff;
+  }
+
+  .toolbar-input::-webkit-inner-spin-button,
+  .toolbar-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .toolbar-input[type=number] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  .toolbar-select {
+    padding: 4px 8px;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    color: #c9d1d9;
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    outline: none;
+    cursor: pointer;
+    min-width: 36px;
+  }
+
+  .toolbar-select:focus {
     border-color: #58a6ff;
   }
 </style>

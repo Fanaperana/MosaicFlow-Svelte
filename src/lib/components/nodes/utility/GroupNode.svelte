@@ -12,10 +12,12 @@
 
   let { data, selected, id }: NodeProps<GroupNodeType> = $props();
   
-  const groupColor = $derived(data.groupColor || '#3b82f6');
-  const labelColor = $derived(data.labelColor || groupColor);
+  // Use standard properties: borderColor for border, color for background
+  // Fall back to legacy groupColor/groupBgColor for backwards compatibility
+  const groupColor = $derived(data.borderColor || data.groupColor || '#3b82f6');
+  const labelColor = $derived(data.labelColor || data.textColor || groupColor);
   // Default to almost transparent background (5% opacity)
-  const bgColor = $derived(data.groupBgColor || 'rgba(59, 130, 246, 0.05)');
+  const bgColor = $derived(data.color || data.groupBgColor || 'rgba(59, 130, 246, 0.05)');
   
   // Helper to parse color and extract rgba values
   function parseColor(color: string): { r: number; g: number; b: number; a: number } {
