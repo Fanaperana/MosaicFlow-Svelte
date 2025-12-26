@@ -177,9 +177,6 @@
         {#snippet child({ props })}
           <DropdownMenu.Trigger {...props} class="toolbar-btn dropdown-trigger">
             <Plus size={ICON_SIZE} strokeWidth={1.5} />
-            <span class="dropdown-indicator">
-              <ChevronDown size={10} strokeWidth={2} />
-            </span>
           </DropdownMenu.Trigger>
         {/snippet}
       </Tooltip.Trigger>
