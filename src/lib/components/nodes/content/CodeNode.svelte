@@ -101,7 +101,15 @@
     width: 100%;
     height: 100%;
     min-height: 120px;
-    overflow: hidden;
+  }
+
+  .code-editor-wrapper :global(.code-editor-container) {
+    min-height: 120px;
+  }
+
+  .code-editor-wrapper :global(.cm-editor) {
+    min-height: 120px;
+    background: transparent;
   }
 
   .node-action-btn.copied {

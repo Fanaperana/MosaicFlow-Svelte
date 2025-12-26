@@ -8,7 +8,7 @@
   - Dark theme optimized for node canvas
 -->
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onDestroy } from 'svelte';
   import { EditorState } from '@codemirror/state';
   import { 
     EditorView, 
@@ -322,13 +322,16 @@
 
   // Watch for language changes
   $effect(() => {
-    if (language !== loadedLanguage) {
+    if (language !== loadedLanguage && loadedLanguage !== '') {
       updateLanguage(language);
     }
   });
 
-  onMount(() => {
-    createEditor();
+  // Initialize editor when container is available
+  $effect(() => {
+    if (editorContainer && !view) {
+      createEditor();
+    }
   });
 
   onDestroy(() => {
@@ -354,5 +357,9 @@
 
   .code-editor-container :global(.cm-editor) {
     height: 100%;
+  }
+
+  .code-editor-container :global(.cm-scroller) {
+    overflow: auto !important;
   }
 </style>
