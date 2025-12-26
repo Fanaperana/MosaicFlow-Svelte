@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Component } from 'svelte';
-  import * as Tooltip from '$lib/components/ui/tooltip';
+  import SimpleTooltip from '$lib/components/ui/SimpleTooltip.svelte';
 
   interface Props {
     icon: Component<{ size?: number }>;
@@ -23,24 +23,19 @@
   }: Props = $props();
 </script>
 
-<Tooltip.Root>
-  <Tooltip.Trigger>
-    <button 
-      class="icon-btn"
-      class:active
-      class:danger={variant === 'danger'}
-      class:success={variant === 'success'}
-      {disabled}
-      {onclick}
-      type="button"
-    >
-      <Icon {size} />
-    </button>
-  </Tooltip.Trigger>
-  <Tooltip.Content>
-    <p>{label}</p>
-  </Tooltip.Content>
-</Tooltip.Root>
+<SimpleTooltip text={label} position="bottom">
+  <button 
+    class="icon-btn"
+    class:active
+    class:danger={variant === 'danger'}
+    class:success={variant === 'success'}
+    {disabled}
+    {onclick}
+    type="button"
+  >
+    <Icon {size} />
+  </button>
+</SimpleTooltip>
 
 <style>
   .icon-btn {

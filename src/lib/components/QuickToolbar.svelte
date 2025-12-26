@@ -1,7 +1,7 @@
 <script lang="ts">
   import { NODE_TYPE_INFO, type NodeType } from '$lib/types';
   import { workspace } from '$lib/stores/workspace.svelte';
-  import * as Tooltip from '$lib/components/ui/tooltip';
+  import SimpleTooltip from '$lib/components/ui/SimpleTooltip.svelte';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   import { 
     MousePointer2, 
@@ -103,44 +103,27 @@
 </script>
 
 <div class="quick-toolbar">
-  <Tooltip.Provider>
   <!-- Mode Selection -->
   <div class="toolbar-group">
-    <Tooltip.Root>
-      <Tooltip.Trigger>
-        {#snippet child({ props })}
-          <button 
-            {...props}
-            class="toolbar-btn" 
-            class:active={workspace.canvasMode === 'select'}
-            onclick={setSelectMode}
-          >
-            <MousePointer2 size={ICON_SIZE} strokeWidth={1.5} />
-          </button>
-        {/snippet}
-      </Tooltip.Trigger>
-      <Tooltip.Content side="bottom" sideOffset={8} arrowClasses="hidden">
-        <p>Select (V)</p>
-      </Tooltip.Content>
-    </Tooltip.Root>
+    <SimpleTooltip text="Select (V)" position="bottom">
+      <button 
+        class="toolbar-btn" 
+        class:active={workspace.canvasMode === 'select'}
+        onclick={setSelectMode}
+      >
+        <MousePointer2 size={ICON_SIZE} strokeWidth={1.5} />
+      </button>
+    </SimpleTooltip>
 
-    <Tooltip.Root>
-      <Tooltip.Trigger>
-        {#snippet child({ props })}
-          <button 
-            {...props}
-            class="toolbar-btn"
-            class:active={workspace.canvasMode === 'drag'}
-            onclick={setPanMode}
-          >
-            <Hand size={ICON_SIZE} strokeWidth={1.5} />
-          </button>
-        {/snippet}
-      </Tooltip.Trigger>
-      <Tooltip.Content side="bottom" sideOffset={8} arrowClasses="hidden">
-        <p>Pan (Space + Drag)</p>
-      </Tooltip.Content>
-    </Tooltip.Root>
+    <SimpleTooltip text="Pan (Space + Drag)" position="bottom">
+      <button 
+        class="toolbar-btn"
+        class:active={workspace.canvasMode === 'drag'}
+        onclick={setPanMode}
+      >
+        <Hand size={ICON_SIZE} strokeWidth={1.5} />
+      </button>
+    </SimpleTooltip>
   </div>
 
   <div class="toolbar-divider"></div>
@@ -149,22 +132,14 @@
   <div class="toolbar-group">
     {#each quickNodes as nodeInfo}
       {@const IconComponent = getIconComponent(nodeInfo.icon)}
-      <Tooltip.Root>
-        <Tooltip.Trigger>
-          {#snippet child({ props })}
-            <button 
-              {...props}
-              class="toolbar-btn"
-              onclick={() => handleAddNode(nodeInfo.type)}
-            >
-              <IconComponent size={ICON_SIZE} strokeWidth={1.5} />
-            </button>
-          {/snippet}
-        </Tooltip.Trigger>
-        <Tooltip.Content side="bottom" sideOffset={8} arrowClasses="hidden">
-          <p>{nodeInfo.label}</p>
-        </Tooltip.Content>
-      </Tooltip.Root>
+      <SimpleTooltip text={nodeInfo.label} position="bottom">
+        <button 
+          class="toolbar-btn"
+          onclick={() => handleAddNode(nodeInfo.type)}
+        >
+          <IconComponent size={ICON_SIZE} strokeWidth={1.5} />
+        </button>
+      </SimpleTooltip>
     {/each}
   </div>
 
@@ -172,18 +147,11 @@
 
   <!-- More Nodes Dropdown -->
   <DropdownMenu.Root>
-    <Tooltip.Root>
-      <Tooltip.Trigger>
-        {#snippet child({ props })}
-          <DropdownMenu.Trigger {...props} class="toolbar-btn dropdown-trigger">
-            <Plus size={ICON_SIZE} strokeWidth={1.5} />
-          </DropdownMenu.Trigger>
-        {/snippet}
-      </Tooltip.Trigger>
-      <Tooltip.Content side="bottom" sideOffset={8} arrowClasses="hidden">
-        <p>More nodes</p>
-      </Tooltip.Content>
-    </Tooltip.Root>
+    <SimpleTooltip text="More nodes" position="bottom">
+      <DropdownMenu.Trigger class="toolbar-btn dropdown-trigger">
+        <Plus size={ICON_SIZE} strokeWidth={1.5} />
+      </DropdownMenu.Trigger>
+    </SimpleTooltip>
     
     <DropdownMenu.Content class="node-dropdown" align="start" sideOffset={4}>
       {#each Object.entries(groupedNodes()) as [category, nodes]}
@@ -206,7 +174,6 @@
       {/each}
     </DropdownMenu.Content>
   </DropdownMenu.Root>
-  </Tooltip.Provider>
 </div>
 
 <style>
@@ -255,20 +222,6 @@
   .toolbar-btn.active {
     background: rgba(59, 130, 246, 0.15);
     color: #3b82f6;
-  }
-
-  .toolbar-btn.dropdown-trigger {
-    width: auto;
-    padding: 0 6px;
-    gap: 2px;
-    position: relative;
-  }
-
-  .dropdown-indicator {
-    display: flex;
-    align-items: center;
-    opacity: 0.5;
-    margin-left: 1px;
   }
 
   .toolbar-divider {

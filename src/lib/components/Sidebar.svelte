@@ -16,6 +16,7 @@
   } from 'lucide-svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { cn } from '$lib/utils';
+  import SimpleTooltip from '$lib/components/ui/SimpleTooltip.svelte';
 
   interface Props {
     onHome: () => void;
@@ -43,36 +44,44 @@
 <div class="sidebar">
   <!-- Top section -->
   <div class="sidebar-section">
-    <button class="sidebar-btn" onclick={(e) => { e.stopPropagation(); onHome(); }} title="Home">
-      <Home size={20} strokeWidth={1.5} />
-    </button>
-    <button class="sidebar-btn" onclick={(e) => { e.stopPropagation(); onSearch(); }} title="Search (Ctrl+K)">
-      <Search size={20} strokeWidth={1.5} />
-    </button>
+    <SimpleTooltip text="Home" position="right">
+      <button class="sidebar-btn" onclick={(e) => { e.stopPropagation(); onHome(); }}>
+        <Home size={20} strokeWidth={1.5} />
+      </button>
+    </SimpleTooltip>
+    <SimpleTooltip text="Search (Ctrl+K)" position="right">
+      <button class="sidebar-btn" onclick={(e) => { e.stopPropagation(); onSearch(); }}>
+        <Search size={20} strokeWidth={1.5} />
+      </button>
+    </SimpleTooltip>
   </div>
 
   <!-- Main tools -->
   <div class="sidebar-section">
-    <button 
-      class="sidebar-btn" 
-      onclick={(e) => { e.stopPropagation(); onNewCanvas(); }}
-      title="New Canvas"
-    >
-      <Plus size={20} strokeWidth={1.5} />
-    </button>
+    <SimpleTooltip text="New Canvas" position="right">
+      <button 
+        class="sidebar-btn" 
+        onclick={(e) => { e.stopPropagation(); onNewCanvas(); }}
+      >
+        <Plus size={20} strokeWidth={1.5} />
+      </button>
+    </SimpleTooltip>
     
-    <button class="sidebar-btn" onclick={(e) => { e.stopPropagation(); onOpen(); }} title="Open">
-      <FolderOpen size={20} strokeWidth={1.5} />
-    </button>
+    <SimpleTooltip text="Open" position="right">
+      <button class="sidebar-btn" onclick={(e) => { e.stopPropagation(); onOpen(); }}>
+        <FolderOpen size={20} strokeWidth={1.5} />
+      </button>
+    </SimpleTooltip>
 
     <div class="dropdown-container">
-      <button 
-        class="sidebar-btn"
-        onclick={(e) => { e.stopPropagation(); exportMenuOpen = !exportMenuOpen; }}
-        title="Export"
-      >
-        <Download size={20} strokeWidth={1.5} />
-      </button>
+      <SimpleTooltip text="Export" position="right">
+        <button 
+          class="sidebar-btn"
+          onclick={(e) => { e.stopPropagation(); exportMenuOpen = !exportMenuOpen; }}
+        >
+          <Download size={20} strokeWidth={1.5} />
+        </button>
+      </SimpleTooltip>
       
       {#if exportMenuOpen}
         <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
@@ -92,63 +101,69 @@
 
   <!-- Edit tools -->
   <div class="sidebar-section">
-    <button 
-      class="sidebar-btn" 
-      title="Undo (Ctrl+Z)" 
-      disabled={!workspace.canUndo}
-      onclick={() => workspace.undo()}
-    >
-      <Undo2 size={20} strokeWidth={1.5} />
-    </button>
-    <button 
-      class="sidebar-btn" 
-      title="Redo (Ctrl+Y)" 
-      disabled={!workspace.canRedo}
-      onclick={() => workspace.redo()}
-    >
-      <Redo2 size={20} strokeWidth={1.5} />
-    </button>
+    <SimpleTooltip text="Undo (Ctrl+Z)" position="right">
+      <button 
+        class="sidebar-btn" 
+        disabled={!workspace.canUndo}
+        onclick={() => workspace.undo()}
+      >
+        <Undo2 size={20} strokeWidth={1.5} />
+      </button>
+    </SimpleTooltip>
+    <SimpleTooltip text="Redo (Ctrl+Y)" position="right">
+      <button 
+        class="sidebar-btn" 
+        disabled={!workspace.canRedo}
+        onclick={() => workspace.redo()}
+      >
+        <Redo2 size={20} strokeWidth={1.5} />
+      </button>
+    </SimpleTooltip>
   </div>
 
   <!-- View tools -->
   <div class="sidebar-section">
-    <button 
-      class="sidebar-btn" 
-      onclick={() => window.dispatchEvent(new CustomEvent('mosaicflow:zoomIn'))}
-      title="Zoom In"
-    >
-      <ZoomIn size={20} strokeWidth={1.5} />
-    </button>
-    <button 
-      class="sidebar-btn"
-      onclick={() => window.dispatchEvent(new CustomEvent('mosaicflow:zoomOut'))}
-      title="Zoom Out"
-    >
-      <ZoomOut size={20} strokeWidth={1.5} />
-    </button>
-    <button 
-      class="sidebar-btn"
-      onclick={() => window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.1 } }))}
-      title="Fit View"
-    >
-      <Maximize2 size={20} strokeWidth={1.5} />
-    </button>
+    <SimpleTooltip text="Zoom In" position="right">
+      <button 
+        class="sidebar-btn" 
+        onclick={() => window.dispatchEvent(new CustomEvent('mosaicflow:zoomIn'))}
+      >
+        <ZoomIn size={20} strokeWidth={1.5} />
+      </button>
+    </SimpleTooltip>
+    <SimpleTooltip text="Zoom Out" position="right">
+      <button 
+        class="sidebar-btn"
+        onclick={() => window.dispatchEvent(new CustomEvent('mosaicflow:zoomOut'))}
+      >
+        <ZoomOut size={20} strokeWidth={1.5} />
+      </button>
+    </SimpleTooltip>
+    <SimpleTooltip text="Fit View" position="right">
+      <button 
+        class="sidebar-btn"
+        onclick={() => window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.1 } }))}
+      >
+        <Maximize2 size={20} strokeWidth={1.5} />
+      </button>
+    </SimpleTooltip>
   </div>
 
   <!-- Delete -->
   <div class="sidebar-section">
-    <button 
-      class="sidebar-btn danger" 
-      onclick={() => {
-        if (workspace.selectedNodeIds.length > 0) {
-          workspace.deleteNodes(workspace.selectedNodeIds);
-        }
-      }}
-      title="Delete Selected"
-      disabled={workspace.selectedNodeIds.length === 0}
-    >
-      <Trash2 size={20} strokeWidth={1.5} />
-    </button>
+    <SimpleTooltip text="Delete Selected" position="right">
+      <button 
+        class="sidebar-btn danger" 
+        onclick={() => {
+          if (workspace.selectedNodeIds.length > 0) {
+            workspace.deleteNodes(workspace.selectedNodeIds);
+          }
+        }}
+        disabled={workspace.selectedNodeIds.length === 0}
+      >
+        <Trash2 size={20} strokeWidth={1.5} />
+      </button>
+    </SimpleTooltip>
   </div>
 
   <!-- Spacer -->
@@ -156,9 +171,11 @@
 
   <!-- Bottom section -->
   <div class="sidebar-section">
-    <button class="sidebar-btn" onclick={(e) => { e.stopPropagation(); onSettings(); }} title="Settings">
-      <Settings size={20} strokeWidth={1.5} />
-    </button>
+    <SimpleTooltip text="Settings" position="right">
+      <button class="sidebar-btn" onclick={(e) => { e.stopPropagation(); onSettings(); }}>
+        <Settings size={20} strokeWidth={1.5} />
+      </button>
+    </SimpleTooltip>
   </div>
 </div>
 

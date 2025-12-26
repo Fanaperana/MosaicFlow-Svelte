@@ -1,7 +1,7 @@
 <script lang="ts">
   import { NodeToolbar, Position, useSvelteFlow } from '@xyflow/svelte';
   import { Trash2, Palette, ZoomIn, Settings2, Copy, Lock, Unlock, Pipette } from 'lucide-svelte';
-  import * as Tooltip from '$lib/components/ui/tooltip';
+  import SimpleTooltip from '$lib/components/ui/SimpleTooltip.svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
   import ColorPicker from 'svelte-awesome-color-picker';
 
@@ -153,99 +153,69 @@
       </div>
     {:else}
       <!-- Default toolbar row -->
-      <Tooltip.Root>
-        <Tooltip.Trigger>
-          <button 
-            class="toolbar-btn danger"
-            onclick={handleDelete}
-            type="button"
-          >
-            <Trash2 size={14} />
-          </button>
-        </Tooltip.Trigger>
-        <Tooltip.Content side="top">
-          <p>Delete</p>
-        </Tooltip.Content>
-      </Tooltip.Root>
+      <SimpleTooltip text="Delete" position="top">
+        <button 
+          class="toolbar-btn danger"
+          onclick={handleDelete}
+          type="button"
+        >
+          <Trash2 size={14} />
+        </button>
+      </SimpleTooltip>
 
-      <Tooltip.Root>
-        <Tooltip.Trigger>
-          <button 
-            class="toolbar-btn"
-            onclick={handleDuplicate}
-            type="button"
-          >
-            <Copy size={14} />
-          </button>
-        </Tooltip.Trigger>
-        <Tooltip.Content side="top">
-          <p>Duplicate</p>
-        </Tooltip.Content>
-      </Tooltip.Root>
+      <SimpleTooltip text="Duplicate" position="top">
+        <button 
+          class="toolbar-btn"
+          onclick={handleDuplicate}
+          type="button"
+        >
+          <Copy size={14} />
+        </button>
+      </SimpleTooltip>
 
-      <Tooltip.Root>
-        <Tooltip.Trigger>
-          <button 
-            class="toolbar-btn"
-            onclick={() => showColorPicker = true}
-            type="button"
-          >
-            <Palette size={14} />
-          </button>
-        </Tooltip.Trigger>
-        <Tooltip.Content side="top">
-          <p>Change color</p>
-        </Tooltip.Content>
-      </Tooltip.Root>
+      <SimpleTooltip text="Change color" position="top">
+        <button 
+          class="toolbar-btn"
+          onclick={() => showColorPicker = true}
+          type="button"
+        >
+          <Palette size={14} />
+        </button>
+      </SimpleTooltip>
 
-      <Tooltip.Root>
-        <Tooltip.Trigger>
-          <button 
-            class="toolbar-btn"
-            onclick={handleToggleLock}
-            type="button"
-          >
-            {#if isLocked}
-              <Lock size={14} />
-            {:else}
-              <Unlock size={14} />
-            {/if}
-          </button>
-        </Tooltip.Trigger>
-        <Tooltip.Content side="top">
-          <p>{isLocked ? 'Unlock' : 'Lock'}</p>
-        </Tooltip.Content>
-      </Tooltip.Root>
+      <SimpleTooltip text={isLocked ? 'Unlock' : 'Lock'} position="top">
+        <button 
+          class="toolbar-btn"
+          onclick={handleToggleLock}
+          type="button"
+        >
+          {#if isLocked}
+            <Lock size={14} />
+          {:else}
+            <Unlock size={14} />
+          {/if}
+        </button>
+      </SimpleTooltip>
 
-      <Tooltip.Root>
-        <Tooltip.Trigger>
-          <button 
-            class="toolbar-btn"
-            onclick={handleZoomToFit}
-            type="button"
-          >
-            <ZoomIn size={14} />
-          </button>
-        </Tooltip.Trigger>
-        <Tooltip.Content side="top">
-          <p>Zoom to fit</p>
-        </Tooltip.Content>
-      </Tooltip.Root>
+      <SimpleTooltip text="Zoom to fit" position="top">
+        <button 
+          class="toolbar-btn"
+          onclick={handleZoomToFit}
+          type="button"
+        >
+          <ZoomIn size={14} />
+        </button>
+      </SimpleTooltip>
 
-      <Tooltip.Root>
-        <Tooltip.Trigger>
-          <button 
-            class="toolbar-btn"
-            onclick={handleMoreProperties}
-            type="button"
-          >
-            <Settings2 size={14} />
-          </button>
-        </Tooltip.Trigger>
-        <Tooltip.Content side="top">
-          <p>More properties</p>
-        </Tooltip.Content>
-      </Tooltip.Root>
+      <SimpleTooltip text="More properties" position="top">
+        <button 
+          class="toolbar-btn"
+          onclick={handleMoreProperties}
+          type="button"
+        >
+          <Settings2 size={14} />
+        </button>
+      </SimpleTooltip>
     {/if}
   </div>
 </NodeToolbar>

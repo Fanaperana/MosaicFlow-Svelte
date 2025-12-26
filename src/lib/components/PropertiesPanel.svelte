@@ -9,6 +9,7 @@
   import { PropertyGroup } from '$lib/components/ui/property-group';
   import { PropertyRow } from '$lib/components/ui/property-row';
   import { NumberInput } from '$lib/components/ui/number-input';
+  import FixedTooltip from '$lib/components/ui/FixedTooltip.svelte';
 
   interface Props {
     onClose: () => void;
@@ -248,9 +249,11 @@
 >
   <div class="panel-header">
     <h3>Properties</h3>
-    <button class="close-btn" onclick={onClose}>
-      <X size={16} />
-    </button>
+    <FixedTooltip text="Close" position="left">
+      <button class="close-btn" onclick={onClose}>
+        <X size={16} />
+      </button>
+    </FixedTooltip>
   </div>
 
   {#if selectedEdge}
@@ -348,17 +351,20 @@
         
         <!-- Notion-like Color Toolbar for Edge -->
         <div class="notion-toolbar">
-          <div class="toolbar-group" title="Line color">
-            <span class="toolbar-label">Line</span>
-            <ColorInput 
+          <FixedTooltip text="Line color" position="top">
+            <div class="toolbar-group">
+              <span class="toolbar-label">Line</span>
+              <ColorInput 
               value={selectedEdge.data?.color || '#555555'}
               onchange={(color) => updateEdgeAppearance({ color })}
               size="sm"
-            />
-          </div>
+              />
+            </div>
+          </FixedTooltip>
           <div class="toolbar-divider"></div>
-          <div class="toolbar-group compact" title="Line width (1-10px)">
-            <span class="toolbar-label">W</span>
+          <FixedTooltip text="Line width (1-10px)" position="top">
+            <div class="toolbar-group compact">
+              <span class="toolbar-label">W</span>
             <input 
               type="number" 
               class="toolbar-input"
@@ -369,10 +375,12 @@
               min="1"
               max="10"
             />
-          </div>
+            </div>
+          </FixedTooltip>
           <div class="toolbar-divider"></div>
-          <div class="toolbar-group" title="Line style">
-            <select 
+          <FixedTooltip text="Line style" position="top">
+            <div class="toolbar-group">
+              <select 
               class="toolbar-select"
               value={selectedEdge.data?.strokeStyle || 'solid'}
               onchange={(e) => {
@@ -383,40 +391,47 @@
               <option value="dashed">┅</option>
               <option value="dotted">┈</option>
             </select>
-          </div>
+            </div>
+          </FixedTooltip>
         </div>
 
         <!-- Label Styling Toolbar -->
         <div class="notion-toolbar">
-          <div class="toolbar-group" title="Label text color">
-            <Type size={14} class="toolbar-icon" />
+          <FixedTooltip text="Label text color" position="top">
+            <div class="toolbar-group">
+              <Type size={14} class="toolbar-icon" />
             <ColorInput 
               value={selectedEdge.data?.labelColor || '#ffffff'}
               onchange={(color) => updateEdgeData('labelColor', color)}
               size="sm"
             />
-          </div>
+            </div>
+          </FixedTooltip>
           <div class="toolbar-divider"></div>
-          <div class="toolbar-group" title="Label background color">
-            <span class="toolbar-label">BG</span>
+          <FixedTooltip text="Label background color" position="top">
+            <div class="toolbar-group">
+              <span class="toolbar-label">BG</span>
             <ColorInput 
               value={selectedEdge.data?.labelBgColor || '#1a1d21'}
               onchange={(color) => updateEdgeData('labelBgColor', color)}
               size="sm"
             />
-          </div>
+            </div>
+          </FixedTooltip>
           <div class="toolbar-divider"></div>
-          <div class="toolbar-group compact" title="Label font size (8-24px)">
-            <span class="toolbar-label">Sz</span>
-            <input 
-              type="number" 
-              class="toolbar-input"
-              value={selectedEdge.data?.labelFontSize || 12}
-              oninput={(e) => updateEdgeData('labelFontSize', parseInt((e.target as HTMLInputElement).value))}
-              min="8"
-              max="24"
-            />
-          </div>
+          <FixedTooltip text="Label font size (8-24px)" position="top">
+            <div class="toolbar-group compact">
+              <span class="toolbar-label">Sz</span>
+              <input 
+                type="number" 
+                class="toolbar-input"
+                value={selectedEdge.data?.labelFontSize || 12}
+                oninput={(e) => updateEdgeData('labelFontSize', parseInt((e.target as HTMLInputElement).value))}
+                min="8"
+                max="24"
+              />
+            </div>
+          </FixedTooltip>
         </div>
       </div>
 
@@ -468,50 +483,59 @@
       <PropertyGroup title="Appearance" bind:open={appearanceOpen}>
         <!-- Notion-like Color Toolbar -->
         <div class="notion-toolbar">
-          <div class="toolbar-group" title="Background color">
-            <span class="toolbar-label">BG</span>
-            <ColorInput 
-              value={selectedNode.data.color || (selectedNode.type === 'group' ? 'rgba(59, 130, 246, 0.05)' : '#1e1e1e')}
-              onchange={(color) => updateNodeData('color', color)}
-              size="sm"
-            />
-          </div>
+          <FixedTooltip text="Background color" position="top">
+            <div class="toolbar-group">
+              <span class="toolbar-label">BG</span>
+              <ColorInput 
+                value={selectedNode.data.color || (selectedNode.type === 'group' ? 'rgba(59, 130, 246, 0.05)' : '#1e1e1e')}
+                onchange={(color) => updateNodeData('color', color)}
+                size="sm"
+              />
+            </div>
+          </FixedTooltip>
           <div class="toolbar-divider"></div>
-          <div class="toolbar-group" title="Border color">
-            <Square size={14} />
-            <ColorInput 
+          <FixedTooltip text="Border color" position="top">
+            <div class="toolbar-group">
+              <Square size={14} />
+              <ColorInput 
               value={selectedNode.data.borderColor || (selectedNode.type === 'group' ? '#3b82f6' : '#333333')}
               onchange={(color) => updateNodeData('borderColor', color)}
               size="sm"
             />
-          </div>
+            </div>
+          </FixedTooltip>
           {#if selectedNode.type === 'group'}
           <div class="toolbar-divider"></div>
-          <div class="toolbar-group" title="Label text color">
-            <Type size={14} />
+          <FixedTooltip text="Label text color" position="top">
+            <div class="toolbar-group">
+              <Type size={14} />
             <ColorInput 
               value={(selectedNode.data as any).labelColor || selectedNode.data.borderColor || '#3b82f6'}
               onchange={(color) => updateNodeData('labelColor', color)}
               size="sm"
             />
-          </div>
+            </div>
+          </FixedTooltip>
           {:else if selectedNode.type !== 'image' && selectedNode.type !== 'annotation'}
           <div class="toolbar-divider"></div>
-          <div class="toolbar-group" title="Text color">
-            <Type size={14} />
+          <FixedTooltip text="Text color" position="top">
+            <div class="toolbar-group">
+              <Type size={14} />
             <ColorInput 
               value={selectedNode.data.textColor || '#e0e0e0'}
               onchange={(color) => updateNodeData('textColor', color)}
               size="sm"
             />
-          </div>
+            </div>
+          </FixedTooltip>
           {/if}
         </div>
 
         <!-- Border Settings Toolbar -->
         <div class="notion-toolbar">
-          <div class="toolbar-group compact" title="Border width (0-10px)">
-            <span class="toolbar-label">W</span>
+          <FixedTooltip text="Border width (0-10px)" position="top">
+            <div class="toolbar-group compact">
+              <span class="toolbar-label">W</span>
             <input 
               type="number" 
               class="toolbar-input"
@@ -520,10 +544,12 @@
               min="0"
               max="10"
             />
-          </div>
+            </div>
+          </FixedTooltip>
           <div class="toolbar-divider"></div>
-          <div class="toolbar-group compact" title="Border radius (0-50px)">
-            <SquareRoundCorner size={14} />
+          <FixedTooltip text="Border radius (0-50px)" position="top">
+            <div class="toolbar-group compact">
+              <SquareRoundCorner size={14} />
             <input 
               type="number" 
               class="toolbar-input"
@@ -532,10 +558,12 @@
               min="0"
               max="50"
             />
-          </div>
+            </div>
+          </FixedTooltip>
           <div class="toolbar-divider"></div>
-          <div class="toolbar-group" title="Border style">
-            <select 
+          <FixedTooltip text="Border style" position="top">
+            <div class="toolbar-group">
+              <select 
               class="toolbar-select"
               value={(selectedNode.data.borderStyle as string) || 'solid'}
               onchange={(e) => updateNodeData('borderStyle', (e.target as HTMLSelectElement).value)}
@@ -545,7 +573,8 @@
               <option value="dotted">┈</option>
               <option value="none">✕</option>
             </select>
-          </div>
+            </div>
+          </FixedTooltip>
         </div>
 
         {#if selectedNode.parentId}

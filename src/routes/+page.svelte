@@ -166,7 +166,9 @@
   <VaultPicker />
 {/if}
 
-<style>
+<style lang="postcss">
+  @reference "tailwindcss";
+
   :global(*) {
     margin: 0;
     padding: 0;
