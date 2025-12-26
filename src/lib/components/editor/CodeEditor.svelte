@@ -8,7 +8,6 @@
   - Dark theme optimized for node canvas
 -->
 <script lang="ts">
-  import { onDestroy } from 'svelte';
   import { EditorState } from '@codemirror/state';
   import { 
     EditorView, 
@@ -54,10 +53,8 @@
     readonly = false,
   }: Props = $props();
 
-  let editorContainer: HTMLDivElement;
   let view: EditorView | null = null;
   let isInternalChange = false;
-  // Track the currently loaded language to detect changes
   let loadedLanguage = '';
 
   // Dark theme highlight style for code
@@ -235,8 +232,22 @@
     return null;
   }
 
-  async function createEditor() {
-    if (!editorContainer) return;
+  // Svelte action to initialize the editor when DOM is ready
+  function initEditor(container: HTMLDivElement) {
+    createEditor(container);
+    
+    return {
+      destroy() {
+        if (view) {
+          view.destroy();
+          view = null;
+        }
+      }
+    };
+  }
+
+  async function createEditor(container: HTMLDivElement) {
+    if (!container || view) return;
 
     const updateListener = EditorView.updateListener.of((update) => {
       if (update.docChanged && !readonly) {
@@ -286,7 +297,7 @@
 
     view = new EditorView({
       state,
-      parent: editorContainer,
+      parent: container,
     });
 
     loadedLanguage = language;
@@ -296,12 +307,16 @@
   async function updateLanguage(newLang: string) {
     if (!view || newLang === loadedLanguage) return;
     
-    // Recreate editor with new language
+    // Recreate editor with new language - need container reference
+    const parent = view.dom.parentElement;
     const currentValue = view.state.doc.toString();
     view.destroy();
+    view = null;
     value = currentValue;
     loadedLanguage = newLang;
-    await createEditor();
+    if (parent) {
+      await createEditor(parent as HTMLDivElement);
+    }
   }
 
   // Watch for external value changes
@@ -326,24 +341,10 @@
       updateLanguage(language);
     }
   });
-
-  // Initialize editor when container is available
-  $effect(() => {
-    if (editorContainer && !view) {
-      createEditor();
-    }
-  });
-
-  onDestroy(() => {
-    if (view) {
-      view.destroy();
-      view = null;
-    }
-  });
 </script>
 
 <div 
-  bind:this={editorContainer} 
+  use:initEditor
   class="code-editor-container {className}"
 ></div>
 
