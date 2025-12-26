@@ -140,7 +140,7 @@
       backgroundColor: 'transparent',
     },
     '.cm-content': {
-      fontFamily: "'Fira Code', 'Monaco', 'Consolas', 'Menlo', monospace",
+      fontFamily: "'Space Mono', monospace",
       padding: '4px 0',
       caretColor: '#fff',
     },
