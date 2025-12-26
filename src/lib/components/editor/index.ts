@@ -1,4 +1,5 @@
 export { default as RichMarkdownEditor } from './RichMarkdownEditor.svelte';
+export { default as CodeEditor } from './CodeEditor.svelte';
 export { richMarkdownPlugin } from './richMarkdownPlugin';
 export { markdocConfig } from './markdocConfig';
 export { highlightStyle } from './highlightStyle';
