@@ -1,8 +1,9 @@
 <script lang="ts">
   import { NodeToolbar, Position, useSvelteFlow } from '@xyflow/svelte';
-  import { Trash2, Palette, ZoomIn, ExternalLink } from 'lucide-svelte';
+  import { Trash2, Palette, ZoomIn, Settings2, Copy, Lock, Unlock, Pipette } from 'lucide-svelte';
   import * as Tooltip from '$lib/components/ui/tooltip';
   import { workspace } from '$lib/stores/workspace.svelte';
+  import ColorPicker from 'svelte-awesome-color-picker';
 
   interface Props {
     nodeId: string;
@@ -28,6 +29,19 @@
   ];
 
   let showColorPicker = $state(false);
+  let showCustomColorPicker = $state(false);
+  let customHex = $state('#3b82f6');
+
+  // Get current node to check locked state
+  const currentNode = $derived(workspace.getNode(nodeId));
+  const isLocked = $derived(currentNode?.data?.locked ?? false);
+
+  // Sync custom color when opening picker
+  $effect(() => {
+    if (showCustomColorPicker) {
+      customHex = color;
+    }
+  });
 
   function handleDelete() {
     workspace.deleteNode(nodeId);
@@ -40,15 +54,38 @@
   function handleColorSelect(newColor: string) {
     onColorChange?.(newColor);
     showColorPicker = false;
+    showCustomColorPicker = false;
   }
 
-  function handleEdit() {
-    // Open in edit mode or external editor - dispatch event for parent to handle
-    const event = new CustomEvent('node-edit', { 
-      detail: { nodeId },
-      bubbles: true 
-    });
-    document.dispatchEvent(event);
+  function handleCustomColorInput(event: { hex: string | null }) {
+    if (event.hex) {
+      customHex = event.hex;
+      onColorChange?.(event.hex);
+    }
+  }
+
+  function handleMoreProperties() {
+    // Select the node and open properties panel
+    workspace.setSelectedNodes([nodeId]);
+    workspace.propertiesPanelOpen = true;
+  }
+
+  function handleDuplicate() {
+    workspace.duplicateNodes([nodeId]);
+  }
+
+  function handleToggleLock() {
+    workspace.updateNodeData(nodeId, { locked: !isLocked });
+  }
+
+  function openCustomColorPicker() {
+    customHex = color;
+    showCustomColorPicker = true;
+  }
+
+  function closeColorPicker() {
+    showColorPicker = false;
+    showCustomColorPicker = false;
   }
 </script>
 
@@ -59,22 +96,50 @@
       <div class="color-picker-row">
         <button 
           class="color-back-btn"
-          onclick={() => showColorPicker = false}
+          onclick={closeColorPicker}
           type="button"
+          title="Back"
         >
           <Palette size={14} />
         </button>
         <div class="color-divider"></div>
-        {#each presetColors as preset}
+        {#if showCustomColorPicker}
+          <div class="custom-color-picker nodrag">
+            <ColorPicker 
+              bind:hex={customHex}
+              isAlpha={true}
+              isDialog={false}
+              onInput={handleCustomColorInput}
+            />
+            <button 
+              class="apply-color-btn"
+              onclick={() => handleColorSelect(customHex)}
+              type="button"
+            >
+              Apply
+            </button>
+          </div>
+        {:else}
+          {#each presetColors as preset}
+            <button
+              class="color-swatch"
+              class:active={color === preset.color}
+              style="background-color: {preset.color}"
+              onclick={() => handleColorSelect(preset.color)}
+              title={preset.name}
+              type="button"
+            ></button>
+          {/each}
+          <div class="color-divider"></div>
           <button
-            class="color-swatch"
-            class:active={color === preset.color}
-            style="background-color: {preset.color}"
-            onclick={() => handleColorSelect(preset.color)}
-            title={preset.name}
+            class="color-swatch custom-picker-btn"
+            onclick={openCustomColorPicker}
+            title="Custom color"
             type="button"
-          ></button>
-        {/each}
+          >
+            <Pipette size={12} />
+          </button>
+        {/if}
       </div>
     {:else}
       <!-- Default toolbar row -->
@@ -97,6 +162,21 @@
         <Tooltip.Trigger>
           <button 
             class="toolbar-btn"
+            onclick={handleDuplicate}
+            type="button"
+          >
+            <Copy size={14} />
+          </button>
+        </Tooltip.Trigger>
+        <Tooltip.Content side="top">
+          <p>Duplicate</p>
+        </Tooltip.Content>
+      </Tooltip.Root>
+
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          <button 
+            class="toolbar-btn"
             onclick={() => showColorPicker = true}
             type="button"
           >
@@ -105,6 +185,25 @@
         </Tooltip.Trigger>
         <Tooltip.Content side="top">
           <p>Change color</p>
+        </Tooltip.Content>
+      </Tooltip.Root>
+
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          <button 
+            class="toolbar-btn"
+            onclick={handleToggleLock}
+            type="button"
+          >
+            {#if isLocked}
+              <Lock size={14} />
+            {:else}
+              <Unlock size={14} />
+            {/if}
+          </button>
+        </Tooltip.Trigger>
+        <Tooltip.Content side="top">
+          <p>{isLocked ? 'Unlock' : 'Lock'}</p>
         </Tooltip.Content>
       </Tooltip.Root>
 
@@ -127,14 +226,14 @@
         <Tooltip.Trigger>
           <button 
             class="toolbar-btn"
-            onclick={handleEdit}
+            onclick={handleMoreProperties}
             type="button"
           >
-            <ExternalLink size={14} />
+            <Settings2 size={14} />
           </button>
         </Tooltip.Trigger>
         <Tooltip.Content side="top">
-          <p>Edit</p>
+          <p>More properties</p>
         </Tooltip.Content>
       </Tooltip.Root>
     {/if}
@@ -230,5 +329,51 @@
   .color-swatch.active {
     border-color: #fff;
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+  }
+
+  .custom-picker-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
+    color: #1e1e1e;
+  }
+
+  .custom-picker-btn:hover {
+    color: #fff;
+  }
+
+  /* Custom color picker container */
+  .custom-color-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    background: #2d2d2d;
+    border-radius: 6px;
+  }
+
+  .custom-color-picker :global(.picker) {
+    width: 180px !important;
+  }
+
+  .custom-color-picker :global(.alpha) {
+    margin-top: 8px;
+  }
+
+  .apply-color-btn {
+    padding: 6px 12px;
+    background: #3b82f6;
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .apply-color-btn:hover {
+    background: #2563eb;
   }
 </style>

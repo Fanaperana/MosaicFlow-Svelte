@@ -14,19 +14,11 @@
   import { message } from '@tauri-apps/plugin-dialog';
   import type { CanvasInfo } from '$lib/services/vaultService';
   
-  let showProperties = $state(false);
   let showSearch = $state(false);
   let showNodeList = $state(false);
   
   // Track the current canvas ID to detect changes
   let currentCanvasId = $state<string | null>(null);
-  
-  // Show properties when a node or edge is selected
-  $effect(() => {
-    if (workspace.selectedNodeIds.length === 1 || workspace.selectedEdgeIds.length === 1) {
-      showProperties = true;
-    }
-  });
 
   // Load canvas when current canvas changes
   $effect(() => {
@@ -97,7 +89,7 @@
   }
 
   function handleSettings() {
-    showProperties = !showProperties;
+    workspace.togglePropertiesPanel();
   }
 
   async function handleNewCanvas() {
@@ -159,8 +151,8 @@
         <Canvas showNodeList={showNodeList} onToggleNodeList={() => showNodeList = !showNodeList} />
       </div>
       
-      {#if showProperties}
-        <PropertiesPanel onClose={() => showProperties = false} />
+      {#if workspace.propertiesPanelOpen}
+        <PropertiesPanel onClose={() => workspace.propertiesPanelOpen = false} />
       {/if}
     </div>
     

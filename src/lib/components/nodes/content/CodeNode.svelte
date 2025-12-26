@@ -50,7 +50,7 @@
   }
 </script>
 
-<NodeWrapper {data} {selected} {id} nodeType="code" class="code-node">
+<NodeWrapper {data} {selected} {id} nodeType="code" class="code-node" showHeader={true}>
   {#snippet header()}
     <span class="node-icon"><Code size={14} strokeWidth={1.5} /></span>
     <span class="node-title">{data.title}</span>
