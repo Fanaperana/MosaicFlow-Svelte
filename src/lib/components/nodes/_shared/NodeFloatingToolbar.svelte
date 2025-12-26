@@ -110,6 +110,16 @@
               isAlpha={true}
               isDialog={false}
               onInput={handleCustomColorInput}
+              --picker-height="100px"
+              --picker-width="120px"
+              --slider-width="12px"
+              --picker-indicator-size="10px"
+              --focus-color="#3b82f6"
+              --cp-bg-color="#1e1e1e"
+              --cp-border-color="#3a3a3a"
+              --cp-text-color="#e5e7eb"
+              --cp-input-color="#2d2d2d"
+              --cp-button-hover-color="#3a3a3a"
             />
             <button 
               class="apply-color-btn"
@@ -351,52 +361,6 @@
     padding: 6px;
     background: #1e1e1e;
     border-radius: 6px;
-  }
-
-  /* Dark theme for color picker */
-  .custom-color-picker :global(.wrapper) {
-    --cp-bg-color: #1e1e1e;
-    --cp-border-color: #3a3a3a;
-    --cp-input-color: #e5e7eb;
-    --cp-button-hover-color: #2d2d2d;
-  }
-
-  .custom-color-picker :global(.picker) {
-    width: 140px !important;
-    height: 100px !important;
-  }
-
-  .custom-color-picker :global(.picker-wrapper) {
-    width: 140px !important;
-  }
-
-  .custom-color-picker :global(.alpha-wrapper),
-  .custom-color-picker :global(.hue-wrapper) {
-    height: 10px !important;
-    border-radius: 4px;
-    overflow: hidden;
-  }
-
-  .custom-color-picker :global(.slider-wrapper) {
-    margin-top: 6px;
-  }
-
-  .custom-color-picker :global(input) {
-    background: #2d2d2d !important;
-    border: 1px solid #3a3a3a !important;
-    color: #e5e7eb !important;
-    border-radius: 4px !important;
-    font-size: 10px !important;
-    padding: 4px 6px !important;
-  }
-
-  .custom-color-picker :global(input:focus) {
-    border-color: #3b82f6 !important;
-    outline: none !important;
-  }
-
-  .custom-color-picker :global(.text-input) {
-    display: none;
   }
 
   .apply-color-btn {
