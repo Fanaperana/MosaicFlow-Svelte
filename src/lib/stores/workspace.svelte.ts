@@ -733,6 +733,10 @@ class WorkspaceStore {
 
   setSelectedEdges(ids: string[]) {
     this.selectedEdgeIds = ids;
+    // Open properties panel when an edge is selected
+    if (ids.length === 1) {
+      this.propertiesPanelOpen = true;
+    }
   }
 
   // Toggle properties panel
