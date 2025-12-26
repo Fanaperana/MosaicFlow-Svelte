@@ -92,10 +92,20 @@
 
   <!-- Edit tools -->
   <div class="sidebar-section">
-    <button class="sidebar-btn" title="Undo (coming soon)" disabled>
+    <button 
+      class="sidebar-btn" 
+      title="Undo (Ctrl+Z)" 
+      disabled={!workspace.canUndo}
+      onclick={() => workspace.undo()}
+    >
       <Undo2 size={20} strokeWidth={1.5} />
     </button>
-    <button class="sidebar-btn" title="Redo (coming soon)" disabled>
+    <button 
+      class="sidebar-btn" 
+      title="Redo (Ctrl+Y)" 
+      disabled={!workspace.canRedo}
+      onclick={() => workspace.redo()}
+    >
       <Redo2 size={20} strokeWidth={1.5} />
     </button>
   </div>

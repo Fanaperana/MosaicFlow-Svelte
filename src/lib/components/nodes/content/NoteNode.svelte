@@ -11,6 +11,7 @@
   import { RichMarkdownEditor } from '$lib/components/editor';
   import { marked } from 'marked';
   import { hexToRgba } from '../_shared/utils';
+  import { NodeFloatingToolbar } from '../_shared';
 
   type NoteNodeType = Node<NoteNodeData, 'note'>;
 
@@ -85,8 +86,20 @@
     }
   }
 
-  const backgroundColor = $derived(hexToRgba(data.color || '#1a1d21', bgOpacity));
+  const nodeColor = $derived(data.color || '#1a1d21');
+  const backgroundColor = $derived(hexToRgba(nodeColor, bgOpacity));
+
+  function handleColorChange(newColor: string) {
+    workspace.updateNodeData(id, { color: newColor });
+  }
 </script>
+
+<NodeFloatingToolbar 
+  nodeId={id} 
+  selected={selected ?? false} 
+  color={nodeColor}
+  onColorChange={handleColorChange}
+/>
 
 <NodeResizer 
   minWidth={120} 

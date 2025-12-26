@@ -7,6 +7,8 @@
 <script lang="ts">
   import { type NodeProps, type Node, NodeResizer } from '@xyflow/svelte';
   import type { GroupNodeData } from '$lib/types';
+  import { NodeFloatingToolbar } from '../_shared';
+  import { workspace } from '$lib/stores/workspace.svelte';
 
   type GroupNodeType = Node<GroupNodeData, 'group'>;
 
@@ -64,7 +66,19 @@
     const parsed = parseColor(groupColor);
     return `rgb(${parsed.r}, ${parsed.g}, ${parsed.b})`;
   });
+
+  function handleColorChange(newColor: string) {
+    // For groups, update the borderColor which defines the group's accent color
+    workspace.updateNodeData(id, { borderColor: newColor });
+  }
 </script>
+
+<NodeFloatingToolbar 
+  nodeId={id} 
+  selected={selected ?? false} 
+  color={groupColor}
+  onColorChange={handleColorChange}
+/>
 
 <NodeResizer 
   minWidth={200} 

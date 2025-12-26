@@ -9,6 +9,8 @@
   import { Clock } from 'lucide-svelte';
   import { onMount, onDestroy } from 'svelte';
   import { hexToRgba } from '../_shared/utils';
+  import { NodeFloatingToolbar } from '../_shared';
+  import { workspace } from '$lib/stores/workspace.svelte';
 
   type TimestampNodeType = Node<TimestampNodeData, 'timestamp'>;
 
@@ -117,7 +119,18 @@
   });
 
   const hasContent = $derived(dateParts || timeParts);
+
+  function handleColorChange(newColor: string) {
+    workspace.updateNodeData(id, { color: newColor });
+  }
 </script>
+
+<NodeFloatingToolbar 
+  nodeId={id} 
+  selected={selected ?? false} 
+  color={bgColor}
+  onColorChange={handleColorChange}
+/>
 
 <NodeResizer
   minWidth={80}

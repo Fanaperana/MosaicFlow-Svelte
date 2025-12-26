@@ -109,6 +109,8 @@
   
   // Track previous node dimensions for detecting resize changes
   let prevNodeDimensions = new Map<string, { width?: number; height?: number }>();
+  // Track if history has been saved for current resize operation
+  let resizeHistorySaved = $state(false);
   
   // Sync workspace changes to local state
   $effect(() => {
@@ -136,6 +138,11 @@
       for (const node of nodes) {
         const prev = prevNodeDimensions.get(node.id);
         if (prev && (prev.width !== node.width || prev.height !== node.height)) {
+          // Save history before first resize change
+          if (!resizeHistorySaved) {
+            workspace.saveToHistory();
+            resizeHistorySaved = true;
+          }
           // Dimension changed - save to file
           workspace.updateNode(node.id, {
             width: node.width,
@@ -388,6 +395,11 @@
       extent: undefined,
       expandParent: undefined,
     });
+  }
+
+  // Handle node drag start - save history before moving nodes
+  function handleNodeDragStart() {
+    workspace.saveToHistory();
   }
 
   // Handle node drag stop - resolve collisions, save positions, handle subflow, and clear snap guides
@@ -647,21 +659,13 @@
 
   // Duplicate selected nodes
   function handleDuplicateNodes() {
-    const selectedNodes = workspace.nodes.filter(n => workspace.selectedNodeIds.includes(n.id));
-    const newNodeIds: string[] = [];
+    if (workspace.selectedNodeIds.length === 0) return;
     
-    for (const node of selectedNodes) {
-      const newPosition = {
-        x: node.position.x + 50,
-        y: node.position.y + 50,
-      };
-      const newNode = workspace.createNode(node.type as NodeType, newPosition, { ...node.data });
-      newNodeIds.push(newNode.id);
-    }
+    const newNodes = workspace.duplicateNodes(workspace.selectedNodeIds);
     
     // Select the duplicated nodes
-    if (newNodeIds.length > 0) {
-      workspace.setSelectedNodes(newNodeIds);
+    if (newNodes.length > 0) {
+      workspace.setSelectedNodes(newNodes.map(n => n.id));
     }
   }
 
@@ -727,6 +731,25 @@
       event.preventDefault();
       if (workspace.selectedNodeIds.length > 0) handleDuplicateNodes();
     }
+    
+    // Ctrl/Cmd + Z to undo
+    if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
+      event.preventDefault();
+      workspace.undo();
+    }
+    
+    // Ctrl/Cmd + Y or Ctrl/Cmd + Shift + Z to redo
+    if ((event.ctrlKey || event.metaKey) && (event.key === 'y' || (event.key === 'z' && event.shiftKey))) {
+      event.preventDefault();
+      workspace.redo();
+    }
+  }
+
+  // Reset resize history flag on mouseup (end of resize operation)
+  function handleMouseUp() {
+    if (resizeHistorySaved) {
+      resizeHistorySaved = false;
+    }
   }
 
   // Derive interaction modes from canvas mode
@@ -734,7 +757,7 @@
   const selectionOnDrag = $derived(workspace.canvasMode === 'select');
 </script>
 
-<svelte:window onkeydown={handleKeyDown} />
+<svelte:window onkeydown={handleKeyDown} onmouseup={handleMouseUp} />
 
 <ContextMenu.Root>
   <ContextMenu.Trigger class="canvas-context-trigger">
@@ -764,6 +787,7 @@
         onconnectstart={handleConnectStart}
         onconnectend={handleConnectEnd}
         onselectionchange={handleSelectionChange}
+        onnodedragstart={handleNodeDragStart}
         onnodedrag={handleNodeDrag}
         onnodedragstop={handleNodeDragStop}
         fitView

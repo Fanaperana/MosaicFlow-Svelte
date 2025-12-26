@@ -3,6 +3,7 @@
   
   Base wrapper for all node components providing:
   - NodeResizer
+  - NodeFloatingToolbar (delete, color, zoom, edit)
   - Consistent styling
   - Border/background customization
   - Selection state
@@ -23,6 +24,8 @@
   import { getNodeStyles, getNodeDimensions, nodeStyleToString } from './utils';
   import type { Snippet } from 'svelte';
   import NodeHandles from './NodeHandles.svelte';
+  import NodeFloatingToolbar from './NodeFloatingToolbar.svelte';
+  import { workspace } from '$lib/stores/workspace.svelte';
   import '$lib/components/nodes/_shared/styles.css';
 
   interface Props {
@@ -35,6 +38,7 @@
     children?: Snippet;
     showHeader?: boolean;
     hideHandles?: boolean;
+    hideToolbar?: boolean;
     class?: string;
   }
 
@@ -48,6 +52,7 @@
     children,
     showHeader,
     hideHandles = false,
+    hideToolbar = false,
     class: className = ''
   }: Props = $props();
   
@@ -63,7 +68,23 @@
   
   // Check if locked
   const isLocked = $derived(data.locked ?? false);
+
+  // Get color for the toolbar
+  const nodeColor = $derived(data.color || data.borderColor || '#1e1e1e');
+
+  function handleColorChange(newColor: string) {
+    workspace.updateNodeData(id, { color: newColor });
+  }
 </script>
+
+{#if !hideToolbar}
+  <NodeFloatingToolbar 
+    nodeId={id} 
+    selected={selected} 
+    color={nodeColor}
+    onColorChange={handleColorChange}
+  />
+{/if}
 
 <NodeResizer 
   minWidth={dimensions.minWidth} 

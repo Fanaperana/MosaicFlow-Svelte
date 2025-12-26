@@ -2,6 +2,8 @@
   import { Handle, Position, NodeResizer, type NodeProps, type Node } from '@xyflow/svelte';
   import type { MosaicNodeData } from '$lib/types';
   import type { Snippet } from 'svelte';
+  import { NodeFloatingToolbar } from './_shared';
+  import { workspace } from '$lib/stores/workspace.svelte';
 
   type BaseNode = Node<MosaicNodeData>;
 
@@ -31,7 +33,18 @@
     return hex;
   }
   const backgroundColor = $derived(hexToRgba(nodeColor, bgOpacity));
+
+  function handleColorChange(newColor: string) {
+    workspace.updateNodeData(id, { color: newColor });
+  }
 </script>
+
+<NodeFloatingToolbar 
+  nodeId={id} 
+  selected={selected ?? false} 
+  color={nodeColor}
+  onColorChange={handleColorChange}
+/>
 
 <NodeResizer 
   minWidth={150} 

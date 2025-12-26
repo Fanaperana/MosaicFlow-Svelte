@@ -13,6 +13,7 @@
   import type { AnnotationNodeData } from '$lib/types';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { RotateCw } from 'lucide-svelte';
+  import { NodeFloatingToolbar } from '../_shared';
 
   type AnnotationNodeType = Node<AnnotationNodeData, 'annotation'>;
 
@@ -163,7 +164,20 @@
     const target = e.target as HTMLTextAreaElement;
     labelText = target.value;
   }
+
+  const textColor = $derived(data.textColor || '#999');
+
+  function handleColorChange(newColor: string) {
+    workspace.updateNodeData(id, { textColor: newColor });
+  }
 </script>
+
+<NodeFloatingToolbar 
+  nodeId={id} 
+  selected={selected ?? false} 
+  color={textColor}
+  onColorChange={handleColorChange}
+/>
 
 <div 
   class="annotation-node"
@@ -173,7 +187,7 @@
     --font-size: {calculatedFontSize()}px;
     --font-weight: {data.fontWeight || '400'};
     --font-style: {data.fontStyle || 'normal'};
-    --text-color: {data.textColor || '#999'};
+    --text-color: {textColor};
     --text-align: {data.textAlign || 'left'};
   "
   ondblclick={handleDoubleClick}

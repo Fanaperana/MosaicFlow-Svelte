@@ -76,9 +76,116 @@ class WorkspaceStore {
   // Canvas mode (select or drag)
   canvasMode = $state<CanvasMode>('select');
 
-  // Undo/Redo stacks (future feature)
+  // Undo/Redo stacks
   private undoStack: Array<{ nodes: MosaicNode[]; edges: MosaicEdge[] }> = [];
   private redoStack: Array<{ nodes: MosaicNode[]; edges: MosaicEdge[] }> = [];
+  private maxHistorySize = 50; // Limit history size to prevent memory issues
+  private isUndoRedoOperation = false; // Flag to prevent saving history during undo/redo
+  
+  // Reactive state for UI to track if undo/redo is available
+  canUndo = $state(false);
+  canRedo = $state(false);
+
+  /**
+   * Save current state to undo stack
+   */
+  saveToHistory() {
+    if (this.isUndoRedoOperation) return;
+    
+    // Deep clone current state
+    const snapshot = {
+      nodes: JSON.parse(JSON.stringify(this.nodes)),
+      edges: JSON.parse(JSON.stringify(this.edges)),
+    };
+    
+    this.undoStack.push(snapshot);
+    
+    // Limit stack size
+    if (this.undoStack.length > this.maxHistorySize) {
+      this.undoStack.shift();
+    }
+    
+    // Clear redo stack when new action is performed
+    this.redoStack = [];
+    
+    // Update reactive state
+    this.canUndo = this.undoStack.length > 0;
+    this.canRedo = false;
+  }
+
+  /**
+   * Undo the last action
+   */
+  undo() {
+    if (this.undoStack.length === 0) return;
+    
+    this.isUndoRedoOperation = true;
+    
+    // Save current state to redo stack
+    const currentState = {
+      nodes: JSON.parse(JSON.stringify(this.nodes)),
+      edges: JSON.parse(JSON.stringify(this.edges)),
+    };
+    this.redoStack.push(currentState);
+    
+    // Restore previous state
+    const previousState = this.undoStack.pop()!;
+    this.nodes = previousState.nodes;
+    this.edges = previousState.edges;
+    
+    // Update reactive state
+    this.canUndo = this.undoStack.length > 0;
+    this.canRedo = this.redoStack.length > 0;
+    
+    this.isUndoRedoOperation = false;
+    
+    // Save the restored state to files
+    if (this.workspacePath) {
+      this.saveWorkspaceManifest();
+    }
+  }
+
+  /**
+   * Redo the last undone action
+   */
+  redo() {
+    if (this.redoStack.length === 0) return;
+    
+    this.isUndoRedoOperation = true;
+    
+    // Save current state to undo stack
+    const currentState = {
+      nodes: JSON.parse(JSON.stringify(this.nodes)),
+      edges: JSON.parse(JSON.stringify(this.edges)),
+    };
+    this.undoStack.push(currentState);
+    
+    // Restore next state
+    const nextState = this.redoStack.pop()!;
+    this.nodes = nextState.nodes;
+    this.edges = nextState.edges;
+    
+    // Update reactive state
+    this.canUndo = this.undoStack.length > 0;
+    this.canRedo = this.redoStack.length > 0;
+    
+    this.isUndoRedoOperation = false;
+    
+    // Save the restored state to files
+    if (this.workspacePath) {
+      this.saveWorkspaceManifest();
+    }
+  }
+
+  /**
+   * Clear history (e.g., when loading a new canvas)
+   */
+  clearHistory() {
+    this.undoStack = [];
+    this.redoStack = [];
+    this.canUndo = false;
+    this.canRedo = false;
+  }
 
   /**
    * Reorder nodes so that parent nodes come before their children.
@@ -114,6 +221,9 @@ class WorkspaceStore {
 
   // Create a new node
   createNode(type: NodeType, position: { x: number; y: number }, data?: Partial<MosaicNodeData>): MosaicNode {
+    // Save state before mutation
+    this.saveToHistory();
+    
     const id = uuidv4();
     const baseData = this.getDefaultDataForType(type);
     
@@ -136,6 +246,49 @@ class WorkspaceStore {
     }
     
     return node;
+  }
+
+  // Duplicate nodes (creates new nodes with same data, offset position)
+  // This is a batch operation that saves history only once
+  duplicateNodes(nodeIds: string[]): MosaicNode[] {
+    if (nodeIds.length === 0) return [];
+    
+    // Save state before mutation (only once for all duplicates)
+    this.saveToHistory();
+    
+    const nodesToDuplicate = this.nodes.filter(n => nodeIds.includes(n.id));
+    const newNodes: MosaicNode[] = [];
+    
+    for (const node of nodesToDuplicate) {
+      const id = uuidv4();
+      const newPosition = {
+        x: node.position.x + 50,
+        y: node.position.y + 50,
+      };
+      
+      const newNode: MosaicNode = {
+        id,
+        type: node.type,
+        position: newPosition,
+        data: JSON.parse(JSON.stringify(node.data)), // Deep clone data
+        width: node.width,
+        height: node.height,
+        zIndex: node.zIndex,
+      };
+      
+      newNodes.push(newNode);
+    }
+    
+    // Add all new nodes at once
+    this.nodes = [...this.nodes, ...newNodes];
+    
+    // Save nodes to files
+    if (this.workspacePath) {
+      newNodes.forEach(node => saveNodeImmediate(node));
+      this.saveWorkspaceManifest();
+    }
+    
+    return newNodes;
   }
 
   // Get default data for a node type
@@ -287,6 +440,9 @@ class WorkspaceStore {
 
   // Delete a node
   deleteNode(id: string) {
+    // Save state before mutation
+    this.saveToHistory();
+    
     // Get edges to delete
     const edgesToDelete = this.edges.filter(edge => edge.source === id || edge.target === id);
     
@@ -303,6 +459,9 @@ class WorkspaceStore {
 
   // Delete multiple nodes
   deleteNodes(ids: string[]) {
+    // Save state before mutation
+    this.saveToHistory();
+    
     // Get edges to delete
     const edgesToDelete = this.edges.filter(edge => ids.includes(edge.source) || ids.includes(edge.target));
     
@@ -319,6 +478,9 @@ class WorkspaceStore {
 
   // Create an edge
   createEdge(source: string, target: string, label?: string, sourceHandle?: string | null, targetHandle?: string | null): MosaicEdge {
+    // Save state before mutation
+    this.saveToHistory();
+    
     const id = uuidv4();
     const edge: MosaicEdge = {
       id,
@@ -433,6 +595,9 @@ class WorkspaceStore {
 
   // Delete an edge
   deleteEdge(id: string) {
+    // Save state before mutation
+    this.saveToHistory();
+    
     this.edges = this.edges.filter(edge => edge.id !== id);
     
     // Delete edge file
@@ -449,6 +614,9 @@ class WorkspaceStore {
   // Group selected nodes
   groupSelectedNodes(): MosaicNode | null {
     if (this.selectedNodeIds.length < 2) return null;
+
+    // Save state before mutation
+    this.saveToHistory();
 
     // Get the selected nodes
     const selectedNodes = this.nodes.filter(n => this.selectedNodeIds.includes(n.id));
@@ -514,6 +682,9 @@ class WorkspaceStore {
   ungroupNode(groupId: string) {
     const groupNode = this.nodes.find(n => n.id === groupId && n.type === 'group');
     if (!groupNode) return;
+
+    // Save state before mutation
+    this.saveToHistory();
 
     // Get child nodes
     const childNodes = this.nodes.filter(n => n.parentId === groupId);
@@ -727,6 +898,9 @@ class WorkspaceStore {
     this.updatedAt = new Date().toISOString();
     this.viewport = { x: 0, y: 0, zoom: 1 };
     this.workspacePath = null;
+    
+    // Clear history when loading new workspace
+    this.clearHistory();
   }
 
   // Initialize file services when workspace path is set

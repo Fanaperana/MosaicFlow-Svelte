@@ -12,3 +12,4 @@ export { default as NodeWrapper } from './NodeWrapper.svelte';
 export { default as NodeHeader } from './NodeHeader.svelte';
 export { default as NodeField } from './NodeField.svelte';
 export { default as NodeHandles } from './NodeHandles.svelte';
+export { default as NodeFloatingToolbar } from './NodeFloatingToolbar.svelte';
