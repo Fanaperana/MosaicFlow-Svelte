@@ -25,6 +25,7 @@ import {
   deleteNodeFolder,
   resetNodeFileService,
 } from '$lib/services/nodeFileService';
+import { getNodeDimensions } from '$lib/components/nodes/_shared/utils';
 import {
   initEdgeFileService,
   saveEdge,
@@ -368,32 +369,11 @@ class WorkspaceStore {
   }
 
   private getDefaultWidthForType(type: NodeType): number {
-    const widths: Partial<Record<NodeType, number>> = {
-      note: 300,
-      image: 250,
-      code: 400,
-      group: 400,
-      linkList: 300,
-      socialPost: 350,
-      timestamp: 160,
-      iframe: 400,
-      annotation: 200,
-    };
-    return widths[type] || 250;
+    return getNodeDimensions(type).defaultWidth;
   }
 
   private getDefaultHeightForType(type: NodeType): number {
-    const heights: Partial<Record<NodeType, number>> = {
-      note: 200,
-      image: 200,
-      code: 250,
-      group: 300,
-      linkList: 200,
-      timestamp: 36,
-      iframe: 300,
-      annotation: 100,
-    };
-    return heights[type] || 150;
+    return getNodeDimensions(type).defaultHeight;
   }
 
   // Update a node

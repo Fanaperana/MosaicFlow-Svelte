@@ -132,7 +132,7 @@ export const NODE_DIMENSIONS: Record<NodeType, NodeDimensions> = {
   credential: { minWidth: 220, minHeight: 150, defaultWidth: 260, defaultHeight: 180 },
   socialPost: { minWidth: 250, minHeight: 180, defaultWidth: 320, defaultHeight: 250 },
   group: { minWidth: 200, minHeight: 150, defaultWidth: 400, defaultHeight: 300 },
-  map: { minWidth: 250, minHeight: 200, defaultWidth: 350, defaultHeight: 280 },
+  map: { minWidth: 280, minHeight: 200, defaultWidth: 560, defaultHeight: 470 },
   router: { minWidth: 200, minHeight: 150, defaultWidth: 260, defaultHeight: 180 },
   linkList: { minWidth: 220, minHeight: 150, defaultWidth: 280, defaultHeight: 200 },
   snapshot: { minWidth: 250, minHeight: 200, defaultWidth: 350, defaultHeight: 280 },
