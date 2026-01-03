@@ -364,9 +364,19 @@ export async function exportAsPng(): Promise<boolean> {
     
     console.log('SVG generated, dimensions:', svgResult.width, 'x', svgResult.height);
     
-    // Step 2: Convert SVG to high-res PNG (4x scale for crisp output)
-    console.log('Converting to PNG at 4x scale...');
-    const pngDataUrl = await svgToPng(svgResult.dataUrl, svgResult.width, svgResult.height, 4);
+    // Calculate maximum safe scale factor
+    // Most browsers have a canvas limit of ~16384 pixels per dimension
+    const MAX_CANVAS_SIZE = 16384;
+    const targetScale = 8; // Desired scale for high quality
+    const maxScaleWidth = Math.floor(MAX_CANVAS_SIZE / svgResult.width);
+    const maxScaleHeight = Math.floor(MAX_CANVAS_SIZE / svgResult.height);
+    const safeScale = Math.max(1, Math.min(targetScale, maxScaleWidth, maxScaleHeight));
+    
+    console.log(`Target scale: ${targetScale}x, Safe scale: ${safeScale}x (canvas limits: ${svgResult.width * safeScale}x${svgResult.height * safeScale})`);
+    
+    // Step 2: Convert SVG to high-res PNG
+    console.log(`Converting to PNG at ${safeScale}x scale...`);
+    const pngDataUrl = await svgToPng(svgResult.dataUrl, svgResult.width, svgResult.height, safeScale);
     
     console.log('PNG generated, dataUrl length:', pngDataUrl.length);
 
