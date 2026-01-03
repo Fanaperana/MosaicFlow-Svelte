@@ -64,6 +64,7 @@ pub fn run() {
             save_app_config,
             // Export commands
             save_png,
+            svg_to_png,
             // History commands
             load_history,
             track_vault_open,

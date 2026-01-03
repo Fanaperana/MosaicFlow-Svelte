@@ -218,7 +218,7 @@ export async function exportAsZip(): Promise<boolean> {
 
 // Export canvas as PNG image
 // Helper function to generate SVG data URL from viewport
-async function generateSvgDataUrl(): Promise<{ dataUrl: string; width: number; height: number } | null> {
+async function generateSvgDataUrl(): Promise<{ dataUrl: string; svgContent: string; width: number; height: number } | null> {
   // Store original viewport to restore later
   const originalViewport = { ...workspace.viewport };
   
@@ -301,52 +301,15 @@ async function generateSvgDataUrl(): Promise<{ dataUrl: string; width: number; h
   
   return {
     dataUrl: processedDataUrl,
+    svgContent: svgContent,
     width: svgWidth,
     height: svgHeight,
   };
 }
 
-// Convert SVG to high-resolution PNG using canvas
-async function svgToPng(svgDataUrl: string, width: number, height: number, scale: number = 2): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    
-    img.onload = () => {
-      // Create high-resolution canvas
-      const canvas = document.createElement('canvas');
-      canvas.width = width * scale;
-      canvas.height = height * scale;
-      
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('Failed to get canvas context'));
-        return;
-      }
-      
-      // Fill with dark background
-      ctx.fillStyle = '#0a0a0a';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      // Draw SVG scaled up
-      ctx.scale(scale, scale);
-      ctx.drawImage(img, 0, 0, width, height);
-      
-      // Export as PNG
-      const pngDataUrl = canvas.toDataURL('image/png');
-      resolve(pngDataUrl);
-    };
-    
-    img.onerror = (err) => {
-      reject(new Error('Failed to load SVG into image: ' + err));
-    };
-    
-    img.src = svgDataUrl;
-  });
-}
-
-// Export canvas as high-resolution PNG (via SVG → Canvas → PNG)
+// Export canvas as high-resolution PNG (via SVG → Rust resvg → PNG)
 export async function exportAsPng(): Promise<boolean> {
-  console.log('Starting high-res PNG export (via SVG)...');
+  console.log('Starting high-res PNG export (via Rust resvg)...');
   
   try {
     if (workspace.nodes.length === 0) {
@@ -364,25 +327,8 @@ export async function exportAsPng(): Promise<boolean> {
     
     console.log('SVG generated, dimensions:', svgResult.width, 'x', svgResult.height);
     
-    // Calculate maximum safe scale factor
-    // Most browsers have a canvas limit of ~16384 pixels per dimension
-    const MAX_CANVAS_SIZE = 16384;
-    const targetScale = 8; // Desired scale for high quality
-    const maxScaleWidth = Math.floor(MAX_CANVAS_SIZE / svgResult.width);
-    const maxScaleHeight = Math.floor(MAX_CANVAS_SIZE / svgResult.height);
-    const safeScale = Math.max(1, Math.min(targetScale, maxScaleWidth, maxScaleHeight));
-    
-    console.log(`Target scale: ${targetScale}x, Safe scale: ${safeScale}x (canvas limits: ${svgResult.width * safeScale}x${svgResult.height * safeScale})`);
-    
-    // Step 2: Convert SVG to high-res PNG
-    console.log(`Converting to PNG at ${safeScale}x scale...`);
-    const pngDataUrl = await svgToPng(svgResult.dataUrl, svgResult.width, svgResult.height, safeScale);
-    
-    console.log('PNG generated, dataUrl length:', pngDataUrl.length);
-
-    // Step 3: Save to file
+    // Step 2: Ask user where to save
     const { save } = await import('@tauri-apps/plugin-dialog');
-    const { writeFile } = await import('@tauri-apps/plugin-fs');
     
     const defaultName = `${workspace.name.replace(/[^a-z0-9]/gi, '_')}_canvas.png`;
     
@@ -394,22 +340,27 @@ export async function exportAsPng(): Promise<boolean> {
       }]
     });
 
-    if (filePath) {
-      // Convert data URL to binary
-      const base64Data = pngDataUrl.split(',')[1];
-      const binaryString = atob(base64Data);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      console.log('Writing', bytes.length, 'bytes to:', filePath);
-      await writeFile(filePath, bytes);
-      console.log('Canvas exported as high-res PNG successfully to:', filePath);
-      return true;
-    } else {
+    if (!filePath) {
       console.log('User cancelled the save dialog');
       return false;
     }
+    
+    // Step 3: Convert SVG to high-res PNG using Rust (no browser limits!)
+    const { invoke } = await import('@tauri-apps/api/core');
+    
+    // Use high scale factor - Rust has no canvas size limits
+    const scale = 8.0;
+    console.log(`Converting to PNG at ${scale}x scale via Rust...`);
+    console.log(`Output resolution: ${Math.round(svgResult.width * scale)}x${Math.round(svgResult.height * scale)}`);
+    
+    await invoke('svg_to_png', {
+      svgContent: svgResult.svgContent,
+      filePath: filePath,
+      scale: scale,
+    });
+    
+    console.log('Canvas exported as high-res PNG successfully to:', filePath);
+    return true;
   } catch (error) {
     console.error('Error exporting canvas as PNG:', error);
     return false;
