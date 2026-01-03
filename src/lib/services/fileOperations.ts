@@ -359,21 +359,66 @@ export async function exportAsSvg(): Promise<boolean> {
       canvasEl.dataset.exporting = 'true';
     }
     
-    // Trigger fit view to show all nodes
-    window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.15 } }));
+    // Calculate bounds of all nodes (including children in absolute coordinates)
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     
-    // Wait for fitView animation to complete
-    await new Promise(resolve => setTimeout(resolve, 500));
+    for (const node of workspace.nodes) {
+      const width = node.width || 200;
+      const height = node.height || 100;
+      
+      // For child nodes, calculate absolute position
+      let absX = node.position.x;
+      let absY = node.position.y;
+      
+      if (node.parentId) {
+        const parent = workspace.nodes.find(n => n.id === node.parentId);
+        if (parent) {
+          absX += parent.position.x;
+          absY += parent.position.y;
+        }
+      }
+      
+      minX = Math.min(minX, absX);
+      minY = Math.min(minY, absY);
+      maxX = Math.max(maxX, absX + width);
+      maxY = Math.max(maxY, absY + height);
+    }
     
-    // Now set zoom to 1 for consistent quality
+    // Add padding
+    const padding = 40;
+    minX -= padding;
+    minY -= padding;
+    maxX += padding;
+    maxY += padding;
+    
+    const boundsWidth = maxX - minX;
+    const boundsHeight = maxY - minY;
+    
+    console.log('Calculated bounds:', { minX, minY, maxX, maxY, boundsWidth, boundsHeight });
+    
+    // Get canvas container to calculate proper viewport positioning
+    const canvasRect = canvasEl?.getBoundingClientRect();
+    if (!canvasRect) {
+      console.error('Canvas container not found');
+      if (canvasEl) delete canvasEl.dataset.exporting;
+      return false;
+    }
+    
+    // Center the bounds in the viewport at zoom 1
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    const viewportX = canvasRect.width / 2 - centerX;
+    const viewportY = canvasRect.height / 2 - centerY;
+    
+    // Set viewport to show all nodes centered at zoom 1
     workspace.setViewport({
-      x: workspace.viewport.x,
-      y: workspace.viewport.y,
+      x: viewportX,
+      y: viewportY,
       zoom: 1
     });
     
-    // Wait for zoom to apply
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // Wait for viewport to update
+    await new Promise(resolve => setTimeout(resolve, 500));
     
     // Get the SvelteFlow viewport element
     const viewportEl = document.querySelector('.svelte-flow__viewport') as HTMLElement;
@@ -386,17 +431,18 @@ export async function exportAsSvg(): Promise<boolean> {
     
     console.log('Viewport element found, generating SVG...');
 
-    // Get the actual dimensions of the viewport element
-    const viewportRect = viewportEl.getBoundingClientRect();
-    
     // Create an SVG - vectors scale infinitely without blur
     const svgDataUrl = await toSvg(viewportEl, {
       backgroundColor: '#0a0a0a',
       skipFonts: false, // Include fonts for proper text rendering
       includeQueryParams: true,
       cacheBust: true,
-      width: viewportRect.width,
-      height: viewportRect.height,
+      width: boundsWidth,
+      height: boundsHeight,
+      style: {
+        transform: 'scale(1)',
+        transformOrigin: 'top left',
+      },
       filter: (node) => {
         // Exclude controls, minimap, attribution, and panels
         if (node instanceof Element) {
@@ -453,7 +499,7 @@ export async function exportAsSvg(): Promise<boolean> {
       // Add a background rect right after the opening <svg> tag
       svgContent = svgContent.replace(
         /(<svg[^>]*>)/,
-        `$1<rect x="0" y="0" width="${viewportRect.width}" height="${viewportRect.height}" fill="#0a0a0a"/>`
+        `$1<rect x="0" y="0" width="${boundsWidth}" height="${boundsHeight}" fill="#0a0a0a"/>`
       );
       
       console.log('Writing SVG to:', filePath);
