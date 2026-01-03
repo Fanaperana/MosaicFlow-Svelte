@@ -428,7 +428,24 @@ export async function exportAsSvg(): Promise<boolean> {
 
     if (filePath) {
       // Extract SVG content from data URL
-      const svgContent = decodeURIComponent(svgDataUrl.split(',')[1]);
+      let svgContent = decodeURIComponent(svgDataUrl.split(',')[1]);
+      
+      // Post-process: Add a dark background rect that covers the full SVG area
+      // Extract width and height from SVG tag
+      const widthMatch = svgContent.match(/width="([^"]+)"/);
+      const heightMatch = svgContent.match(/height="([^"]+)"/);
+      
+      if (widthMatch && heightMatch) {
+        const width = widthMatch[1];
+        const height = heightMatch[1];
+        
+        // Insert background rect right after the opening <svg> tag
+        svgContent = svgContent.replace(
+          /(<svg[^>]*>)/,
+          `$1<rect width="${width}" height="${height}" fill="#0a0a0a"/>`
+        );
+      }
+      
       await writeTextFile(filePath, svgContent);
       console.log('Canvas exported as SVG successfully to:', filePath);
       return true;
