@@ -248,13 +248,27 @@ async function generateSvgDataUrl(): Promise<{ dataUrl: string; svgContent: stri
     console.log('Forced LOD to detailed for SVG capture');
   }
   
-  // Wait for DOM to update with forced LOD class
+  // Inject override styles to force all content visible
+  const overrideStyle = document.createElement('style');
+  overrideStyle.id = 'export-lod-override-svg';
+  overrideStyle.textContent = `
+    .svelte-flow__node .node-content { display: block !important; opacity: 1 !important; }
+    .svelte-flow__handle { display: block !important; opacity: 1 !important; }
+    .svelte-flow__edge { opacity: 1 !important; }
+    .svelte-flow__edge-label { display: block !important; opacity: 1 !important; }
+    .svelte-flow__resize-control { display: block !important; }
+    .svelte-flow__node .node-header { font-size: inherit !important; }
+  `;
+  document.head.appendChild(overrideStyle);
+  
+  // Wait for DOM to update with forced LOD class and styles
   await new Promise(resolve => setTimeout(resolve, 300));
   
   // Get the SvelteFlow viewport element
   const viewportEl = document.querySelector('.svelte-flow__viewport') as HTMLElement;
   if (!viewportEl) {
     console.error('SvelteFlow viewport not found');
+    overrideStyle.remove();
     if (flowEl && originalLodClass) flowEl.className = originalLodClass;
     if (canvasEl) delete canvasEl.dataset.exporting;
     window.dispatchEvent(new CustomEvent('mosaicflow:exportEnd'));
@@ -303,6 +317,9 @@ async function generateSvgDataUrl(): Promise<{ dataUrl: string; svgContent: stri
       return true;
     },
   });
+  
+  // Remove override styles
+  overrideStyle.remove();
   
   // Restore original viewport, LOD class, and remove export flag
   workspace.setViewport(originalViewport);
@@ -382,13 +399,28 @@ export async function exportAsPng(): Promise<boolean> {
       console.log('Forced LOD to detailed for PNG capture');
     }
     
-    // Wait for DOM to update with forced LOD class
+    // Inject override styles to force all content visible
+    const overrideStyle = document.createElement('style');
+    overrideStyle.id = 'export-lod-override';
+    overrideStyle.textContent = `
+      .svelte-flow__node .node-content { display: block !important; opacity: 1 !important; }
+      .svelte-flow__handle { display: block !important; opacity: 1 !important; }
+      .svelte-flow__edge { opacity: 1 !important; }
+      .svelte-flow__edge-label { display: block !important; opacity: 1 !important; }
+      .svelte-flow__resize-control { display: block !important; }
+      .svelte-flow__node .node-header { font-size: inherit !important; }
+    `;
+    document.head.appendChild(overrideStyle);
+    console.log('Injected LOD override styles');
+    
+    // Wait for DOM to update with forced LOD class and styles
     await new Promise(resolve => setTimeout(resolve, 300));
     
     // Get the SvelteFlow viewport element
     const viewportEl = document.querySelector('.svelte-flow__viewport') as HTMLElement;
     if (!viewportEl) {
       console.error('SvelteFlow viewport not found');
+      overrideStyle.remove();
       if (flowEl && originalLodClass) flowEl.className = originalLodClass;
       if (canvasEl) delete canvasEl.dataset.exporting;
       window.dispatchEvent(new CustomEvent('mosaicflow:exportEnd'));
@@ -455,6 +487,9 @@ export async function exportAsPng(): Promise<boolean> {
         return true;
       },
     });
+    
+    // Remove override styles
+    overrideStyle.remove();
     
     // Restore original viewport, LOD class, and remove export flag
     workspace.setViewport(originalViewport);
@@ -544,13 +579,27 @@ export async function exportAsSvg(): Promise<boolean> {
       console.log('Forced LOD to detailed for SVG export');
     }
     
-    // Wait for DOM to update with forced LOD class
+    // Inject override styles to force all content visible
+    const overrideStyle = document.createElement('style');
+    overrideStyle.id = 'export-lod-override-svg-export';
+    overrideStyle.textContent = `
+      .svelte-flow__node .node-content { display: block !important; opacity: 1 !important; }
+      .svelte-flow__handle { display: block !important; opacity: 1 !important; }
+      .svelte-flow__edge { opacity: 1 !important; }
+      .svelte-flow__edge-label { display: block !important; opacity: 1 !important; }
+      .svelte-flow__resize-control { display: block !important; }
+      .svelte-flow__node .node-header { font-size: inherit !important; }
+    `;
+    document.head.appendChild(overrideStyle);
+    
+    // Wait for DOM to update with forced LOD class and styles
     await new Promise(resolve => setTimeout(resolve, 300));
     
     // Get the SvelteFlow viewport element
     const viewportEl = document.querySelector('.svelte-flow__viewport') as HTMLElement;
     if (!viewportEl) {
       console.error('SvelteFlow viewport not found');
+      overrideStyle.remove();
       if (flowEl && originalLodClass) flowEl.className = originalLodClass;
       if (canvasEl) delete canvasEl.dataset.exporting;
       window.dispatchEvent(new CustomEvent('mosaicflow:exportEnd'));
@@ -599,6 +648,9 @@ export async function exportAsSvg(): Promise<boolean> {
         return true;
       },
     });
+    
+    // Remove override styles
+    overrideStyle.remove();
     
     // Restore original viewport, LOD class, and remove export flag
     workspace.setViewport(originalViewport);
