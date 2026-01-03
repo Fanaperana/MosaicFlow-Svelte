@@ -221,6 +221,11 @@ export async function exportAsPng(): Promise<boolean> {
   console.log('Starting PNG export...');
   
   try {
+    if (workspace.nodes.length === 0) {
+      console.error('No nodes to export');
+      return false;
+    }
+    
     // Store original viewport to restore later
     const originalViewport = { ...workspace.viewport };
     
@@ -230,49 +235,23 @@ export async function exportAsPng(): Promise<boolean> {
       canvasEl.dataset.exporting = 'true';
     }
     
-    // Calculate exact bounds of all nodes
-    if (workspace.nodes.length === 0) {
-      console.error('No nodes to export');
-      return false;
-    }
+    // Trigger fit view to show all nodes
+    window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.15 } }));
     
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    // Wait for fitView animation to complete
+    await new Promise(resolve => setTimeout(resolve, 500));
     
-    for (const node of workspace.nodes) {
-      // Skip child nodes - they're included in parent bounds
-      if (node.parentId) continue;
-      
-      const width = node.width || 200;
-      const height = node.height || 100;
-      
-      minX = Math.min(minX, node.position.x);
-      minY = Math.min(minY, node.position.y);
-      maxX = Math.max(maxX, node.position.x + width);
-      maxY = Math.max(maxY, node.position.y + height);
-    }
-    
-    // Add small padding
-    const padding = 20;
-    minX -= padding;
-    minY -= padding;
-    maxX += padding;
-    maxY += padding;
-    
-    const boundsWidth = maxX - minX;
-    const boundsHeight = maxY - minY;
-    
-    // Set viewport to show exactly the nodes bounds at zoom level 1
-    // This ensures high quality and perfect fit
+    // Now set zoom to 1 for consistent quality
     workspace.setViewport({
-      x: -minX,
-      y: -minY,
+      x: workspace.viewport.x,
+      y: workspace.viewport.y,
       zoom: 1
     });
     
-    // Wait for viewport to update and nodes to reposition
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Wait for zoom to apply
+    await new Promise(resolve => setTimeout(resolve, 300));
     
-    // Get the SvelteFlow viewport element (the one that contains the nodes)
+    // Get the SvelteFlow viewport element
     const viewportEl = document.querySelector('.svelte-flow__viewport') as HTMLElement;
     if (!viewportEl) {
       console.error('SvelteFlow viewport not found');
@@ -282,21 +261,14 @@ export async function exportAsPng(): Promise<boolean> {
     }
     
     console.log('Viewport element found, generating PNG...');
-    console.log('Export bounds:', { minX, minY, maxX, maxY, width: boundsWidth, height: boundsHeight });
 
-    // Create a high-resolution PNG using the filter option to exclude controls
-    // Using pixelRatio 4 for very high resolution (4K equivalent scaling)
+    // Create a high-resolution PNG
     const dataUrl = await toPng(viewportEl, {
-      backgroundColor: '#0a0a0a', // Match the canvas background
-      pixelRatio: 4, // 4x resolution for high-quality export - allows zooming in without blur
-      skipFonts: true, // Skip web fonts to avoid CORS errors with Google Fonts
+      backgroundColor: '#0a0a0a',
+      pixelRatio: 2,
+      skipFonts: true,
       includeQueryParams: true,
       cacheBust: true,
-      width: boundsWidth,
-      height: boundsHeight,
-      style: {
-        transform: `translate(${minX}px, ${minY}px)`,
-      },
       filter: (node) => {
         // Exclude controls, minimap, attribution, and panels
         if (node instanceof Element) {
