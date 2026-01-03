@@ -108,16 +108,24 @@
   let rebuildIndexScheduled = $state(false);
   
   // LOD (Level of Detail) state
-  let currentLOD = $state<'detailed' | 'medium' | 'simplified'>('detailed');
   let isExporting = $state(false);
+  
+  // Determine LOD based on zoom level (but always detailed during export)
+  let currentLOD = $derived<'detailed' | 'medium' | 'simplified'>(
+    isExporting ? 'detailed' :
+    viewport.zoom > 0.25 ? 'detailed' :
+    viewport.zoom > 0.08 ? 'medium' :
+    'simplified'
+  );
   
   // Listen for export start/end events
   $effect(() => {
     const handleExportStart = () => {
+      console.log('Export started - switching to detailed LOD');
       isExporting = true;
-      currentLOD = 'detailed';
     };
     const handleExportEnd = () => {
+      console.log('Export ended - resuming normal LOD');
       isExporting = false;
     };
     
@@ -128,19 +136,6 @@
       window.removeEventListener('mosaicflow:exportStart', handleExportStart);
       window.removeEventListener('mosaicflow:exportEnd', handleExportEnd);
     };
-  });
-  
-  // Determine LOD based on zoom level (but disable during export)
-  $effect(() => {
-    if (isExporting) {
-      currentLOD = 'detailed';
-    } else if (viewport.zoom > 0.25) {
-      currentLOD = 'detailed';
-    } else if (viewport.zoom > 0.08) {
-      currentLOD = 'medium';
-    } else {
-      currentLOD = 'simplified';
-    }
   });
   
   // Rebuild spatial index when nodes change significantly
