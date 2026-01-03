@@ -307,9 +307,9 @@ async function generateSvgDataUrl(): Promise<{ dataUrl: string; svgContent: stri
   };
 }
 
-// Export canvas as high-resolution PNG (via SVG → Rust resvg → PNG)
+// Export canvas as high-resolution PNG using html-to-image with high pixelRatio
 export async function exportAsPng(): Promise<boolean> {
-  console.log('Starting high-res PNG export (via Rust resvg)...');
+  console.log('Starting high-res PNG export...');
   
   try {
     if (workspace.nodes.length === 0) {
@@ -317,18 +317,71 @@ export async function exportAsPng(): Promise<boolean> {
       return false;
     }
     
-    // Step 1: Generate SVG (captures all nodes perfectly)
-    console.log('Generating SVG...');
-    const svgResult = await generateSvgDataUrl();
-    if (!svgResult) {
-      console.error('Failed to generate SVG');
+    // Store original viewport to restore later
+    const originalViewport = { ...workspace.viewport };
+    
+    // Mark as exporting to disable LOD simplification
+    const canvasEl = document.querySelector('.canvas-container') as HTMLElement;
+    if (canvasEl) {
+      canvasEl.dataset.exporting = 'true';
+    }
+    
+    // Trigger fit view to show all nodes
+    window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.1 } }));
+    
+    // Wait for fitView animation to complete
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Get the SvelteFlow viewport element
+    const viewportEl = document.querySelector('.svelte-flow__viewport') as HTMLElement;
+    if (!viewportEl) {
+      console.error('SvelteFlow viewport not found');
+      if (canvasEl) delete canvasEl.dataset.exporting;
+      workspace.setViewport(originalViewport);
       return false;
     }
     
-    console.log('SVG generated, dimensions:', svgResult.width, 'x', svgResult.height);
+    console.log('Viewport element found, generating PNG...');
     
-    // Step 2: Ask user where to save
+    // Use toPng directly with high pixel ratio for crisp output
+    // pixelRatio of 4 gives good quality without hitting browser limits
+    const pngDataUrl = await toPng(viewportEl, {
+      backgroundColor: '#0a0a0a',
+      pixelRatio: 4,
+      skipFonts: false,
+      includeQueryParams: true,
+      cacheBust: true,
+      filter: (node) => {
+        if (node instanceof Element) {
+          const classList = node.classList;
+          if (classList?.contains('svelte-flow__controls') ||
+              classList?.contains('svelte-flow__minimap') ||
+              classList?.contains('svelte-flow__attribution') ||
+              classList?.contains('svelte-flow__panel') ||
+              classList?.contains('cm-widgetBuffer')) {
+            return false;
+          }
+        }
+        if (node instanceof HTMLImageElement) {
+          if (!node.complete || node.naturalWidth === 0 || node.src === '') {
+            return false;
+          }
+        }
+        return true;
+      },
+    });
+    
+    // Restore original viewport and remove export flag
+    workspace.setViewport(originalViewport);
+    if (canvasEl) {
+      delete canvasEl.dataset.exporting;
+    }
+    
+    console.log('PNG generated, dataUrl length:', pngDataUrl.length);
+    
+    // Save to file using Tauri
     const { save } = await import('@tauri-apps/plugin-dialog');
+    const { writeFile } = await import('@tauri-apps/plugin-fs');
     
     const defaultName = `${workspace.name.replace(/[^a-z0-9]/gi, '_')}_canvas.png`;
     
@@ -340,27 +393,22 @@ export async function exportAsPng(): Promise<boolean> {
       }]
     });
 
-    if (!filePath) {
+    if (filePath) {
+      // Convert data URL to binary
+      const base64Data = pngDataUrl.split(',')[1];
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      console.log('Writing', bytes.length, 'bytes to:', filePath);
+      await writeFile(filePath, bytes);
+      console.log('Canvas exported as high-res PNG successfully to:', filePath);
+      return true;
+    } else {
       console.log('User cancelled the save dialog');
       return false;
     }
-    
-    // Step 3: Convert SVG to high-res PNG using Rust (no browser limits!)
-    const { invoke } = await import('@tauri-apps/api/core');
-    
-    // Use high scale factor - Rust has no canvas size limits
-    const scale = 8.0;
-    console.log(`Converting to PNG at ${scale}x scale via Rust...`);
-    console.log(`Output resolution: ${Math.round(svgResult.width * scale)}x${Math.round(svgResult.height * scale)}`);
-    
-    await invoke('svg_to_png', {
-      svgContent: svgResult.svgContent,
-      filePath: filePath,
-      scale: scale,
-    });
-    
-    console.log('Canvas exported as high-res PNG successfully to:', filePath);
-    return true;
   } catch (error) {
     console.error('Error exporting canvas as PNG:', error);
     return false;
