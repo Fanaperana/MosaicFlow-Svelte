@@ -404,16 +404,10 @@ export async function exportAsSvg(): Promise<boolean> {
       return false;
     }
     
-    // Center the bounds in the viewport at zoom 1
-    const centerX = (minX + maxX) / 2;
-    const centerY = (minY + maxY) / 2;
-    const viewportX = canvasRect.width / 2 - centerX;
-    const viewportY = canvasRect.height / 2 - centerY;
-    
-    // Set viewport to show all nodes centered at zoom 1
+    // Position viewport to top-left corner of bounds at zoom 1
     workspace.setViewport({
-      x: viewportX,
-      y: viewportY,
+      x: -minX,
+      y: -minY,
       zoom: 1
     });
     
@@ -430,8 +424,10 @@ export async function exportAsSvg(): Promise<boolean> {
     }
     
     console.log('Viewport element found, generating SVG...');
+    console.log('Capturing area:', { width: boundsWidth, height: boundsHeight });
 
     // Create an SVG - vectors scale infinitely without blur
+    // Capture from top-left (0,0) of viewport with calculated dimensions
     const svgDataUrl = await toSvg(viewportEl, {
       backgroundColor: '#0a0a0a',
       skipFonts: false, // Include fonts for proper text rendering
@@ -440,8 +436,8 @@ export async function exportAsSvg(): Promise<boolean> {
       width: boundsWidth,
       height: boundsHeight,
       style: {
-        transform: 'scale(1)',
-        transformOrigin: 'top left',
+        width: `${boundsWidth}px`,
+        height: `${boundsHeight}px`,
       },
       filter: (node) => {
         // Exclude controls, minimap, attribution, and panels
