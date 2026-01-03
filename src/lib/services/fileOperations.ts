@@ -217,8 +217,132 @@ export async function exportAsZip(): Promise<boolean> {
 }
 
 // Export canvas as PNG image
+// Helper function to generate SVG data URL from viewport
+async function generateSvgDataUrl(): Promise<{ dataUrl: string; width: number; height: number } | null> {
+  // Store original viewport to restore later
+  const originalViewport = { ...workspace.viewport };
+  
+  // Mark as exporting to disable LOD simplification
+  const canvasEl = document.querySelector('.canvas-container') as HTMLElement;
+  if (canvasEl) {
+    canvasEl.dataset.exporting = 'true';
+  }
+  
+  // Trigger fit view to show all nodes
+  window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.1 } }));
+  
+  // Wait for fitView animation to complete
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  // Get the SvelteFlow viewport element
+  const viewportEl = document.querySelector('.svelte-flow__viewport') as HTMLElement;
+  if (!viewportEl) {
+    console.error('SvelteFlow viewport not found');
+    if (canvasEl) delete canvasEl.dataset.exporting;
+    workspace.setViewport(originalViewport);
+    return null;
+  }
+  
+  // Get viewport dimensions for the PNG canvas
+  const viewportRect = viewportEl.getBoundingClientRect();
+  
+  // Create SVG - this captures all visible nodes perfectly
+  const svgDataUrl = await toSvg(viewportEl, {
+    backgroundColor: '#0a0a0a',
+    skipFonts: false,
+    includeQueryParams: true,
+    cacheBust: true,
+    filter: (node) => {
+      if (node instanceof Element) {
+        const classList = node.classList;
+        if (classList?.contains('svelte-flow__controls') ||
+            classList?.contains('svelte-flow__minimap') ||
+            classList?.contains('svelte-flow__attribution') ||
+            classList?.contains('svelte-flow__panel') ||
+            classList?.contains('cm-widgetBuffer')) {
+          return false;
+        }
+      }
+      if (node instanceof HTMLImageElement) {
+        if (!node.complete || node.naturalWidth === 0 || node.src === '') {
+          return false;
+        }
+      }
+      return true;
+    },
+  });
+  
+  // Restore original viewport and remove export flag
+  workspace.setViewport(originalViewport);
+  if (canvasEl) {
+    delete canvasEl.dataset.exporting;
+  }
+  
+  // Post-process SVG to add dark background
+  let svgContent = decodeURIComponent(svgDataUrl.split(',')[1]);
+  const widthMatch = svgContent.match(/width="([^"]+)"/);
+  const heightMatch = svgContent.match(/height="([^"]+)"/);
+  
+  if (widthMatch && heightMatch) {
+    const width = widthMatch[1];
+    const height = heightMatch[1];
+    svgContent = svgContent.replace(
+      /(<svg[^>]*>)/,
+      `$1<rect width="${width}" height="${height}" fill="#0a0a0a"/>`
+    );
+  }
+  
+  // Re-encode as data URL
+  const processedDataUrl = 'data:image/svg+xml,' + encodeURIComponent(svgContent);
+  
+  return {
+    dataUrl: processedDataUrl,
+    width: viewportRect.width,
+    height: viewportRect.height,
+  };
+}
+
+// Convert SVG to high-resolution PNG using canvas
+async function svgToPng(svgDataUrl: string, width: number, height: number, scale: number = 2): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    
+    img.onload = () => {
+      // Create high-resolution canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Failed to get canvas context'));
+        return;
+      }
+      
+      // Fill with dark background
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw SVG scaled up
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Export as PNG
+      const pngDataUrl = canvas.toDataURL('image/png');
+      resolve(pngDataUrl);
+    };
+    
+    img.onerror = (err) => {
+      reject(new Error('Failed to load SVG into image: ' + err));
+    };
+    
+    img.src = svgDataUrl;
+  });
+}
+
+// Export canvas as high-resolution PNG (via SVG → Canvas → PNG)
 export async function exportAsPng(): Promise<boolean> {
-  console.log('Starting PNG export...');
+  console.log('Starting high-res PNG export (via SVG)...');
   
   try {
     if (workspace.nodes.length === 0) {
@@ -226,86 +350,27 @@ export async function exportAsPng(): Promise<boolean> {
       return false;
     }
     
-    // Store original viewport to restore later
-    const originalViewport = { ...workspace.viewport };
-    
-    // Mark as exporting to disable LOD simplification
-    const canvasEl = document.querySelector('.canvas-container') as HTMLElement;
-    if (canvasEl) {
-      canvasEl.dataset.exporting = 'true';
-    }
-    
-    // Trigger fit view to show all nodes
-    window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.15 } }));
-    
-    // Wait for fitView animation to complete
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Now set zoom to 1 for consistent quality
-    workspace.setViewport({
-      x: workspace.viewport.x,
-      y: workspace.viewport.y,
-      zoom: 1
-    });
-    
-    // Wait for zoom to apply
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    // Get the SvelteFlow viewport element
-    const viewportEl = document.querySelector('.svelte-flow__viewport') as HTMLElement;
-    if (!viewportEl) {
-      console.error('SvelteFlow viewport not found');
-      if (canvasEl) delete canvasEl.dataset.exporting;
-      workspace.setViewport(originalViewport);
+    // Step 1: Generate SVG (captures all nodes perfectly)
+    console.log('Generating SVG...');
+    const svgResult = await generateSvgDataUrl();
+    if (!svgResult) {
+      console.error('Failed to generate SVG');
       return false;
     }
     
-    console.log('Viewport element found, generating PNG...');
-
-    // Create a high-resolution PNG
-    const dataUrl = await toPng(viewportEl, {
-      backgroundColor: '#0a0a0a',
-      pixelRatio: 2,
-      skipFonts: true,
-      includeQueryParams: true,
-      cacheBust: true,
-      filter: (node) => {
-        // Exclude controls, minimap, attribution, and panels
-        if (node instanceof Element) {
-          const classList = node.classList;
-          if (classList?.contains('svelte-flow__controls') ||
-              classList?.contains('svelte-flow__minimap') ||
-              classList?.contains('svelte-flow__attribution') ||
-              classList?.contains('svelte-flow__panel') ||
-              classList?.contains('cm-widgetBuffer')) {
-            return false;
-          }
-        }
-        // Filter out broken or incomplete images
-        if (node instanceof HTMLImageElement) {
-          if (!node.complete || node.naturalWidth === 0 || node.src === '') {
-            return false;
-          }
-        }
-        return true;
-      },
-    });
+    console.log('SVG generated, dimensions:', svgResult.width, 'x', svgResult.height);
     
-    // Restore original viewport and remove export flag
-    workspace.setViewport(originalViewport);
-    if (canvasEl) {
-      delete canvasEl.dataset.exporting;
-    }
+    // Step 2: Convert SVG to high-res PNG (2x scale for crisp output)
+    console.log('Converting to PNG at 2x scale...');
+    const pngDataUrl = await svgToPng(svgResult.dataUrl, svgResult.width, svgResult.height, 2);
     
-    console.log('PNG generated, dataUrl length:', dataUrl?.length);
+    console.log('PNG generated, dataUrl length:', pngDataUrl.length);
 
-    console.log('Opening save dialog...');
-    // Use Tauri file dialog to choose save location
+    // Step 3: Save to file
     const { save } = await import('@tauri-apps/plugin-dialog');
     const { writeFile } = await import('@tauri-apps/plugin-fs');
     
     const defaultName = `${workspace.name.replace(/[^a-z0-9]/gi, '_')}_canvas.png`;
-    console.log('Default filename:', defaultName);
     
     const filePath = await save({
       defaultPath: defaultName,
@@ -314,12 +379,10 @@ export async function exportAsPng(): Promise<boolean> {
         extensions: ['png']
       }]
     });
-    
-    console.log('Save dialog returned:', filePath);
 
     if (filePath) {
       // Convert data URL to binary
-      const base64Data = dataUrl.split(',')[1];
+      const base64Data = pngDataUrl.split(',')[1];
       const binaryString = atob(base64Data);
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
@@ -327,11 +390,10 @@ export async function exportAsPng(): Promise<boolean> {
       }
       console.log('Writing', bytes.length, 'bytes to:', filePath);
       await writeFile(filePath, bytes);
-      console.log('Canvas exported as PNG successfully to:', filePath);
+      console.log('Canvas exported as high-res PNG successfully to:', filePath);
       return true;
     } else {
       console.log('User cancelled the save dialog');
-      // User cancelled the dialog
       return false;
     }
   } catch (error) {
