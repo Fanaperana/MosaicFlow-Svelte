@@ -87,12 +87,25 @@
     // Ensure selection is set before focusing
     handleNodeClick(node);
     
-    // Center view on node
+    // Calculate absolute position for child nodes
+    let absoluteX = node.position.x;
+    let absoluteY = node.position.y;
+    
+    // If node has a parent (is inside a group), add parent's position
+    if (node.parentId) {
+      const parent = workspace.nodes.find(n => n.id === node.parentId);
+      if (parent) {
+        absoluteX += parent.position.x;
+        absoluteY += parent.position.y;
+      }
+    }
+    
+    // Center view on node using absolute canvas position
     const width = node.width || 200;
     const height = node.height || 100;
     setCenter(
-      node.position.x + width / 2,
-      node.position.y + height / 2,
+      absoluteX + width / 2,
+      absoluteY + height / 2,
       { zoom: 1.2, duration: 800 }
     );
   }
