@@ -450,26 +450,10 @@ export async function exportAsSvg(): Promise<boolean> {
       let svgContent = decodeURIComponent(svgDataUrl.split(',')[1]);
       
       // Post-process SVG to ensure background covers entire area
-      // Find the opening <svg> tag and add/update width and height
+      // Add a background rect right after the opening <svg> tag
       svgContent = svgContent.replace(
-        /<svg([^>]*)>/,
-        (match, attrs) => {
-          // Ensure width and height are set
-          let newAttrs = attrs;
-          if (!newAttrs.includes('width=')) {
-            newAttrs += ` width="${viewportRect.width}"`;
-          }
-          if (!newAttrs.includes('height=')) {
-            newAttrs += ` height="${viewportRect.height}"`;
-          }
-          return `<svg${newAttrs}>`;
-        }
-      );
-      
-      // Add a full-size background rectangle if needed
-      svgContent = svgContent.replace(
-        /<svg([^>]*)>/,
-        `<svg$1><rect width="100%" height="100%" fill="#0a0a0a"/>`
+        /(<svg[^>]*>)/,
+        `$1<rect x="0" y="0" width="${viewportRect.width}" height="${viewportRect.height}" fill="#0a0a0a"/>`
       );
       
       console.log('Writing SVG to:', filePath);
