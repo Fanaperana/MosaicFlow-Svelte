@@ -31,8 +31,11 @@ chrono = { version = "0.4", features = ["serde"] }
 base64 = "0.22"
 tauri-plugin-persisted-scope = "2"
 
-# SVG to PNG conversion
+# SVG to PNG conversion (resvg for pure SVG, headless_chrome for HTML/CSS)
 resvg = "0.44"
 usvg = "0.44"
 tiny-skia = "0.11"
+headless_chrome = "1.0"
+regex = "1"
+urlencoding = "2"
 

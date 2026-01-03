@@ -65,6 +65,7 @@ pub fn run() {
             // Export commands
             save_png,
             svg_to_png,
+            svg_to_png_headless,
             // History commands
             load_history,
             track_vault_open,

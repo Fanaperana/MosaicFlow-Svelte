@@ -19,10 +19,116 @@ pub async fn save_png(file_path: String, base64_data: String) -> Result<bool, St
     Ok(true)
 }
 
-/// Convert SVG content to high-resolution PNG and save to file
+/// Convert SVG content to high-resolution PNG using headless Chrome
+/// 
+/// This renders HTML/CSS/foreignObject correctly by using a real browser engine.
+/// Scale factor controls the device pixel ratio for high-DPI output.
+#[tauri::command]
+pub async fn svg_to_png_headless(
+    svg_content: String,
+    file_path: String,
+    scale: f32,
+) -> Result<bool, String> {
+    use headless_chrome::{Browser, LaunchOptions};
+    use headless_chrome::protocol::cdp::Page::CaptureScreenshotFormatOption;
+    
+    // Extract dimensions from SVG
+    let width: u32 = extract_svg_dimension(&svg_content, "width").unwrap_or(1920);
+    let height: u32 = extract_svg_dimension(&svg_content, "height").unwrap_or(1080);
+    
+    // Calculate scaled dimensions
+    let scaled_width = (width as f32 * scale) as u32;
+    let scaled_height = (height as f32 * scale) as u32;
+    
+    // Launch headless Chrome
+    let browser = Browser::new(LaunchOptions {
+        headless: true,
+        window_size: Some((scaled_width, scaled_height)),
+        ..Default::default()
+    }).map_err(|e| format!("Failed to launch browser: {}", e))?;
+    
+    let tab = browser.new_tab()
+        .map_err(|e| format!("Failed to create tab: {}", e))?;
+    
+    // Set viewport with high device scale factor
+    tab.set_bounds(headless_chrome::types::Bounds::Normal {
+        left: Some(0),
+        top: Some(0),
+        width: Some(scaled_width as f64),
+        height: Some(scaled_height as f64),
+    }).map_err(|e| format!("Failed to set bounds: {}", e))?;
+    
+    // Create HTML that displays the SVG at full size
+    let html_content = format!(r#"
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                * {{ margin: 0; padding: 0; }}
+                html, body {{ 
+                    width: {}px; 
+                    height: {}px; 
+                    overflow: hidden;
+                    background: #0a0a0a;
+                }}
+                .svg-container {{
+                    width: 100%;
+                    height: 100%;
+                    transform: scale({});
+                    transform-origin: top left;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="svg-container">{}</div>
+        </body>
+        </html>
+    "#, scaled_width, scaled_height, scale, svg_content);
+    
+    // Navigate to data URL with HTML content
+    let data_url = format!("data:text/html;charset=utf-8,{}", 
+        urlencoding::encode(&html_content));
+    
+    tab.navigate_to(&data_url)
+        .map_err(|e| format!("Failed to navigate: {}", e))?;
+    
+    // Wait for page to load
+    tab.wait_until_navigated()
+        .map_err(|e| format!("Failed to wait for navigation: {}", e))?;
+    
+    // Small delay to ensure rendering is complete
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    
+    // Take screenshot
+    let screenshot_data = tab.capture_screenshot(
+        CaptureScreenshotFormatOption::Png,
+        None,
+        None,
+        true, // from_surface - captures full page
+    ).map_err(|e| format!("Failed to capture screenshot: {}", e))?;
+    
+    // Save to file
+    fs::write(&file_path, &screenshot_data)
+        .map_err(|e| format!("Failed to write PNG file: {}", e))?;
+    
+    Ok(true)
+}
+
+/// Helper to extract width/height from SVG attributes
+fn extract_svg_dimension(svg: &str, attr: &str) -> Option<u32> {
+    let pattern = format!(r#"{}="([^"]+)""#, attr);
+    let re = regex::Regex::new(&pattern).ok()?;
+    let caps = re.captures(svg)?;
+    let value = caps.get(1)?.as_str();
+    // Remove 'px' suffix if present
+    let numeric = value.trim_end_matches("px");
+    numeric.parse().ok()
+}
+
+/// Convert SVG content to high-resolution PNG and save to file (resvg version)
 /// 
 /// This uses resvg for high-quality rendering without browser canvas limits.
-/// The scale factor multiplies the SVG dimensions for higher resolution output.
+/// Note: Does NOT support foreignObject/HTML content in SVG.
 #[tauri::command]
 pub async fn svg_to_png(
     svg_content: String,
