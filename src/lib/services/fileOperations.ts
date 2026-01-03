@@ -386,12 +386,17 @@ export async function exportAsSvg(): Promise<boolean> {
     
     console.log('Viewport element found, generating SVG...');
 
+    // Get the actual dimensions of the viewport element
+    const viewportRect = viewportEl.getBoundingClientRect();
+    
     // Create an SVG - vectors scale infinitely without blur
     const svgDataUrl = await toSvg(viewportEl, {
       backgroundColor: '#0a0a0a',
       skipFonts: false, // Include fonts for proper text rendering
       includeQueryParams: true,
       cacheBust: true,
+      width: viewportRect.width,
+      height: viewportRect.height,
       filter: (node) => {
         // Exclude controls, minimap, attribution, and panels
         if (node instanceof Element) {
@@ -442,7 +447,31 @@ export async function exportAsSvg(): Promise<boolean> {
 
     if (filePath) {
       // Extract SVG content from data URL
-      const svgContent = decodeURIComponent(svgDataUrl.split(',')[1]);
+      let svgContent = decodeURIComponent(svgDataUrl.split(',')[1]);
+      
+      // Post-process SVG to ensure background covers entire area
+      // Find the opening <svg> tag and add/update width and height
+      svgContent = svgContent.replace(
+        /<svg([^>]*)>/,
+        (match, attrs) => {
+          // Ensure width and height are set
+          let newAttrs = attrs;
+          if (!newAttrs.includes('width=')) {
+            newAttrs += ` width="${viewportRect.width}"`;
+          }
+          if (!newAttrs.includes('height=')) {
+            newAttrs += ` height="${viewportRect.height}"`;
+          }
+          return `<svg${newAttrs}>`;
+        }
+      );
+      
+      // Add a full-size background rectangle if needed
+      svgContent = svgContent.replace(
+        /<svg([^>]*)>/,
+        `<svg$1><rect width="100%" height="100%" fill="#0a0a0a"/>`
+      );
+      
       console.log('Writing SVG to:', filePath);
       await writeTextFile(filePath, svgContent);
       console.log('Canvas exported as SVG successfully to:', filePath);
