@@ -4,6 +4,7 @@
     openWorkspaceDialog, 
     exportAsZip,
     exportAsPng,
+    exportAsSvg,
   } from '$lib/services/fileOperations';
   import { MousePointer2, Hand, Group } from 'lucide-svelte';
 
@@ -27,6 +28,11 @@
 
   async function handleExportPng() {
     await exportAsPng();
+    showExportMenu = false;
+  }
+
+  async function handleExportSvg() {
+    await exportAsSvg();
     showExportMenu = false;
   }
 
@@ -91,6 +97,9 @@
             </button>
             <button onclick={handleExportPng}>
               <span>🖼️</span> Export as PNG
+            </button>
+            <button onclick={handleExportSvg}>
+              <span>📐</span> Export as SVG
             </button>
           </div>
         {/if}

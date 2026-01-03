@@ -13,6 +13,7 @@
     Trash2,
     Search,
     Image,
+    FileCode,
   } from 'lucide-svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { cn } from '$lib/utils';
@@ -23,6 +24,7 @@
     onOpen: () => void;
     onExport: () => void;
     onExportPng: () => void;
+    onExportSvg: () => void;
     onSettings: () => void;
     onNewCanvas: () => void;
     onSearch: () => void;
@@ -30,7 +32,7 @@
     vaultName?: string;
   }
 
-  let { onHome, onOpen, onExport, onExportPng, onSettings, onNewCanvas, onSearch, canvasName, vaultName }: Props = $props();
+  let { onHome, onOpen, onExport, onExportPng, onExportSvg, onSettings, onNewCanvas, onSearch, canvasName, vaultName }: Props = $props();
 
   let exportMenuOpen = $state(false);
 
@@ -93,6 +95,10 @@
           <button class="menu-item" onclick={() => { onExportPng(); exportMenuOpen = false; }}>
             <Image size={16} strokeWidth={1.5} />
             <span>Export as PNG</span>
+          </button>
+          <button class="menu-item" onclick={() => { onExportSvg(); exportMenuOpen = false; }}>
+            <FileCode size={16} strokeWidth={1.5} />
+            <span>Export as SVG</span>
           </button>
         </div>
       {/if}

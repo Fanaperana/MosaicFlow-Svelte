@@ -10,7 +10,7 @@
   import WorkflowSearch from '$lib/components/WorkflowSearch.svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
-  import { loadWorkspace, exportAsPng } from '$lib/services/fileOperations';
+  import { loadWorkspace, exportAsPng, exportAsSvg } from '$lib/services/fileOperations';
   import { message } from '@tauri-apps/plugin-dialog';
   import type { CanvasInfo } from '$lib/services/vaultService';
   
@@ -88,6 +88,18 @@
     }
   }
 
+  async function handleExportSvg() {
+    try {
+      const success = await exportAsSvg();
+      if (!success) {
+        await message('Failed to export canvas as SVG', { title: 'Error', kind: 'error' });
+      }
+    } catch (err) {
+      console.error('Failed to export SVG:', err);
+      await message('Failed to export canvas as SVG', { title: 'Error', kind: 'error' });
+    }
+  }
+
   function handleSettings() {
     workspace.togglePropertiesPanel();
   }
@@ -137,6 +149,7 @@
       onOpen={handleOpen}
       onExport={handleExport}
       onExportPng={handleExportPng}
+      onExportSvg={handleExportSvg}
       onSettings={handleSettings}
       onNewCanvas={handleNewCanvas}
       onSearch={handleSearch}

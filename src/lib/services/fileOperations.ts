@@ -4,7 +4,7 @@
 
 import { workspace } from '$lib/stores/workspace.svelte';
 import type { WorkspaceData, UIState, NodeType } from '$lib/types';
-import { toPng } from 'html-to-image';
+import { toPng, toSvg } from 'html-to-image';
 import { loadAllNodes } from './nodeFileService';
 import { loadAllEdges } from './edgeFileService';
 
@@ -336,6 +336,123 @@ export async function exportAsPng(): Promise<boolean> {
     }
   } catch (error) {
     console.error('Error exporting canvas as PNG:', error);
+    return false;
+  }
+}
+
+// Export canvas as SVG image
+export async function exportAsSvg(): Promise<boolean> {
+  console.log('Starting SVG export...');
+  
+  try {
+    if (workspace.nodes.length === 0) {
+      console.error('No nodes to export');
+      return false;
+    }
+    
+    // Store original viewport to restore later
+    const originalViewport = { ...workspace.viewport };
+    
+    // Mark as exporting to disable LOD simplification
+    const canvasEl = document.querySelector('.canvas-container') as HTMLElement;
+    if (canvasEl) {
+      canvasEl.dataset.exporting = 'true';
+    }
+    
+    // Trigger fit view to show all nodes
+    window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.15 } }));
+    
+    // Wait for fitView animation to complete
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Now set zoom to 1 for consistent quality
+    workspace.setViewport({
+      x: workspace.viewport.x,
+      y: workspace.viewport.y,
+      zoom: 1
+    });
+    
+    // Wait for zoom to apply
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Get the SvelteFlow viewport element
+    const viewportEl = document.querySelector('.svelte-flow__viewport') as HTMLElement;
+    if (!viewportEl) {
+      console.error('SvelteFlow viewport not found');
+      if (canvasEl) delete canvasEl.dataset.exporting;
+      workspace.setViewport(originalViewport);
+      return false;
+    }
+    
+    console.log('Viewport element found, generating SVG...');
+
+    // Create an SVG - vectors scale infinitely without blur
+    const svgDataUrl = await toSvg(viewportEl, {
+      backgroundColor: '#0a0a0a',
+      skipFonts: false, // Include fonts for proper text rendering
+      includeQueryParams: true,
+      cacheBust: true,
+      filter: (node) => {
+        // Exclude controls, minimap, attribution, and panels
+        if (node instanceof Element) {
+          const classList = node.classList;
+          if (classList?.contains('svelte-flow__controls') ||
+              classList?.contains('svelte-flow__minimap') ||
+              classList?.contains('svelte-flow__attribution') ||
+              classList?.contains('svelte-flow__panel') ||
+              classList?.contains('cm-widgetBuffer')) {
+            return false;
+          }
+        }
+        // Filter out broken or incomplete images
+        if (node instanceof HTMLImageElement) {
+          if (!node.complete || node.naturalWidth === 0 || node.src === '') {
+            return false;
+          }
+        }
+        return true;
+      },
+    });
+    
+    // Restore original viewport and remove export flag
+    workspace.setViewport(originalViewport);
+    if (canvasEl) {
+      delete canvasEl.dataset.exporting;
+    }
+    
+    console.log('SVG generated, dataUrl length:', svgDataUrl?.length);
+
+    console.log('Opening save dialog...');
+    // Use Tauri file dialog to choose save location
+    const { save } = await import('@tauri-apps/plugin-dialog');
+    const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+    
+    const defaultName = `${workspace.name.replace(/[^a-z0-9]/gi, '_')}_canvas.svg`;
+    console.log('Default filename:', defaultName);
+    
+    const filePath = await save({
+      defaultPath: defaultName,
+      filters: [{
+        name: 'SVG Image',
+        extensions: ['svg']
+      }]
+    });
+    
+    console.log('Save dialog returned:', filePath);
+
+    if (filePath) {
+      // Extract SVG content from data URL
+      const svgContent = decodeURIComponent(svgDataUrl.split(',')[1]);
+      console.log('Writing SVG to:', filePath);
+      await writeTextFile(filePath, svgContent);
+      console.log('Canvas exported as SVG successfully to:', filePath);
+      return true;
+    } else {
+      console.log('User cancelled the save dialog');
+      return false;
+    }
+  } catch (error) {
+    console.error('Error exporting canvas as SVG:', error);
     return false;
   }
 }
