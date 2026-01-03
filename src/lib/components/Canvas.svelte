@@ -19,6 +19,7 @@
   import { NODE_TYPE_INFO } from '$lib/types';
   import { resolveCollisions, findNonOverlappingPosition } from '$lib/utils/resolve-collisions';
   import { calculateSnapGuides, calculateSelectionSnapGuides, type SnapGuide } from '$lib/utils/snap-guides';
+  import { SpatialIndex } from '$lib/utils/spatial-index';
   import SnapGuides from '$lib/components/SnapGuides.svelte';
   import NodeListSidebar from '$lib/components/NodeListSidebar.svelte';
   import FlowHelper from '$lib/components/FlowHelper.svelte';
@@ -101,6 +102,35 @@
   // Snap guides state
   let snapGuides = $state<SnapGuide[]>([]);
   const SNAP_THRESHOLD = 8; // Distance in pixels to show guides
+  
+  // Spatial index for efficient node culling at extreme zoom
+  let spatialIndex = $state(new SpatialIndex());
+  let rebuildIndexScheduled = $state(false);
+  
+  // LOD (Level of Detail) state
+  let currentLOD = $state<'detailed' | 'medium' | 'simplified'>('detailed');
+  
+  // Determine LOD based on zoom level
+  $effect(() => {
+    if (viewport.zoom > 0.75) {
+      currentLOD = 'detailed';
+    } else if (viewport.zoom > 0.3) {
+      currentLOD = 'medium';
+    } else {
+      currentLOD = 'simplified';
+    }
+  });
+  
+  // Rebuild spatial index when nodes change significantly
+  $effect(() => {
+    if (nodes.length > 50 && !rebuildIndexScheduled) {
+      rebuildIndexScheduled = true;
+      queueMicrotask(() => {
+        spatialIndex.rebuild(workspace.nodes);
+        rebuildIndexScheduled = false;
+      });
+    }
+  });
   
   // Edge drop menu state - for creating nodes when dropping connection on empty canvas
   let edgeDropMenuOpen = $state(false);
@@ -778,6 +808,7 @@
     >
       <SvelteFlow
         id="mosaic-flow"
+        class="lod-{currentLOD}"
         bind:nodes
         bind:edges
         bind:viewport
@@ -795,8 +826,8 @@
         connectionLineType={ConnectionLineType.Bezier}
         panOnDrag={panOnDrag}
         selectionOnDrag={selectionOnDrag}
-        minZoom={0.25}
-        maxZoom={2}
+        minZoom={0.01}
+        maxZoom={8}
         defaultEdgeOptions={{
           type: 'default',
           animated: false,
@@ -1372,5 +1403,51 @@
 
   .edge-drop-item:hover {
     background: rgba(59, 130, 246, 0.2);
+  }
+
+  /* LOD (Level of Detail) Rendering Optimizations */
+  :global(.lod-simplified .svelte-flow__node .node-content) {
+    display: none !important;
+  }
+  
+  :global(.lod-simplified .svelte-flow__handle) {
+    display: none !important;
+  }
+  
+  :global(.lod-simplified .svelte-flow__node .node-header) {
+    font-size: 24px !important;
+    font-weight: 600;
+  }
+  
+  :global(.lod-simplified .svelte-flow__resize-control) {
+    display: none !important;
+  }
+  
+  :global(.lod-medium .svelte-flow__node .node-content) {
+    opacity: 0.7;
+  }
+  
+  :global(.lod-medium .svelte-flow__handle) {
+    opacity: 0.5;
+  }
+  
+  :global(.lod-medium .svelte-flow__resize-control.handle) {
+    opacity: 0.3;
+  }
+  
+  :global(.lod-simplified .svelte-flow__edge) {
+    opacity: 0.3 !important;
+  }
+  
+  :global(.lod-medium .svelte-flow__edge) {
+    opacity: 0.6 !important;
+  }
+  
+  :global(.lod-simplified .svelte-flow__edge-label) {
+    display: none !important;
+  }
+  
+  :global(.lod-medium .svelte-flow__edge-label) {
+    opacity: 0.7;
   }
 </style>
