@@ -119,9 +119,9 @@
     
     if (isExporting) {
       currentLOD = 'detailed';
-    } else if (viewport.zoom > 0.4) {
+    } else if (viewport.zoom > 0.25) {
       currentLOD = 'detailed';
-    } else if (viewport.zoom > 0.15) {
+    } else if (viewport.zoom > 0.08) {
       currentLOD = 'medium';
     } else {
       currentLOD = 'simplified';
