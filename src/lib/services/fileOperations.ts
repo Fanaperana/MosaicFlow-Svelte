@@ -247,11 +247,12 @@ async function generateSvgDataUrl(): Promise<{ dataUrl: string; svgContent: stri
   const viewportRect = viewportEl.getBoundingClientRect();
   
   // Create SVG - this captures all visible nodes perfectly
+  // skipFonts: true to avoid cross-origin CSS errors with remote fonts
   const svgDataUrl = await toSvg(viewportEl, {
     backgroundColor: '#0a0a0a',
-    skipFonts: false,
-    includeQueryParams: true,
-    cacheBust: true,
+    skipFonts: true, // Skip remote font embedding to avoid CORS errors
+    includeQueryParams: false, // Avoid cache-busting that can fail
+    cacheBust: false, // Disable to prevent network requests
     filter: (node) => {
       if (node instanceof Element) {
         const classList = node.classList;
@@ -263,8 +264,20 @@ async function generateSvgDataUrl(): Promise<{ dataUrl: string; svgContent: stri
           return false;
         }
       }
+      // Filter out images that aren't fully loaded or are from external URLs
       if (node instanceof HTMLImageElement) {
         if (!node.complete || node.naturalWidth === 0 || node.src === '') {
+          return false;
+        }
+        // Skip external images that might fail to fetch
+        try {
+          const imgUrl = new URL(node.src);
+          if (imgUrl.protocol === 'http:' || imgUrl.protocol === 'https:') {
+            if (!node.crossOrigin && imgUrl.origin !== window.location.origin) {
+              return false;
+            }
+          }
+        } catch {
           return false;
         }
       }
@@ -355,12 +368,17 @@ export async function exportAsPng(): Promise<boolean> {
     console.log(`Output resolution: ${Math.round(rect.width * pixelRatio)}x${Math.round(rect.height * pixelRatio)}`);
     
     // Use toPng with high pixel ratio
+    // skipFonts: true to avoid cross-origin CSS errors with remote fonts
     const pngDataUrl = await toPng(viewportEl, {
       backgroundColor: '#0a0a0a',
       pixelRatio: pixelRatio,
-      skipFonts: false,
-      includeQueryParams: true,
-      cacheBust: true,
+      skipFonts: true, // Skip remote font embedding to avoid CORS errors
+      includeQueryParams: false, // Avoid cache-busting that can fail
+      cacheBust: false, // Disable to prevent network requests
+      fetchRequestInit: {
+        mode: 'cors',
+        cache: 'force-cache', // Use cached resources
+      },
       filter: (node) => {
         if (node instanceof Element) {
           const classList = node.classList;
@@ -372,8 +390,23 @@ export async function exportAsPng(): Promise<boolean> {
             return false;
           }
         }
+        // Filter out images that aren't fully loaded or are from external URLs
         if (node instanceof HTMLImageElement) {
           if (!node.complete || node.naturalWidth === 0 || node.src === '') {
+            return false;
+          }
+          // Skip external images that might fail to fetch
+          try {
+            const imgUrl = new URL(node.src);
+            if (imgUrl.protocol === 'http:' || imgUrl.protocol === 'https:') {
+              // Check if it's a cross-origin image without proper CORS
+              if (!node.crossOrigin && imgUrl.origin !== window.location.origin) {
+                console.log('Skipping cross-origin image:', node.src);
+                return false;
+              }
+            }
+          } catch {
+            // Invalid URL, skip
             return false;
           }
         }
@@ -463,11 +496,12 @@ export async function exportAsSvg(): Promise<boolean> {
     console.log('Viewport element found, generating SVG...');
 
     // Create an SVG - vectors scale infinitely without blur
+    // skipFonts: true to avoid cross-origin CSS errors with remote fonts
     const svgDataUrl = await toSvg(viewportEl, {
       backgroundColor: '#0a0a0a',
-      skipFonts: false,
-      includeQueryParams: true,
-      cacheBust: true,
+      skipFonts: true, // Skip remote font embedding to avoid CORS errors
+      includeQueryParams: false,
+      cacheBust: false,
       filter: (node) => {
         // Exclude controls, minimap, attribution, and panels
         if (node instanceof Element) {
@@ -480,9 +514,20 @@ export async function exportAsSvg(): Promise<boolean> {
             return false;
           }
         }
-        // Filter out broken or incomplete images
+        // Filter out broken or incomplete images or cross-origin images
         if (node instanceof HTMLImageElement) {
           if (!node.complete || node.naturalWidth === 0 || node.src === '') {
+            return false;
+          }
+          // Skip external images that might fail
+          try {
+            const imgUrl = new URL(node.src);
+            if (imgUrl.protocol === 'http:' || imgUrl.protocol === 'https:') {
+              if (!node.crossOrigin && imgUrl.origin !== window.location.origin) {
+                return false;
+              }
+            }
+          } catch {
             return false;
           }
         }
