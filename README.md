@@ -195,13 +195,20 @@ mosaicflow/
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! All work in this repo is issue-driven so every change maps to an issue and a closing commit.
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+- Start with an issue: open a `bug`, `feature`, `enhancement`, `refactor`, or `docs` issue describing the change and acceptance criteria.
+- Branch naming: `<type>/<issue-number>-<slug>` (e.g., `feature/42-maplibre-integration`).
+- Commits: use [Conventional Commits](https://www.conventionalcommits.org/) and close the issue in the footer (e.g., `Closes #42`).
+- PRs: reference the issue in the title/body and keep the scope limited to that issue.
+- Checks: run `pnpm check` before opening a PR.
+
+Quick flow:
+1. Fork the repository (or create a branch if you have access).
+2. Create an issue describing the change.
+3. Create your branch (`git checkout -b feature/42-maplibre-integration`).
+4. Commit with a closing footer (`fix(stores): lock blocks dragging\n\nCloses #42`).
+5. Push and open a Pull Request.
 
 ---
 

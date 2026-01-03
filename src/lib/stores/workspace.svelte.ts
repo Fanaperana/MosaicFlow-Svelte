@@ -220,6 +220,20 @@ class WorkspaceStore {
     return orderedNodes;
   }
 
+  /**
+   * Ensure node lock state also controls draggability for the canvas.
+   */
+  private applyLockState(node: MosaicNode, dataUpdates: Partial<MosaicNodeData> = {}): MosaicNode {
+    const mergedData = { ...(node.data ?? {}), ...dataUpdates } as MosaicNodeData;
+    const locked = mergedData.locked ?? false;
+
+    return {
+      ...node,
+      data: mergedData,
+      draggable: !locked,
+    };
+  }
+
   // Create a new node
   createNode(type: NodeType, position: { x: number; y: number }, data?: Partial<MosaicNodeData>): MosaicNode {
     // Save state before mutation
@@ -228,7 +242,7 @@ class WorkspaceStore {
     const id = uuidv4();
     const baseData = this.getDefaultDataForType(type);
     
-    const node: MosaicNode = {
+    const node = this.applyLockState({
       id,
       type,
       position,
@@ -236,7 +250,7 @@ class WorkspaceStore {
       width: this.getDefaultWidthForType(type),
       height: this.getDefaultHeightForType(type),
       zIndex: type === 'group' ? -1 : 1,
-    };
+    });
     
     this.nodes = [...this.nodes, node];
     
@@ -276,8 +290,9 @@ class WorkspaceStore {
         height: node.height,
         zIndex: node.zIndex,
       };
+      const newNodeWithLock = this.applyLockState(newNode);
       
-      newNodes.push(newNode);
+      newNodes.push(newNodeWithLock);
     }
     
     // Add all new nodes at once
@@ -405,7 +420,7 @@ class WorkspaceStore {
     let updatedNode: MosaicNode | null = null;
     this.nodes = this.nodes.map(node => {
       if (node.id === id) {
-        updatedNode = { ...node, data: { ...node.data, ...dataUpdates } as MosaicNodeData };
+        updatedNode = this.applyLockState(node, dataUpdates);
         return updatedNode;
       }
       return node;
@@ -816,10 +831,12 @@ class WorkspaceStore {
       .filter(n => !nodes.find(newN => newN.id === n.id))
       .map(n => n.id);
     
-    const processedNodes = nodes.map(node => ({
-      ...node,
-      zIndex: node.type === 'group' ? -1 : 1
-    }));
+    const processedNodes = nodes.map(node =>
+      this.applyLockState({
+        ...node,
+        zIndex: node.type === 'group' ? -1 : 1,
+      })
+    );
     
     // Reorder nodes so parent nodes come before children (required for SvelteFlow subflows)
     this.nodes = this.reorderNodesForSubflows(processedNodes);
@@ -958,10 +975,13 @@ class WorkspaceStore {
     }
     
     // Convert nodes and edges from Record to array
-    const loadedNodes = Object.values(data.nodes || {}).map(node => ({
-      ...node,
-      zIndex: node.type === 'group' ? -1 : 1
-    })) as MosaicNode[];
+    const loadedNodes = Object.values(data.nodes || {}).map(node =>
+      this.applyLockState({
+        ...(node as MosaicNode),
+        data: ((node as MosaicNode).data ?? {}) as MosaicNodeData,
+        zIndex: node.type === 'group' ? -1 : 1,
+      })
+    );
     
     // Reorder nodes so parent nodes come before children (required for SvelteFlow subflows)
     this.nodes = this.reorderNodesForSubflows(loadedNodes);
