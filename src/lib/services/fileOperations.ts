@@ -278,17 +278,21 @@ async function generateSvgDataUrl(): Promise<{ dataUrl: string; width: number; h
     delete canvasEl.dataset.exporting;
   }
   
-  // Post-process SVG to add dark background
+  // Post-process SVG to add dark background and extract actual dimensions
   let svgContent = decodeURIComponent(svgDataUrl.split(',')[1]);
   const widthMatch = svgContent.match(/width="([^"]+)"/);
   const heightMatch = svgContent.match(/height="([^"]+)"/);
   
+  // Use SVG's actual dimensions (more accurate than viewport)
+  let svgWidth = viewportRect.width;
+  let svgHeight = viewportRect.height;
+  
   if (widthMatch && heightMatch) {
-    const width = widthMatch[1];
-    const height = heightMatch[1];
+    svgWidth = parseFloat(widthMatch[1]) || viewportRect.width;
+    svgHeight = parseFloat(heightMatch[1]) || viewportRect.height;
     svgContent = svgContent.replace(
       /(<svg[^>]*>)/,
-      `$1<rect width="${width}" height="${height}" fill="#0a0a0a"/>`
+      `$1<rect width="${widthMatch[1]}" height="${heightMatch[1]}" fill="#0a0a0a"/>`
     );
   }
   
@@ -297,8 +301,8 @@ async function generateSvgDataUrl(): Promise<{ dataUrl: string; width: number; h
   
   return {
     dataUrl: processedDataUrl,
-    width: viewportRect.width,
-    height: viewportRect.height,
+    width: svgWidth,
+    height: svgHeight,
   };
 }
 
@@ -360,9 +364,9 @@ export async function exportAsPng(): Promise<boolean> {
     
     console.log('SVG generated, dimensions:', svgResult.width, 'x', svgResult.height);
     
-    // Step 2: Convert SVG to high-res PNG (2x scale for crisp output)
-    console.log('Converting to PNG at 2x scale...');
-    const pngDataUrl = await svgToPng(svgResult.dataUrl, svgResult.width, svgResult.height, 2);
+    // Step 2: Convert SVG to high-res PNG (4x scale for crisp output)
+    console.log('Converting to PNG at 4x scale...');
+    const pngDataUrl = await svgToPng(svgResult.dataUrl, svgResult.width, svgResult.height, 4);
     
     console.log('PNG generated, dataUrl length:', pngDataUrl.length);
 
