@@ -111,12 +111,27 @@
   let currentLOD = $state<'detailed' | 'medium' | 'simplified'>('detailed');
   let isExporting = $state(false);
   
+  // Listen for export start/end events
+  $effect(() => {
+    const handleExportStart = () => {
+      isExporting = true;
+      currentLOD = 'detailed';
+    };
+    const handleExportEnd = () => {
+      isExporting = false;
+    };
+    
+    window.addEventListener('mosaicflow:exportStart', handleExportStart);
+    window.addEventListener('mosaicflow:exportEnd', handleExportEnd);
+    
+    return () => {
+      window.removeEventListener('mosaicflow:exportStart', handleExportStart);
+      window.removeEventListener('mosaicflow:exportEnd', handleExportEnd);
+    };
+  });
+  
   // Determine LOD based on zoom level (but disable during export)
   $effect(() => {
-    // Check if we're exporting
-    const canvasEl = document.querySelector('.canvas-container') as HTMLElement;
-    isExporting = canvasEl?.dataset.exporting === 'true';
-    
     if (isExporting) {
       currentLOD = 'detailed';
     } else if (viewport.zoom > 0.25) {

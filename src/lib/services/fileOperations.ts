@@ -228,17 +228,21 @@ async function generateSvgDataUrl(): Promise<{ dataUrl: string; svgContent: stri
     canvasEl.dataset.exporting = 'true';
   }
   
+  // Notify Canvas to switch to detailed LOD
+  window.dispatchEvent(new CustomEvent('mosaicflow:exportStart'));
+  
   // Trigger fit view to show all nodes
   window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.1 } }));
   
-  // Wait for fitView animation to complete
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // Wait for fitView animation and LOD switch to complete
+  await new Promise(resolve => setTimeout(resolve, 800));
   
   // Get the SvelteFlow viewport element
   const viewportEl = document.querySelector('.svelte-flow__viewport') as HTMLElement;
   if (!viewportEl) {
     console.error('SvelteFlow viewport not found');
     if (canvasEl) delete canvasEl.dataset.exporting;
+    window.dispatchEvent(new CustomEvent('mosaicflow:exportEnd'));
     workspace.setViewport(originalViewport);
     return null;
   }
@@ -290,6 +294,7 @@ async function generateSvgDataUrl(): Promise<{ dataUrl: string; svgContent: stri
   if (canvasEl) {
     delete canvasEl.dataset.exporting;
   }
+  window.dispatchEvent(new CustomEvent('mosaicflow:exportEnd'));
   
   // Post-process SVG to add dark background and extract actual dimensions
   let svgContent = decodeURIComponent(svgDataUrl.split(',')[1]);
@@ -339,17 +344,21 @@ export async function exportAsPng(): Promise<boolean> {
       canvasEl.dataset.exporting = 'true';
     }
     
+    // Notify Canvas to switch to detailed LOD
+    window.dispatchEvent(new CustomEvent('mosaicflow:exportStart'));
+    
     // Trigger fit view to show all nodes
     window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.1 } }));
     
-    // Wait for fitView animation to complete
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Wait for fitView animation and LOD switch to complete
+    await new Promise(resolve => setTimeout(resolve, 800));
     
     // Get the SvelteFlow viewport element
     const viewportEl = document.querySelector('.svelte-flow__viewport') as HTMLElement;
     if (!viewportEl) {
       console.error('SvelteFlow viewport not found');
       if (canvasEl) delete canvasEl.dataset.exporting;
+      window.dispatchEvent(new CustomEvent('mosaicflow:exportEnd'));
       workspace.setViewport(originalViewport);
       return false;
     }
@@ -419,6 +428,7 @@ export async function exportAsPng(): Promise<boolean> {
     if (canvasEl) {
       delete canvasEl.dataset.exporting;
     }
+    window.dispatchEvent(new CustomEvent('mosaicflow:exportEnd'));
     
     console.log('PNG generated, dataUrl length:', pngDataUrl.length);
     
@@ -478,17 +488,21 @@ export async function exportAsSvg(): Promise<boolean> {
       canvasEl.dataset.exporting = 'true';
     }
     
+    // Notify Canvas to switch to detailed LOD
+    window.dispatchEvent(new CustomEvent('mosaicflow:exportStart'));
+    
     // Trigger fit view to show all nodes
     window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.1 } }));
     
-    // Wait for fitView animation to complete
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Wait for fitView animation and LOD switch to complete
+    await new Promise(resolve => setTimeout(resolve, 800));
     
     // Get the SvelteFlow viewport element
     const viewportEl = document.querySelector('.svelte-flow__viewport') as HTMLElement;
     if (!viewportEl) {
       console.error('SvelteFlow viewport not found');
       if (canvasEl) delete canvasEl.dataset.exporting;
+      window.dispatchEvent(new CustomEvent('mosaicflow:exportEnd'));
       workspace.setViewport(originalViewport);
       return false;
     }
@@ -540,6 +554,7 @@ export async function exportAsSvg(): Promise<boolean> {
     if (canvasEl) {
       delete canvasEl.dataset.exporting;
     }
+    window.dispatchEvent(new CustomEvent('mosaicflow:exportEnd'));
     
     console.log('SVG generated, dataUrl length:', svgDataUrl?.length);
 
