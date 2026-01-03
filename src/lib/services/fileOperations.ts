@@ -3,7 +3,7 @@
 // Real-time saving is handled by nodeFileService and edgeFileService
 
 import { workspace } from '$lib/stores/workspace.svelte';
-import type { WorkspaceData, UIState, NodeType } from '$lib/types';
+import type { WorkspaceData, UIState, NodeType, MosaicNode, MosaicEdge } from '$lib/types';
 import { toPng, toSvg } from 'html-to-image';
 import { loadAllNodes } from './nodeFileService';
 import { loadAllEdges } from './edgeFileService';
@@ -340,9 +340,127 @@ export async function exportAsPng(): Promise<boolean> {
   }
 }
 
-// Export canvas as SVG image
+// Helper function to generate SVG from workspace nodes and edges
+function generateWorkspaceSvg(nodes: MosaicNode[], edges: MosaicEdge[]): string {
+  // Calculate bounds
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  
+  for (const node of nodes) {
+    const width = node.width || 200;
+    const height = node.height || 100;
+    
+    let absX = node.position.x;
+    let absY = node.position.y;
+    
+    if (node.parentId) {
+      const parent = nodes.find(n => n.id === node.parentId);
+      if (parent) {
+        absX += parent.position.x;
+        absY += parent.position.y;
+      }
+    }
+    
+    minX = Math.min(minX, absX);
+    minY = Math.min(minY, absY);
+    maxX = Math.max(maxX, absX + width);
+    maxY = Math.max(maxY, absY + height);
+  }
+  
+  const padding = 40;
+  minX -= padding;
+  minY -= padding;
+  maxX += padding;
+  maxY += padding;
+  
+  const width = maxX - minX;
+  const height = maxY - minY;
+  
+  let svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <defs>
+    <style>
+      .node { stroke: #333; stroke-width: 1; fill: #1a1d21; }
+      .node-selected { stroke: #3b82f6; stroke-width: 2; }
+      .node-text { fill: #e0e0e0; font-family: 'Inter', sans-serif; font-size: 13px; }
+      .node-title { fill: #e0e0e0; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; }
+      .edge { stroke: #555; stroke-width: 2; fill: none; }
+      .edge-selected { stroke: #3b82f6; stroke-width: 3; }
+    </style>
+  </defs>
+  
+  <!-- Background -->
+  <rect x="0" y="0" width="${width}" height="${height}" fill="#0a0a0a"/>
+  
+  <!-- Edges -->
+  <g id="edges">`;
+  
+  // Draw edges
+  for (const edge of edges) {
+    const source = nodes.find(n => n.id === edge.source);
+    const target = nodes.find(n => n.id === edge.target);
+    
+    if (source && target) {
+      const sourceX = source.position.x + (source.width || 200) / 2 - minX;
+      const sourceY = source.position.y + (source.height || 100) / 2 - minY;
+      const targetX = target.position.x + (target.width || 200) / 2 - minX;
+      const targetY = target.position.y + (target.height || 100) / 2 - minY;
+      
+      svgContent += `
+    <path d="M ${sourceX},${sourceY} L ${targetX},${targetY}" class="edge" />`;
+    }
+  }
+  
+  svgContent += `
+  </g>
+  
+  <!-- Nodes -->
+  <g id="nodes">`;
+  
+  // Draw nodes (skip children, they're drawn with their parent)
+  for (const node of nodes.filter(n => !n.parentId)) {
+    const x = node.position.x - minX;
+    const y = node.position.y - minY;
+    const w = node.width || 200;
+    const h = node.height || 100;
+    
+    svgContent += `
+    <g class="node-group">
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" class="node" />
+      <text x="${x + 12}" y="${y + 24}" class="node-title">${escapeXml(node.data.title || node.type)}</text>`;
+    
+    // Add basic content rendering based on node type
+    if (node.data.content) {
+      const lines = String(node.data.content).split('\n').slice(0, 3);
+      lines.forEach((line, i) => {
+        svgContent += `
+      <text x="${x + 12}" y="${y + 45 + i * 16}" class="node-text">${escapeXml(line.slice(0, 30))}</text>`;
+      });
+    }
+    
+    svgContent += `
+    </g>`;
+  }
+  
+  svgContent += `
+  </g>
+</svg>`;
+  
+  return svgContent;
+}
+
+// Helper to escape XML special characters
+function escapeXml(text: string): string {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+// Export canvas as SVG image (custom generator)
 export async function exportAsSvg(): Promise<boolean> {
-  console.log('Starting SVG export...');
+  console.log('Starting custom SVG export...');
   
   try {
     if (workspace.nodes.length === 0) {
@@ -350,126 +468,11 @@ export async function exportAsSvg(): Promise<boolean> {
       return false;
     }
     
-    // Store original viewport to restore later
-    const originalViewport = { ...workspace.viewport };
+    // Generate SVG from workspace data
+    const svgContent = generateWorkspaceSvg(workspace.nodes, workspace.edges);
     
-    // Mark as exporting to disable LOD simplification
-    const canvasEl = document.querySelector('.canvas-container') as HTMLElement;
-    if (canvasEl) {
-      canvasEl.dataset.exporting = 'true';
-    }
-    
-    // Calculate bounds of all nodes (including children in absolute coordinates)
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    
-    for (const node of workspace.nodes) {
-      const width = node.width || 200;
-      const height = node.height || 100;
-      
-      // For child nodes, calculate absolute position
-      let absX = node.position.x;
-      let absY = node.position.y;
-      
-      if (node.parentId) {
-        const parent = workspace.nodes.find(n => n.id === node.parentId);
-        if (parent) {
-          absX += parent.position.x;
-          absY += parent.position.y;
-        }
-      }
-      
-      minX = Math.min(minX, absX);
-      minY = Math.min(minY, absY);
-      maxX = Math.max(maxX, absX + width);
-      maxY = Math.max(maxY, absY + height);
-    }
-    
-    // Add padding
-    const padding = 40;
-    minX -= padding;
-    minY -= padding;
-    maxX += padding;
-    maxY += padding;
-    
-    const boundsWidth = maxX - minX;
-    const boundsHeight = maxY - minY;
-    
-    console.log('Calculated bounds:', { minX, minY, maxX, maxY, boundsWidth, boundsHeight });
-    
-    // Get canvas container to calculate proper viewport positioning
-    const canvasRect = canvasEl?.getBoundingClientRect();
-    if (!canvasRect) {
-      console.error('Canvas container not found');
-      if (canvasEl) delete canvasEl.dataset.exporting;
-      return false;
-    }
-    
-    // Position viewport to top-left corner of bounds at zoom 1
-    workspace.setViewport({
-      x: -minX,
-      y: -minY,
-      zoom: 1
-    });
-    
-    // Wait for viewport to update
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Get the SvelteFlow viewport element
-    const viewportEl = document.querySelector('.svelte-flow__viewport') as HTMLElement;
-    if (!viewportEl) {
-      console.error('SvelteFlow viewport not found');
-      if (canvasEl) delete canvasEl.dataset.exporting;
-      workspace.setViewport(originalViewport);
-      return false;
-    }
-    
-    console.log('Viewport element found, generating SVG...');
-    console.log('Capturing area:', { width: boundsWidth, height: boundsHeight });
+    console.log('SVG generated, length:', svgContent.length);
 
-    // Create an SVG - vectors scale infinitely without blur
-    // Capture from top-left (0,0) of viewport with calculated dimensions
-    const svgDataUrl = await toSvg(viewportEl, {
-      backgroundColor: '#0a0a0a',
-      skipFonts: false, // Include fonts for proper text rendering
-      includeQueryParams: true,
-      cacheBust: true,
-      width: boundsWidth,
-      height: boundsHeight,
-      style: {
-        width: `${boundsWidth}px`,
-        height: `${boundsHeight}px`,
-      },
-      filter: (node) => {
-        // Exclude controls, minimap, attribution, and panels
-        if (node instanceof Element) {
-          const classList = node.classList;
-          if (classList?.contains('svelte-flow__controls') ||
-              classList?.contains('svelte-flow__minimap') ||
-              classList?.contains('svelte-flow__attribution') ||
-              classList?.contains('svelte-flow__panel') ||
-              classList?.contains('cm-widgetBuffer')) {
-            return false;
-          }
-        }
-        // Filter out broken or incomplete images
-        if (node instanceof HTMLImageElement) {
-          if (!node.complete || node.naturalWidth === 0 || node.src === '') {
-            return false;
-          }
-        }
-        return true;
-      },
-    });
-    
-    // Restore original viewport and remove export flag
-    workspace.setViewport(originalViewport);
-    if (canvasEl) {
-      delete canvasEl.dataset.exporting;
-    }
-    
-    console.log('SVG generated, dataUrl length:', svgDataUrl?.length);
-
-    console.log('Opening save dialog...');
     // Use Tauri file dialog to choose save location
     const { save } = await import('@tauri-apps/plugin-dialog');
     const { writeTextFile } = await import('@tauri-apps/plugin-fs');
@@ -488,16 +491,6 @@ export async function exportAsSvg(): Promise<boolean> {
     console.log('Save dialog returned:', filePath);
 
     if (filePath) {
-      // Extract SVG content from data URL
-      let svgContent = decodeURIComponent(svgDataUrl.split(',')[1]);
-      
-      // Post-process SVG to ensure background covers entire area
-      // Add a background rect right after the opening <svg> tag
-      svgContent = svgContent.replace(
-        /(<svg[^>]*>)/,
-        `$1<rect x="0" y="0" width="${boundsWidth}" height="${boundsHeight}" fill="#0a0a0a"/>`
-      );
-      
       console.log('Writing SVG to:', filePath);
       await writeTextFile(filePath, svgContent);
       console.log('Canvas exported as SVG successfully to:', filePath);
