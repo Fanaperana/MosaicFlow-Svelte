@@ -234,13 +234,28 @@ async function generateSvgDataUrl(): Promise<{ dataUrl: string; svgContent: stri
   // Trigger fit view to show all nodes
   window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.1 } }));
   
-  // Wait for fitView animation and LOD switch to complete
-  await new Promise(resolve => setTimeout(resolve, 800));
+  // Wait for fitView animation to complete
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  // Force LOD to detailed by directly modifying the class
+  const flowEl = document.querySelector('#mosaic-flow') as HTMLElement;
+  let originalLodClass = '';
+  if (flowEl) {
+    originalLodClass = flowEl.className;
+    flowEl.className = flowEl.className
+      .replace(/lod-simplified/g, 'lod-detailed')
+      .replace(/lod-medium/g, 'lod-detailed');
+    console.log('Forced LOD to detailed for SVG capture');
+  }
+  
+  // Wait for DOM to update with forced LOD class
+  await new Promise(resolve => setTimeout(resolve, 300));
   
   // Get the SvelteFlow viewport element
   const viewportEl = document.querySelector('.svelte-flow__viewport') as HTMLElement;
   if (!viewportEl) {
     console.error('SvelteFlow viewport not found');
+    if (flowEl && originalLodClass) flowEl.className = originalLodClass;
     if (canvasEl) delete canvasEl.dataset.exporting;
     window.dispatchEvent(new CustomEvent('mosaicflow:exportEnd'));
     workspace.setViewport(originalViewport);
@@ -289,8 +304,11 @@ async function generateSvgDataUrl(): Promise<{ dataUrl: string; svgContent: stri
     },
   });
   
-  // Restore original viewport and remove export flag
+  // Restore original viewport, LOD class, and remove export flag
   workspace.setViewport(originalViewport);
+  if (flowEl && originalLodClass) {
+    flowEl.className = originalLodClass;
+  }
   if (canvasEl) {
     delete canvasEl.dataset.exporting;
   }
@@ -350,13 +368,28 @@ export async function exportAsPng(): Promise<boolean> {
     // Trigger fit view to show all nodes
     window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.1 } }));
     
-    // Wait for fitView animation and LOD switch to complete
-    await new Promise(resolve => setTimeout(resolve, 800));
+    // Wait for fitView animation to complete
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Force LOD to detailed by directly modifying the class
+    const flowEl = document.querySelector('#mosaic-flow') as HTMLElement;
+    let originalLodClass = '';
+    if (flowEl) {
+      originalLodClass = flowEl.className;
+      flowEl.className = flowEl.className
+        .replace(/lod-simplified/g, 'lod-detailed')
+        .replace(/lod-medium/g, 'lod-detailed');
+      console.log('Forced LOD to detailed for PNG capture');
+    }
+    
+    // Wait for DOM to update with forced LOD class
+    await new Promise(resolve => setTimeout(resolve, 300));
     
     // Get the SvelteFlow viewport element
     const viewportEl = document.querySelector('.svelte-flow__viewport') as HTMLElement;
     if (!viewportEl) {
       console.error('SvelteFlow viewport not found');
+      if (flowEl && originalLodClass) flowEl.className = originalLodClass;
       if (canvasEl) delete canvasEl.dataset.exporting;
       window.dispatchEvent(new CustomEvent('mosaicflow:exportEnd'));
       workspace.setViewport(originalViewport);
@@ -423,8 +456,11 @@ export async function exportAsPng(): Promise<boolean> {
       },
     });
     
-    // Restore original viewport and remove export flag
+    // Restore original viewport, LOD class, and remove export flag
     workspace.setViewport(originalViewport);
+    if (flowEl && originalLodClass) {
+      flowEl.className = originalLodClass;
+    }
     if (canvasEl) {
       delete canvasEl.dataset.exporting;
     }
@@ -494,13 +530,28 @@ export async function exportAsSvg(): Promise<boolean> {
     // Trigger fit view to show all nodes
     window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.1 } }));
     
-    // Wait for fitView animation and LOD switch to complete
-    await new Promise(resolve => setTimeout(resolve, 800));
+    // Wait for fitView animation to complete
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Force LOD to detailed by directly modifying the class
+    const flowEl = document.querySelector('#mosaic-flow') as HTMLElement;
+    let originalLodClass = '';
+    if (flowEl) {
+      originalLodClass = flowEl.className;
+      flowEl.className = flowEl.className
+        .replace(/lod-simplified/g, 'lod-detailed')
+        .replace(/lod-medium/g, 'lod-detailed');
+      console.log('Forced LOD to detailed for SVG export');
+    }
+    
+    // Wait for DOM to update with forced LOD class
+    await new Promise(resolve => setTimeout(resolve, 300));
     
     // Get the SvelteFlow viewport element
     const viewportEl = document.querySelector('.svelte-flow__viewport') as HTMLElement;
     if (!viewportEl) {
       console.error('SvelteFlow viewport not found');
+      if (flowEl && originalLodClass) flowEl.className = originalLodClass;
       if (canvasEl) delete canvasEl.dataset.exporting;
       window.dispatchEvent(new CustomEvent('mosaicflow:exportEnd'));
       workspace.setViewport(originalViewport);
@@ -549,8 +600,11 @@ export async function exportAsSvg(): Promise<boolean> {
       },
     });
     
-    // Restore original viewport and remove export flag
+    // Restore original viewport, LOD class, and remove export flag
     workspace.setViewport(originalViewport);
+    if (flowEl && originalLodClass) {
+      flowEl.className = originalLodClass;
+    }
     if (canvasEl) {
       delete canvasEl.dataset.exporting;
     }
