@@ -109,10 +109,17 @@
   
   // LOD (Level of Detail) state
   let currentLOD = $state<'detailed' | 'medium' | 'simplified'>('detailed');
+  let isExporting = $state(false);
   
-  // Determine LOD based on zoom level
+  // Determine LOD based on zoom level (but disable during export)
   $effect(() => {
-    if (viewport.zoom > 0.75) {
+    // Check if we're exporting
+    const canvasEl = document.querySelector('.canvas-container') as HTMLElement;
+    isExporting = canvasEl?.dataset.exporting === 'true';
+    
+    if (isExporting) {
+      currentLOD = 'detailed';
+    } else if (viewport.zoom > 0.75) {
       currentLOD = 'detailed';
     } else if (viewport.zoom > 0.3) {
       currentLOD = 'medium';
@@ -1449,5 +1456,33 @@
   
   :global(.lod-medium .svelte-flow__edge-label) {
     opacity: 0.7;
+  }
+
+  /* Disable LOD during PNG export for high-quality output */
+  :global([data-exporting="true"] .lod-simplified .svelte-flow__node .node-content),
+  :global([data-exporting="true"] .lod-medium .svelte-flow__node .node-content) {
+    display: block !important;
+    opacity: 1 !important;
+  }
+  
+  :global([data-exporting="true"] .lod-simplified .svelte-flow__handle),
+  :global([data-exporting="true"] .lod-medium .svelte-flow__handle) {
+    display: block !important;
+    opacity: 1 !important;
+  }
+  
+  :global([data-exporting="true"] .lod-simplified .svelte-flow__node .node-header) {
+    font-size: inherit !important;
+  }
+  
+  :global([data-exporting="true"] .lod-simplified .svelte-flow__edge),
+  :global([data-exporting="true"] .lod-medium .svelte-flow__edge) {
+    opacity: 1 !important;
+  }
+  
+  :global([data-exporting="true"] .lod-simplified .svelte-flow__edge-label),
+  :global([data-exporting="true"] .lod-medium .svelte-flow__edge-label) {
+    display: block !important;
+    opacity: 1 !important;
   }
 </style>
