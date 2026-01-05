@@ -5,6 +5,7 @@ import type { Node, Edge } from '@xyflow/svelte';
 // Node Types
 export type NodeType = 
   | 'note'
+  | 'simpleText'
   | 'image'
   | 'link'
   | 'code'
@@ -46,6 +47,10 @@ export interface NoteNodeData extends BaseNodeData {
   content: string;
   isEditing?: boolean;
   viewMode?: 'edit' | 'view';
+}
+
+export interface SimpleTextNodeData extends BaseNodeData {
+  content: string;
 }
 
 export interface ImageNodeData extends BaseNodeData {

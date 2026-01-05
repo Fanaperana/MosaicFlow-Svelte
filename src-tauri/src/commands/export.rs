@@ -128,7 +128,8 @@ fn extract_svg_dimension(svg: &str, attr: &str) -> Option<u32> {
 /// Convert SVG content to high-resolution PNG and save to file (resvg version)
 /// 
 /// This uses resvg for high-quality rendering without browser canvas limits.
-/// Note: Does NOT support foreignObject/HTML content in SVG.
+/// Generates pure SVG (no foreignObject/HTML) from the graph model data,
+/// which can be rendered perfectly by resvg at any scale.
 #[tauri::command]
 pub async fn svg_to_png(
     svg_content: String,
@@ -136,10 +137,23 @@ pub async fn svg_to_png(
     scale: f32,
 ) -> Result<bool, String> {
     use resvg::tiny_skia::Pixmap;
-    use resvg::usvg::{Options, Transform, Tree};
+    use resvg::usvg::{Options, Transform, Tree, fontdb};
 
-    // Parse SVG
-    let options = Options::default();
+    // Set up font database with system fonts
+    let mut fontdb = fontdb::Database::new();
+    fontdb.load_system_fonts();
+    
+    // Add common fallback fonts
+    fontdb.set_sans_serif_family("Arial");
+    fontdb.set_serif_family("Times New Roman");
+    fontdb.set_monospace_family("Courier New");
+
+    // Parse SVG with font database
+    let options = Options {
+        fontdb: std::sync::Arc::new(fontdb),
+        ..Default::default()
+    };
+    
     let tree = Tree::from_str(&svg_content, &options)
         .map_err(|e| format!("Failed to parse SVG: {}", e))?;
 
@@ -147,16 +161,37 @@ pub async fn svg_to_png(
     let original_size = tree.size();
     let width = (original_size.width() * scale) as u32;
     let height = (original_size.height() * scale) as u32;
+    
+    // Check for reasonable dimensions
+    if width == 0 || height == 0 {
+        return Err("SVG has zero dimensions".to_string());
+    }
+    
+    // Cap at reasonable maximum to avoid memory issues
+    let max_dimension = 16384u32;
+    let (final_width, final_height, final_scale) = if width > max_dimension || height > max_dimension {
+        let ratio = (max_dimension as f32 / width.max(height) as f32).min(1.0);
+        let new_width = (width as f32 * ratio) as u32;
+        let new_height = (height as f32 * ratio) as u32;
+        let new_scale = scale * ratio;
+        (new_width, new_height, new_scale)
+    } else {
+        (width, height, scale)
+    };
+
+    println!("Rendering SVG {}x{} at scale {} -> {}x{}", 
+             original_size.width() as u32, original_size.height() as u32, 
+             scale, final_width, final_height);
 
     // Create pixmap (the canvas to render onto)
-    let mut pixmap = Pixmap::new(width, height)
-        .ok_or_else(|| format!("Failed to create pixmap {}x{}", width, height))?;
+    let mut pixmap = Pixmap::new(final_width, final_height)
+        .ok_or_else(|| format!("Failed to create pixmap {}x{}", final_width, final_height))?;
 
     // Fill with dark background
     pixmap.fill(resvg::tiny_skia::Color::from_rgba8(10, 10, 10, 255));
 
     // Render SVG to pixmap with scaling transform
-    let transform = Transform::from_scale(scale, scale);
+    let transform = Transform::from_scale(final_scale, final_scale);
     resvg::render(&tree, transform, &mut pixmap.as_mut());
 
     // Encode as PNG and save
@@ -164,6 +199,8 @@ pub async fn svg_to_png(
         .encode_png()
         .map_err(|e| format!("Failed to encode PNG: {}", e))?;
 
+    println!("Writing {} bytes to {}", png_data.len(), file_path);
+    
     fs::write(&file_path, &png_data)
         .map_err(|e| format!("Failed to write PNG file: {}", e))?;
 

@@ -38,6 +38,7 @@ export interface NodeTypeDefinition {
 
 // Content nodes
 import NoteNode from './content/NoteNode.svelte';
+import SimpleTextNode from './content/SimpleTextNode.svelte';
 import ImageNode from './content/ImageNode.svelte';
 import LinkNode from './content/LinkNode.svelte';
 import CodeNode from './content/CodeNode.svelte';
@@ -70,6 +71,7 @@ import AnnotationNode from './utility/AnnotationNode.svelte';
 export const nodeTypes: Record<string, NodeComponent> = {
   // Content
   note: NoteNode,
+  simpleText: SimpleTextNode,
   image: ImageNode,
   link: LinkNode,
   code: CodeNode,
@@ -113,6 +115,18 @@ export const NODE_REGISTRY: NodeTypeDefinition[] = [
       title: 'Note',
       content: '',
       viewMode: 'edit',
+    },
+  },
+  {
+    type: 'simpleText',
+    label: 'Simple Text',
+    description: 'Plain text without formatting',
+    category: 'content',
+    icon: 'Type',
+    component: SimpleTextNode,
+    defaultData: {
+      title: 'Text',
+      content: '',
     },
   },
   {

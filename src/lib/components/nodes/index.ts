@@ -39,7 +39,7 @@ export { nodeTypes, NODE_REGISTRY, getNodeDefinition, getNodesByCategory, getDef
 // =============================================================================
 
 // Content
-import { NoteNode, ImageNode, LinkNode, CodeNode, IframeNode } from './content';
+import { NoteNode, SimpleTextNode, ImageNode, LinkNode, CodeNode, IframeNode } from './content';
 // Entity
 import { PersonNode, OrganizationNode, TimestampNode } from './entity';
 // OSINT
@@ -51,6 +51,7 @@ import { GroupNode, MapNode, LinkListNode, ActionNode, AnnotationNode } from './
 export {
   // Content
   NoteNode,
+  SimpleTextNode,
   ImageNode,
   LinkNode,
   CodeNode,
