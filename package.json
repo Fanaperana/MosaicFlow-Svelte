@@ -33,6 +33,7 @@
     "html-to-image": "^1.11.13",
     "lucide-svelte": "^0.561.0",
     "marked": "^17.0.1",
+    "svelte-sonner": "^1.0.7",
     "tailwind-merge": "^3.4.0",
     "tippy.js": "^6.3.7",
     "uuid": "^13.0.0"
