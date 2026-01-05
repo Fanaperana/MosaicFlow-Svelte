@@ -615,6 +615,54 @@
           </FixedTooltip>
         </div>
 
+        <!-- Text Settings Toolbar (SimpleText only) -->
+        {#if selectedNode.type === 'simpleText'}
+        <div class="notion-toolbar">
+          <FixedTooltip text="Font size" position="top">
+            <div class="toolbar-group compact">
+              <span class="toolbar-label">Aa</span>
+              <input 
+                type="number" 
+                class="toolbar-input"
+                value={(selectedNode.data.fontSize as number) ?? 14}
+                oninput={(e) => updateNodeData('fontSize', parseInt((e.target as HTMLInputElement).value) || 14)}
+                min="8"
+                max="72"
+              />
+            </div>
+          </FixedTooltip>
+          <div class="toolbar-divider"></div>
+          <FixedTooltip text="Text alignment" position="top">
+            <div class="toolbar-group">
+              <button 
+                class="mode-btn"
+                class:active={(selectedNode.data.textAlign as string) === 'left' || !(selectedNode.data.textAlign as string)}
+                onclick={() => updateNodeData('textAlign', 'left')}
+                type="button"
+              >
+                <AlignLeft size={14} />
+              </button>
+              <button 
+                class="mode-btn"
+                class:active={(selectedNode.data.textAlign as string) === 'center'}
+                onclick={() => updateNodeData('textAlign', 'center')}
+                type="button"
+              >
+                <AlignCenter size={14} />
+              </button>
+              <button 
+                class="mode-btn"
+                class:active={(selectedNode.data.textAlign as string) === 'right'}
+                onclick={() => updateNodeData('textAlign', 'right')}
+                type="button"
+              >
+                <AlignRight size={14} />
+              </button>
+            </div>
+          </FixedTooltip>
+        </div>
+        {/if}
+
         {#if selectedNode.parentId}
           <label class="checkbox-row">
             <input 

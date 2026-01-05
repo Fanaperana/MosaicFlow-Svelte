@@ -26,6 +26,10 @@
   const borderRadius = $derived((data.borderRadius as number) ?? 2);
   const bgOpacity = $derived((data.bgOpacity as number) ?? 0);
   
+  // Text styling
+  const textAlign = $derived((data.textAlign as string) ?? 'left');
+  const fontSize = $derived((data.fontSize as number) ?? 14);
+  
   $effect(() => {
     content = data.content || '';
   });
@@ -81,6 +85,8 @@
     placeholder="Type here..."
     disabled={isLocked}
     style:color={textColor}
+    style:text-align={textAlign}
+    style:font-size="{fontSize}px"
   ></textarea>
 </div>
 
