@@ -11,6 +11,32 @@
   import { NumberInput } from '$lib/components/ui/number-input';
   import FixedTooltip from '$lib/components/ui/FixedTooltip.svelte';
 
+  // Helper: Convert hex + opacity to RGBA string
+  function hexToRgba(hex: string, opacity: number): string {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    if (result) {
+      const r = parseInt(result[1], 16);
+      const g = parseInt(result[2], 16);
+      const b = parseInt(result[3], 16);
+      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    }
+    return hex;
+  }
+
+  // Helper: Parse RGBA string to extract hex and alpha
+  function parseRgba(color: string): { hex: string; alpha: number } {
+    const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    if (rgbaMatch) {
+      const r = parseInt(rgbaMatch[1]);
+      const g = parseInt(rgbaMatch[2]);
+      const b = parseInt(rgbaMatch[3]);
+      const a = rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1;
+      const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+      return { hex, alpha: a };
+    }
+    return { hex: color, alpha: 1 };
+  }
+
   interface Props {
     onClose: () => void;
   }
@@ -483,8 +509,24 @@
             <div class="toolbar-group">
               <span class="toolbar-label">BG</span>
               <ColorInput 
-                value={selectedNode.data.color || (selectedNode.type === 'group' ? 'rgba(59, 130, 246, 0.05)' : '#1e1e1e')}
-                onchange={(color) => updateNodeData('color', color)}
+                value={
+                  selectedNode.type === 'simpleText' 
+                    ? hexToRgba(
+                        selectedNode.data.color || '#1a1d21', 
+                        (selectedNode.data.bgOpacity as number) ?? 0
+                      )
+                    : selectedNode.data.color || (selectedNode.type === 'group' ? 'rgba(59, 130, 246, 0.05)' : '#1e1e1e')
+                }
+                onchange={(color, rgba) => {
+                  if (selectedNode.type === 'simpleText' && rgba) {
+                    // For SimpleText, extract hex and alpha separately
+                    const parsed = parseRgba(color);
+                    updateNodeData('color', parsed.hex);
+                    updateNodeData('bgOpacity', parsed.alpha);
+                  } else {
+                    updateNodeData('color', color);
+                  }
+                }}
                 size="sm"
               />
             </div>
