@@ -104,51 +104,11 @@ export function nodeStyleToString(styles: NodeStyleProps): string {
 }
 
 // ============================================================================
-// NODE SIZE DEFAULTS
+// NODE SIZE DEFAULTS - Re-exported from centralized registry
 // ============================================================================
 
-import type { NodeType } from '$lib/types';
-
-export interface NodeDimensions {
-  minWidth: number;
-  minHeight: number;
-  defaultWidth: number;
-  defaultHeight: number;
-}
-
-/**
- * Default dimensions for each node type
- */
-export const NODE_DIMENSIONS: Record<NodeType, NodeDimensions> = {
-  note: { minWidth: 120, minHeight: 60, defaultWidth: 280, defaultHeight: 200 },
-  image: { minWidth: 150, minHeight: 150, defaultWidth: 300, defaultHeight: 250 },
-  link: { minWidth: 200, minHeight: 100, defaultWidth: 250, defaultHeight: 140 },
-  code: { minWidth: 300, minHeight: 200, defaultWidth: 400, defaultHeight: 300 },
-  timestamp: { minWidth: 180, minHeight: 100, defaultWidth: 220, defaultHeight: 130 },
-  person: { minWidth: 220, minHeight: 180, defaultWidth: 280, defaultHeight: 220 },
-  organization: { minWidth: 220, minHeight: 150, defaultWidth: 280, defaultHeight: 180 },
-  domain: { minWidth: 240, minHeight: 180, defaultWidth: 300, defaultHeight: 220 },
-  hash: { minWidth: 240, minHeight: 150, defaultWidth: 300, defaultHeight: 180 },
-  credential: { minWidth: 220, minHeight: 150, defaultWidth: 260, defaultHeight: 180 },
-  socialPost: { minWidth: 250, minHeight: 180, defaultWidth: 320, defaultHeight: 250 },
-  group: { minWidth: 200, minHeight: 150, defaultWidth: 400, defaultHeight: 300 },
-  map: { minWidth: 280, minHeight: 200, defaultWidth: 560, defaultHeight: 470 },
-  router: { minWidth: 200, minHeight: 150, defaultWidth: 260, defaultHeight: 180 },
-  linkList: { minWidth: 220, minHeight: 150, defaultWidth: 280, defaultHeight: 200 },
-  snapshot: { minWidth: 250, minHeight: 200, defaultWidth: 350, defaultHeight: 280 },
-  action: { minWidth: 200, minHeight: 120, defaultWidth: 260, defaultHeight: 150 },
-  iframe: { minWidth: 300, minHeight: 250, defaultWidth: 500, defaultHeight: 400 },
-  annotation: { minWidth: 120, minHeight: 60, defaultWidth: 180, defaultHeight: 80 },
-};
-
-/**
- * Get dimensions for a node type
- */
-export function getNodeDimensions(type: NodeType): NodeDimensions {
-  return NODE_DIMENSIONS[type] ?? {
-    minWidth: 150,
-    minHeight: 80,
-    defaultWidth: 200,
-    defaultHeight: 120,
-  };
-}
+// Re-export from centralized registry for backwards compatibility
+export { 
+  type NodeDimensions,
+  getNodeDimensions,
+} from '../node-registry';

@@ -403,40 +403,25 @@ export const DEFAULT_VIEWPORT: Viewport = {
   zoom: 1,
 };
 
-// Node type metadata for UI
-export interface NodeTypeInfo {
-  type: NodeType;
-  label: string;
-  icon: string;
-  category: 'content' | 'entity' | 'osint' | 'utility';
-  description: string;
-}
-
-export const NODE_TYPE_INFO: NodeTypeInfo[] = [
-  // Content nodes
-  { type: 'note', label: 'Note', icon: 'StickyNote', category: 'content', description: 'Markdown-supported text notes' },
-  { type: 'image', label: 'Image', icon: 'Image', category: 'content', description: 'Display images with drag-and-drop support' },
-  { type: 'link', label: 'Link', icon: 'Link', category: 'content', description: 'Web URLs with descriptions' },
-  { type: 'code', label: 'Code Snippet', icon: 'Code', category: 'content', description: 'Syntax-highlighted code blocks' },
-  { type: 'timestamp', label: 'Timestamp', icon: 'Clock', category: 'content', description: 'Date/time events' },
-  
-  // Entity nodes
-  { type: 'person', label: 'Person', icon: 'User', category: 'entity', description: 'Profile cards with contact info' },
-  { type: 'organization', label: 'Organization', icon: 'Building2', category: 'entity', description: 'Company/group information' },
-  
-  // OSINT nodes
-  { type: 'domain', label: 'Domain', icon: 'Globe', category: 'osint', description: 'Website/domain details' },
-  { type: 'hash', label: 'Hash', icon: 'FileDigit', category: 'osint', description: 'File hashes with threat levels' },
-  { type: 'credential', label: 'Credential', icon: 'KeyRound', category: 'osint', description: 'Account/credential data' },
-  { type: 'socialPost', label: 'Social Post', icon: 'MessageSquare', category: 'osint', description: 'Social media post content' },
-  { type: 'router', label: 'Router', icon: 'Router', category: 'osint', description: 'Network device representation' },
-  { type: 'snapshot', label: 'Snapshot', icon: 'Camera', category: 'osint', description: 'Web page snapshots' },
-  
-  // Utility nodes
-  { type: 'group', label: 'Group', icon: 'FolderOpen', category: 'utility', description: 'Container for related nodes' },
-  { type: 'map', label: 'Map', icon: 'MapPin', category: 'utility', description: 'Geographic location display' },
-  { type: 'linkList', label: 'Link List', icon: 'List', category: 'utility', description: 'Collection of related links' },
-  { type: 'action', label: 'Action', icon: 'CheckSquare', category: 'utility', description: 'Task/action items' },
-  { type: 'iframe', label: 'Iframe', icon: 'Globe', category: 'content', description: 'Embed external webpages' },
-  { type: 'annotation', label: 'Annotation', icon: 'MessageSquare', category: 'utility', description: 'Visual text annotation with arrow' },
-];
+// Re-export node registry types and data for backwards compatibility
+// All node metadata is now centralized in node-registry.ts
+export { 
+  NODE_DEFINITIONS as NODE_TYPE_INFO,
+  type NodeDefinition as NodeTypeInfo,
+  type NodeCategory,
+  NODE_CATEGORIES,
+  getNodeDefinition,
+  getNodesByCategory,
+  getNodesGroupedByCategory,
+  getQuickAccessNodes,
+  getDefaultNodeData,
+  getDefaultTitle,
+  getNodeDimensions,
+  getNodeColors,
+  getIconName,
+  getNodeLabel,
+  getIconComponent,
+  getIconByName,
+  ICON_COMPONENTS,
+  nodeTypes,
+} from '$lib/components/nodes/node-registry';

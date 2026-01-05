@@ -10,29 +10,12 @@
 
 import type { Node, Edge } from '@xyflow/svelte';
 import type { MosaicNodeData, NodeType } from '$lib/types';
+import { getNodeColors } from '$lib/components/nodes/node-registry';
 
-// Node visual config
-const NODE_COLORS: Record<NodeType, { bg: string; border: string; icon: string }> = {
-  note: { bg: '#1a1a2e', border: '#4a4a6a', icon: '📝' },
-  image: { bg: '#1a2e1a', border: '#4a6a4a', icon: '🖼️' },
-  link: { bg: '#2e1a1a', border: '#6a4a4a', icon: '🔗' },
-  code: { bg: '#1a2e2e', border: '#4a6a6a', icon: '💻' },
-  timestamp: { bg: '#2e2e1a', border: '#6a6a4a', icon: '⏰' },
-  person: { bg: '#2e1a2e', border: '#6a4a6a', icon: '👤' },
-  organization: { bg: '#1a1a2e', border: '#4a4a6a', icon: '🏢' },
-  domain: { bg: '#1a2e1a', border: '#4a6a4a', icon: '🌐' },
-  hash: { bg: '#2e1a1a', border: '#6a4a4a', icon: '🔐' },
-  credential: { bg: '#2e2e1a', border: '#6a6a4a', icon: '🔑' },
-  socialPost: { bg: '#1a2e2e', border: '#4a6a6a', icon: '💬' },
-  group: { bg: '#252530', border: '#4a4a5a', icon: '📁' },
-  map: { bg: '#1a2e2e', border: '#4a6a6a', icon: '🗺️' },
-  router: { bg: '#2e1a2e', border: '#6a4a6a', icon: '📡' },
-  linkList: { bg: '#1a1a2e', border: '#4a4a6a', icon: '📋' },
-  snapshot: { bg: '#2e2e1a', border: '#6a6a4a', icon: '📸' },
-  action: { bg: '#1a2e1a', border: '#4a6a4a', icon: '✅' },
-  iframe: { bg: '#2e1a1a', border: '#6a4a4a', icon: '🖥️' },
-  annotation: { bg: '#2e2e2e', border: '#5a5a5a', icon: '💭' },
-};
+// Get node colors from centralized registry
+function getColors(type: NodeType): { bg: string; border: string; icon: string } {
+  return getNodeColors(type);
+}
 
 // Default node dimensions
 const DEFAULT_WIDTH = 200;
@@ -141,8 +124,8 @@ function generateNodeSvg(
   const data = node.data as MosaicNodeData;
   const nodeType = (node.type || 'note') as NodeType;
   
-  // Get colors
-  const colors = NODE_COLORS[nodeType] || NODE_COLORS.note;
+  // Get colors from centralized registry
+  const colors = getColors(nodeType);
   const bgColor = data.color || colors.bg;
   const borderColor = data.borderColor || colors.border;
   

@@ -25,7 +25,11 @@ import {
   deleteNodeFolder,
   resetNodeFileService,
 } from '$lib/services/nodeFileService';
-import { getNodeDimensions } from '$lib/components/nodes/_shared/utils';
+import { 
+  getNodeDimensions, 
+  getDefaultNodeData, 
+  getDefaultTitle 
+} from '$lib/components/nodes/node-registry';
 import {
   initEdgeFileService,
   saveEdge,
@@ -307,80 +311,21 @@ class WorkspaceStore {
     return newNodes;
   }
 
-  // Get default data for a node type
+  // Get default data for a node type - uses centralized registry
   private getDefaultDataForType(type: NodeType): MosaicNodeData {
     const baseData = {
-      title: this.getDefaultTitleForType(type),
+      title: getDefaultTitle(type),
       color: this.settings.defaultNodeColor,
     };
-
-    switch (type) {
-      case 'note':
-        return { ...baseData, content: '', isEditing: true };
-      case 'image':
-        return { ...baseData, caption: '' };
-      case 'link':
-        return { ...baseData, url: '', description: '' };
-      case 'code':
-        return { ...baseData, code: '', language: 'javascript' };
-      case 'timestamp':
-        return { ...baseData, datetime: new Date().toISOString(), format: 'datetime' };
-      case 'person':
-        return { ...baseData, name: '', aliases: [] };
-      case 'organization':
-        return { ...baseData, name: '' };
-      case 'domain':
-        return { ...baseData, domain: '' };
-      case 'hash':
-        return { ...baseData, hash: '', algorithm: 'sha256', threatLevel: 'unknown' };
-      case 'credential':
-        return { ...baseData, breached: false };
-      case 'socialPost':
-        return { ...baseData, platform: '', content: '' };
-      case 'group':
-        return { ...baseData, label: 'Group', childNodeIds: [] };
-      case 'map':
-        return { ...baseData, latitude: 0, longitude: 0, zoom: 10 };
-      case 'router':
-        return { ...baseData, name: '' };
-      case 'linkList':
-        return { ...baseData, links: [] };
-      case 'snapshot':
-        return { ...baseData, url: '' };
-      case 'action':
-        return { ...baseData, action: '', status: 'pending', priority: 'medium' };
-      case 'iframe':
-        return { ...baseData, url: '' };
-      case 'annotation':
-        return { ...baseData, label: 'Annotation', arrow: '⤹', fontSize: 24, fontWeight: 'normal' };
-      default:
-        return baseData as MosaicNodeData;
-    }
+    
+    // Get default data from centralized registry
+    const defaultData = getDefaultNodeData(type);
+    
+    return { ...baseData, ...defaultData } as MosaicNodeData;
   }
 
   private getDefaultTitleForType(type: NodeType): string {
-    const titles: Record<NodeType, string> = {
-      note: 'New Note',
-      image: 'Image',
-      link: 'Link',
-      code: 'Code Snippet',
-      timestamp: 'Timestamp',
-      person: 'Person',
-      organization: 'Organization',
-      domain: 'Domain',
-      hash: 'Hash',
-      credential: 'Credential',
-      socialPost: 'Social Post',
-      group: 'Group',
-      map: 'Location',
-      router: 'Router',
-      linkList: 'Link List',
-      snapshot: 'Snapshot',
-      action: 'Action',
-      iframe: 'Embed',
-      annotation: 'Annotation',
-    };
-    return titles[type] || 'Node';
+    return getDefaultTitle(type);
   }
 
   private getDefaultWidthForType(type: NodeType): number {

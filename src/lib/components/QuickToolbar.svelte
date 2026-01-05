@@ -1,5 +1,12 @@
 <script lang="ts">
-  import { NODE_TYPE_INFO, type NodeType } from '$lib/types';
+  import { 
+    NODE_TYPE_INFO, 
+    NODE_CATEGORIES, 
+    getNodesGroupedByCategory, 
+    getQuickAccessNodes,
+    getIconByName,
+    type NodeType 
+  } from '$lib/types';
   import { workspace } from '$lib/stores/workspace.svelte';
   import SimpleTooltip from '$lib/components/ui/SimpleTooltip.svelte';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
@@ -7,81 +14,21 @@
     MousePointer2, 
     Hand, 
     Plus,
-    ChevronDown,
-    StickyNote, 
-    Image, 
-    Link, 
-    Code, 
-    Clock, 
-    User, 
-    Building2, 
-    Globe, 
-    FileDigit, 
-    KeyRound, 
-    MessageSquare, 
-    FolderOpen, 
-    MapPin, 
-    List, 
-    Router, 
-    Camera, 
-    CheckSquare,
-    Frame,
   } from 'lucide-svelte';
 
   // Icon size for toolbar
   const ICON_SIZE = 16;
 
-  // Map icon names to components
-  const iconMap: Record<string, typeof StickyNote> = {
-    StickyNote,
-    Image,
-    Link,
-    Code,
-    Clock,
-    User,
-    Building2,
-    Globe,
-    FileDigit,
-    KeyRound,
-    MessageSquare,
-    Router,
-    Camera,
-    FolderOpen,
-    MapPin,
-    List,
-    CheckSquare,
-    Frame,
-  };
+  // Group nodes by category - using centralized registry
+  const groupedNodes = $derived(() => getNodesGroupedByCategory());
 
-  function getIconComponent(iconName: string) {
-    return iconMap[iconName] || StickyNote;
-  }
-
-  // Group nodes by category
-  const groupedNodes = $derived(() => {
-    const groups: Record<string, typeof NODE_TYPE_INFO> = {
-      content: [],
-      entity: [],
-      osint: [],
-      utility: [],
-    };
-    NODE_TYPE_INFO.forEach(info => {
-      groups[info.category].push(info);
-    });
-    return groups;
-  });
-
-  const categoryLabels: Record<string, string> = {
-    content: 'Content',
-    entity: 'Entities',
-    osint: 'OSINT',
-    utility: 'Utility',
-  };
-
-  // Quick access nodes (most commonly used)
-  const quickNodes = $derived(
-    NODE_TYPE_INFO.filter(n => ['note', 'image', 'annotation', 'link', 'person', 'timestamp'].includes(n.type))
+  // Category labels from centralized registry
+  const categoryLabels = Object.fromEntries(
+    NODE_CATEGORIES.map(c => [c.id, c.label])
   );
+
+  // Quick access nodes from centralized registry (nodes with quickAccess: true)
+  const quickNodes = $derived(getQuickAccessNodes());
 
   function setSelectMode() {
     workspace.setCanvasMode('select');
@@ -131,7 +78,7 @@
   <!-- Quick Add Nodes -->
   <div class="toolbar-group">
     {#each quickNodes as nodeInfo}
-      {@const IconComponent = getIconComponent(nodeInfo.icon)}
+      {@const IconComponent = getIconByName(nodeInfo.iconName)}
       <SimpleTooltip text={nodeInfo.label} position="bottom">
         <button 
           class="toolbar-btn"
@@ -158,7 +105,7 @@
         <DropdownMenu.Group>
           <DropdownMenu.Label class="category-label">{categoryLabels[category]}</DropdownMenu.Label>
           {#each nodes as nodeInfo}
-            {@const IconComponent = getIconComponent(nodeInfo.icon)}
+            {@const IconComponent = getIconByName(nodeInfo.iconName)}
             <DropdownMenu.Item 
               class="node-item"
               onclick={() => handleAddNode(nodeInfo.type)}

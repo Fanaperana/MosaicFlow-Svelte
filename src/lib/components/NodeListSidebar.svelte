@@ -1,7 +1,8 @@
 <script lang="ts">
   import { workspace } from '$lib/stores/workspace.svelte';
-  import { ChevronRight, ChevronDown, Search, Box, StickyNote, Image, Link, Code, Clock, User, Building2, Globe, FileDigit, KeyRound, MessageSquare, FolderOpen, MapPin, List, CheckSquare, Router, Camera, LayoutGrid } from 'lucide-svelte';
-  import type { MosaicNode } from '$lib/types';
+  import { ChevronRight, ChevronDown, Search, FolderOpen } from 'lucide-svelte';
+  import type { MosaicNode, NodeType } from '$lib/types';
+  import { getIconComponent } from '$lib/types';
   import { useSvelteFlow } from '@xyflow/svelte';
 
   interface Props {
@@ -16,31 +17,9 @@
   let searchQuery = $state('');
   let expandedGroups = $state<Set<string>>(new Set());
 
-  // Icon mapping
-  const iconMap: Record<string, any> = {
-    note: StickyNote,
-    image: Image,
-    link: Link,
-    code: Code,
-    timestamp: Clock,
-    person: User,
-    organization: Building2,
-    domain: Globe,
-    hash: FileDigit,
-    credential: KeyRound,
-    socialPost: MessageSquare,
-    group: FolderOpen,
-    map: MapPin,
-    router: Router,
-    linkList: List,
-    snapshot: Camera,
-    action: CheckSquare,
-    iframe: LayoutGrid,
-    annotation: StickyNote, // Use StickyNote for annotation as fallback or add specific icon
-  };
-
+  // Use centralized icon registry
   function getIcon(type: string) {
-    return iconMap[type] || Box;
+    return getIconComponent(type as NodeType);
   }
 
   // Filter and organize nodes

@@ -1,17 +1,13 @@
 <script lang="ts">
-  import { NODE_TYPE_INFO, type NodeType } from '$lib/types';
+  import { NODE_TYPE_INFO, NODE_CATEGORIES, getIconByName, type NodeType } from '$lib/types';
   import { workspace } from '$lib/stores/workspace.svelte';
 
   let isCollapsed = $state(false);
   let activeCategory = $state<string | null>(null);
   let searchQuery = $state('');
 
-  const categories = [
-    { id: 'content', label: 'Content', icon: '📝' },
-    { id: 'entity', label: 'Entities', icon: '👤' },
-    { id: 'osint', label: 'OSINT', icon: '🔍' },
-    { id: 'utility', label: 'Utility', icon: '🔧' },
-  ];
+  // Use centralized categories from registry
+  const categories = NODE_CATEGORIES;
 
   const filteredNodes = $derived(() => {
     let nodes = NODE_TYPE_INFO;
@@ -81,6 +77,7 @@
 
     <div class="nodes-list">
       {#each filteredNodes() as nodeInfo}
+        {@const IconComponent = getIconByName(nodeInfo.iconName)}
         <div 
           class="node-item"
           draggable="true"
@@ -88,7 +85,7 @@
           role="button"
           tabindex="0"
         >
-          <span class="node-icon">{nodeInfo.icon}</span>
+          <span class="node-icon"><IconComponent size={16} /></span>
           <div class="node-info">
             <span class="node-label">{nodeInfo.label}</span>
             <span class="node-desc">{nodeInfo.description}</span>
@@ -105,6 +102,7 @@
   {:else}
     <div class="collapsed-nodes">
       {#each NODE_TYPE_INFO as nodeInfo}
+        {@const IconComponent = getIconByName(nodeInfo.iconName)}
         <div 
           class="collapsed-node-item"
           draggable="true"
@@ -113,7 +111,7 @@
           role="button"
           tabindex="0"
         >
-          <span>{nodeInfo.icon}</span>
+          <span><IconComponent size={16} /></span>
         </div>
       {/each}
     </div>

@@ -4,7 +4,7 @@
  * This module re-exports all node components organized by category.
  * Use the registry for full node metadata and type definitions.
  * 
- * @see ./registry.ts for the centralized node registry
+ * @see ./node-registry.ts for the centralized node registry (SINGLE SOURCE OF TRUTH)
  * @see ./README.md for documentation on creating new nodes
  */
 
@@ -28,11 +28,39 @@ export * from './utility';
 export * from './_shared';
 
 // =============================================================================
-// NODE TYPES MAP (for SvelteFlow)
+// CENTRALIZED NODE REGISTRY EXPORTS
 // =============================================================================
 
-// Re-export the centralized nodeTypes from registry
-export { nodeTypes, NODE_REGISTRY, getNodeDefinition, getNodesByCategory, getDefaultNodeData, NODE_CATEGORIES } from './registry';
+// Re-export everything from the centralized node registry
+export {
+  // Types
+  type NodeCategory,
+  type NodeDimensions,
+  type NodeColors,
+  type NodeDefinition,
+  
+  // Main exports
+  NODE_DEFINITIONS,
+  NODE_DEFINITIONS as NODE_REGISTRY, // Backwards compatibility alias
+  NODE_DEFINITION_MAP,
+  nodeTypes,
+  NODE_CATEGORIES,
+  
+  // Helper functions
+  getNodeDefinition,
+  getNodesByCategory,
+  getNodesGroupedByCategory,
+  getQuickAccessNodes,
+  getDefaultNodeData,
+  getDefaultTitle,
+  getNodeDimensions,
+  getNodeColors,
+  getIconName,
+  getNodeLabel,
+  getIconComponent,
+  getIconByName,
+  ICON_COMPONENTS,
+} from './node-registry';
 
 // =============================================================================
 // LEGACY EXPORTS (deprecated - use category imports instead)

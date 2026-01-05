@@ -16,7 +16,13 @@
   import { nodeTypes } from '$lib/components/nodes';
   import { GlowEdge } from '$lib/components/edges';
   import type { NodeType, MosaicNode, MosaicEdge } from '$lib/types';
-  import { NODE_TYPE_INFO } from '$lib/types';
+  import { 
+    NODE_TYPE_INFO, 
+    NODE_CATEGORIES, 
+    getNodesGroupedByCategory,
+    getIconComponent,
+    getNodeDimensions,
+  } from '$lib/types';
   import { resolveCollisions, findNonOverlappingPosition } from '$lib/utils/resolve-collisions';
   import { calculateSnapGuides, calculateSelectionSnapGuides, type SnapGuide } from '$lib/utils/snap-guides';
   import { SpatialIndex } from '$lib/utils/spatial-index';
@@ -36,23 +42,6 @@
     MousePointer2, 
     Hand, 
     Plus, 
-    StickyNote, 
-    Image, 
-    Link, 
-    Code, 
-    Clock, 
-    User, 
-    Building2, 
-    Globe, 
-    FileDigit, 
-    KeyRound, 
-    MessageSquare, 
-    FolderOpen, 
-    MapPin, 
-    List, 
-    Router, 
-    Camera, 
-    CheckSquare,
     Group,
     Ungroup,
     Copy,
@@ -61,7 +50,6 @@
     ZoomIn,
     ZoomOut,
     Maximize,
-    LayoutGrid
   } from 'lucide-svelte';
 
   // Custom edge types with glow effect on selection
@@ -570,21 +558,8 @@
       y: (event.clientY - bounds.top - viewport.y) / viewport.zoom,
     };
 
-    // Get default node size based on type
-    const nodeSize = { width: 200, height: 100 };
-    if (type === 'timestamp') {
-      nodeSize.width = 160;
-      nodeSize.height = 36;
-    } else if (type === 'image') {
-      nodeSize.width = 200;
-      nodeSize.height = 200;
-    } else if (type === 'note') {
-      nodeSize.width = 300;
-      nodeSize.height = 200;
-    } else if (type === 'code') {
-      nodeSize.width = 400;
-      nodeSize.height = 250;
-    }
+    // Get default node size from centralized registry
+    const nodeSize = getNodeSizeForType(type);
 
     // Find non-overlapping position before creation
     const position = findNonOverlappingPosition(initialPosition, nodeSize, nodes, 20);
@@ -651,42 +626,10 @@
     }, 50);
   }
 
+  // Get node size from centralized registry
   function getNodeSizeForType(type: NodeType): { width: number; height: number } {
-    const sizes: Partial<Record<NodeType, { width: number; height: number }>> = {
-      timestamp: { width: 160, height: 36 },
-      image: { width: 200, height: 200 },
-      note: { width: 300, height: 200 },
-      code: { width: 400, height: 250 },
-      group: { width: 400, height: 300 },
-      annotation: { width: 200, height: 100 },
-    };
-    return sizes[type] || { width: 200, height: 100 };
-  }
-
-  // Get node icon component
-  function getNodeIcon(type: NodeType) {
-    const icons: Record<NodeType, any> = {
-      note: StickyNote,
-      image: Image,
-      link: Link,
-      code: Code,
-      timestamp: Clock,
-      person: User,
-      organization: Building2,
-      domain: Globe,
-      hash: FileDigit,
-      credential: KeyRound,
-      socialPost: MessageSquare,
-      group: FolderOpen,
-      map: MapPin,
-      router: Router,
-      linkList: List,
-      snapshot: Camera,
-      action: CheckSquare,
-      iframe: LayoutGrid,
-      annotation: StickyNote,
-    };
-    return icons[type];
+    const dims = getNodeDimensions(type);
+    return { width: dims.defaultWidth, height: dims.defaultHeight };
   }
 
   // Group selected nodes
@@ -916,114 +859,28 @@
       </ContextMenu.Item>
     {:else}
       <!-- Canvas Actions (shown when clicking on empty canvas) -->
-      <!-- Add Node Submenu -->
+      <!-- Add Node Submenu - Dynamically generated from registry -->
       <ContextMenu.Sub>
         <ContextMenu.SubTrigger class="context-menu-item">
           <Plus size={14} />
           <span>Add Node</span>
         </ContextMenu.SubTrigger>
         <ContextMenu.SubContent class="context-menu-content">
-          <!-- Content Nodes -->
-          <ContextMenu.Group>
-            <ContextMenu.GroupHeading class="context-menu-heading">Content</ContextMenu.GroupHeading>
-            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('note')}>
-              <StickyNote size={14} />
-              <span>Note</span>
-            </ContextMenu.Item>
-            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('image')}>
-              <Image size={14} />
-              <span>Image</span>
-            </ContextMenu.Item>
-            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('link')}>
-              <Link size={14} />
-              <span>Link</span>
-            </ContextMenu.Item>
-            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('code')}>
-              <Code size={14} />
-              <span>Code</span>
-            </ContextMenu.Item>
-            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('timestamp')}>
-              <Clock size={14} />
-              <span>Timestamp</span>
-            </ContextMenu.Item>
-            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('iframe')}>
-              <LayoutGrid size={14} />
-              <span>Iframe</span>
-            </ContextMenu.Item>
-          </ContextMenu.Group>
-
-          <ContextMenu.Separator class="context-menu-separator" />
-
-          <!-- Entity Nodes -->
-          <ContextMenu.Group>
-            <ContextMenu.GroupHeading class="context-menu-heading">Entity</ContextMenu.GroupHeading>
-            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('person')}>
-              <User size={14} />
-              <span>Person</span>
-            </ContextMenu.Item>
-            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('organization')}>
-              <Building2 size={14} />
-              <span>Organization</span>
-            </ContextMenu.Item>
-          </ContextMenu.Group>
-
-          <ContextMenu.Separator class="context-menu-separator" />
-
-          <!-- OSINT Nodes -->
-          <ContextMenu.Group>
-            <ContextMenu.GroupHeading class="context-menu-heading">OSINT</ContextMenu.GroupHeading>
-            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('domain')}>
-              <Globe size={14} />
-              <span>Domain</span>
-            </ContextMenu.Item>
-            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('hash')}>
-              <FileDigit size={14} />
-              <span>Hash</span>
-            </ContextMenu.Item>
-            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('credential')}>
-              <KeyRound size={14} />
-              <span>Credential</span>
-            </ContextMenu.Item>
-            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('socialPost')}>
-              <MessageSquare size={14} />
-              <span>Social Post</span>
-            </ContextMenu.Item>
-            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('router')}>
-              <Router size={14} />
-              <span>Router</span>
-            </ContextMenu.Item>
-            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('snapshot')}>
-              <Camera size={14} />
-              <span>Snapshot</span>
-            </ContextMenu.Item>
-          </ContextMenu.Group>
-
-          <ContextMenu.Separator class="context-menu-separator" />
-
-          <!-- Utility Nodes -->
-          <ContextMenu.Group>
-            <ContextMenu.GroupHeading class="context-menu-heading">Utility</ContextMenu.GroupHeading>
-            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('group')}>
-              <FolderOpen size={14} />
-              <span>Group</span>
-            </ContextMenu.Item>
-            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('map')}>
-              <MapPin size={14} />
-              <span>Map</span>
-            </ContextMenu.Item>
-            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('linkList')}>
-              <List size={14} />
-              <span>Link List</span>
-            </ContextMenu.Item>
-            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('action')}>
-              <CheckSquare size={14} />
-              <span>Action</span>
-            </ContextMenu.Item>
-            <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu('annotation')}>
-              <StickyNote size={14} />
-              <span>Annotation</span>
-            </ContextMenu.Item>
-          </ContextMenu.Group>
+          {#each NODE_CATEGORIES as category, i}
+            <ContextMenu.Group>
+              <ContextMenu.GroupHeading class="context-menu-heading">{category.label}</ContextMenu.GroupHeading>
+              {#each getNodesGroupedByCategory()[category.id] as nodeDef}
+                {@const IconComponent = getIconComponent(nodeDef.type)}
+                <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu(nodeDef.type)}>
+                  <IconComponent size={14} />
+                  <span>{nodeDef.label}</span>
+                </ContextMenu.Item>
+              {/each}
+            </ContextMenu.Group>
+            {#if i < NODE_CATEGORIES.length - 1}
+              <ContextMenu.Separator class="context-menu-separator" />
+            {/if}
+          {/each}
         </ContextMenu.SubContent>
       </ContextMenu.Sub>
 
@@ -1046,7 +903,7 @@
   </ContextMenu.Content>
 </ContextMenu.Root>
 
-<!-- Edge Drop Menu - appears when dropping connection on empty canvas -->
+<!-- Edge Drop Menu - Dynamically generated from registry -->
 {#if edgeDropMenuOpen}
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div 
@@ -1063,57 +920,17 @@
       <span>Add & Connect Node</span>
     </div>
     
-    <div class="edge-drop-section">
-      <div class="edge-drop-section-title">Content</div>
-      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('note')}>
-        <StickyNote size={14} /> Note
-      </button>
-      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('image')}>
-        <Image size={14} /> Image
-      </button>
-      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('link')}>
-        <Link size={14} /> Link
-      </button>
-      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('code')}>
-        <Code size={14} /> Code
-      </button>
-      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('iframe')}>
-        <LayoutGrid size={14} /> Iframe
-      </button>
-    </div>
-    
-    <div class="edge-drop-section">
-      <div class="edge-drop-section-title">Entity</div>
-      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('person')}>
-        <User size={14} /> Person
-      </button>
-      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('organization')}>
-        <Building2 size={14} /> Organization
-      </button>
-    </div>
-    
-    <div class="edge-drop-section">
-      <div class="edge-drop-section-title">OSINT</div>
-      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('domain')}>
-        <Globe size={14} /> Domain
-      </button>
-      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('hash')}>
-        <FileDigit size={14} /> Hash
-      </button>
-      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('credential')}>
-        <KeyRound size={14} /> Credential
-      </button>
-    </div>
-    
-    <div class="edge-drop-section">
-      <div class="edge-drop-section-title">Utility</div>
-      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('group')}>
-        <FolderOpen size={14} /> Group
-      </button>
-      <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop('timestamp')}>
-        <Clock size={14} /> Timestamp
-      </button>
-    </div>
+    {#each NODE_CATEGORIES as category}
+      <div class="edge-drop-section">
+        <div class="edge-drop-section-title">{category.label}</div>
+        {#each getNodesGroupedByCategory()[category.id] as nodeDef}
+          {@const IconComponent = getIconComponent(nodeDef.type)}
+          <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop(nodeDef.type)}>
+            <IconComponent size={14} /> {nodeDef.label}
+          </button>
+        {/each}
+      </div>
+    {/each}
   </div>
 {/if}
 

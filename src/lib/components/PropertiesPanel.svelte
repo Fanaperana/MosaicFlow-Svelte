@@ -1,9 +1,9 @@
 <script lang="ts">
   import { workspace } from '$lib/stores/workspace.svelte';
   import type { NodeType, MosaicEdge, MarkerShape, EdgeStrokeStyle } from '$lib/types';
-  import { NODE_TYPE_INFO } from '$lib/types';
+  import { NODE_TYPE_INFO, getNodeDefinition, getIconByName } from '$lib/types';
   import { MarkerType } from '@xyflow/svelte';
-  import { X, Copy, Trash2, StickyNote, Image, Link, Code, Clock, User, Building2, Globe, FileDigit, KeyRound, MessageSquare, Router, Camera, FolderOpen, MapPin, List, CheckSquare, ExternalLink, ChevronDown, ChevronRight, Lock, Unlock, Eye, Pencil, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Type, Palette, Settings2, Move, Maximize2, Square, Minus, Circle, SquareRoundCorner } from 'lucide-svelte';
+  import { X, Copy, Trash2, StickyNote, Link2 as Link, ExternalLink, ChevronDown, ChevronRight, Lock, Unlock, Eye, Pencil, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Type, Palette, Settings2, Move, Maximize2, Square, Minus, Circle, SquareRoundCorner } from 'lucide-svelte';
   import { ColorInput } from '$lib/components/ui/color-picker';
   import { IconButton } from '$lib/components/ui/icon-button';
   import { PropertyGroup } from '$lib/components/ui/property-group';
@@ -36,17 +36,13 @@
       : null
   );
 
-  const iconMap: Record<string, typeof StickyNote> = {
-    StickyNote, Image, Link, Code, Clock, User, Building2, Globe,
-    FileDigit, KeyRound, MessageSquare, Router, Camera, FolderOpen, MapPin, List, CheckSquare,
-  };
-
+  // Use centralized icon registry
   function getIconComponent(iconName: string) {
-    return iconMap[iconName] || StickyNote;
+    return getIconByName(iconName);
   }
 
   function getNodeTypeInfo(type: string) {
-    return NODE_TYPE_INFO.find(info => info.type === type);
+    return getNodeDefinition(type as NodeType);
   }
 
   function updateNodeData(key: string, value: unknown) {
@@ -448,7 +444,7 @@
 
   {:else if selectedNode}
     {@const typeInfo = getNodeTypeInfo(selectedNode.type)}
-    {@const IconComponent = typeInfo ? getIconComponent(typeInfo.icon) : StickyNote}
+    {@const IconComponent = typeInfo ? getIconComponent(typeInfo.iconName) : StickyNote}
     
     <div class="panel-content">
       <!-- Node Type Badge -->
