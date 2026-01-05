@@ -125,6 +125,8 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     defaultData: {
       title: 'Text',
       content: '',
+      bgOpacity: 0, // Transparent by default
+      borderWidth: 0, // No border by default
     },
     dimensions: { minWidth: 120, minHeight: 60, defaultWidth: 200, defaultHeight: 100 },
     colors: { bg: '#1a1a2e', border: '#4a4a6a', icon: '📄' },
