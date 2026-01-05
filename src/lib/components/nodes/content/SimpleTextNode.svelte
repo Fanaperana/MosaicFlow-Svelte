@@ -49,7 +49,9 @@
   nodeId={id} 
   selected={selected ?? false} 
   color={nodeColor}
+  bgOpacity={bgOpacity}
   onColorChange={handleColorChange}
+  onBgOpacityChange={(opacity) => workspace.updateNodeData(id, { bgOpacity: opacity })}
 />
 
 {#if !isLocked}

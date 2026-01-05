@@ -9,10 +9,12 @@
     nodeId: string;
     selected?: boolean;
     color?: string;
+    bgOpacity?: number;
     onColorChange?: (color: string) => void;
+    onBgOpacityChange?: (opacity: number) => void;
   }
 
-  let { nodeId, selected = false, color = '#1e1e1e', onColorChange }: Props = $props();
+  let { nodeId, selected = false, color = '#1e1e1e', bgOpacity = 1, onColorChange, onBgOpacityChange }: Props = $props();
 
   const { fitView } = useSvelteFlow();
 
@@ -31,10 +33,16 @@
   let showColorPicker = $state(false);
   let showCustomColorPicker = $state(false);
   let customHex = $state('#3b82f6');
+  let localOpacity = $state(1);
 
   // Get current node to check locked state
   const currentNode = $derived(workspace.getNode(nodeId));
   const isLocked = $derived(currentNode?.data?.locked ?? false);
+
+  // Sync local opacity with prop
+  $effect(() => {
+    localOpacity = bgOpacity;
+  });
 
   // Sync custom color when opening picker
   $effect(() => {
@@ -107,7 +115,7 @@
           <div class="custom-color-picker nodrag">
             <ColorPicker 
               bind:hex={customHex}
-              isAlpha={true}
+              isAlpha={false}
               isDialog={false}
               onInput={handleCustomColorInput}
               --picker-height="100px"
@@ -121,6 +129,21 @@
               --cp-input-color="#2d2d2d"
               --cp-button-hover-color="#3a3a3a"
             />
+            {#if onBgOpacityChange}
+              <div class="opacity-slider">
+                <span class="opacity-label">Opacity: {Math.round(localOpacity * 100)}%</span>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="1" 
+                  step="0.05"
+                  bind:value={localOpacity}
+                  oninput={() => onBgOpacityChange?.(localOpacity)}
+                  class="opacity-range"
+                  aria-label="Background opacity"
+                />
+              </div>
+            {/if}
             <button 
               class="apply-color-btn"
               onclick={() => handleColorSelect(customHex)}
@@ -331,6 +354,50 @@
     padding: 6px;
     background: #1e1e1e;
     border-radius: 6px;
+  }
+
+  /* Opacity slider */
+  .opacity-slider {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px 0;
+  }
+
+  .opacity-label {
+    font-size: 10px;
+    color: #9ca3af;
+    text-align: center;
+  }
+
+  .opacity-range {
+    width: 100%;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: linear-gradient(to right, transparent, #3b82f6);
+    border-radius: 3px;
+    cursor: pointer;
+  }
+
+  .opacity-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border: 2px solid #3b82f6;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+
+  .opacity-range::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border: 2px solid #3b82f6;
+    border-radius: 50%;
+    cursor: pointer;
   }
 
   .apply-color-btn {
