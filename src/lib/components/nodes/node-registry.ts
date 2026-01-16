@@ -240,7 +240,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       datetime: new Date().toISOString(),
       format: 'datetime',
     },
-    dimensions: { minWidth: 180, minHeight: 100, defaultWidth: 220, defaultHeight: 130 },
+    dimensions: { minWidth: 180, minHeight: 100, defaultWidth: 167, defaultHeight: 28 },
     colors: { bg: '#2e2e1a', border: '#6a6a4a', icon: '⏰' },
     quickAccess: true,
   },
