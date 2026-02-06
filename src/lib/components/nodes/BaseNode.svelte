@@ -99,7 +99,7 @@
     /* Crisp text rendering */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    text-rendering: geometricPrecision;
+    text-rendering: optimizeLegibility;
   }
 
   .node-header {

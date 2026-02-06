@@ -4,33 +4,41 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Space Mono font */
+/* Space Mono font — WOFF2 primary (sharper on macOS), TTF fallback */
 @font-face {
   font-family: 'Space Mono';
   font-style: normal;
   font-weight: 400;
-  src: url('./assets/fonts/Space_Mono/SpaceMono-Regular.ttf') format('truetype');
+  font-display: swap;
+  src: url('./assets/fonts/Space_Mono/SpaceMono-Regular.woff2') format('woff2'),
+       url('./assets/fonts/Space_Mono/SpaceMono-Regular.ttf') format('truetype');
 }
 
 @font-face {
   font-family: 'Space Mono';
   font-style: italic;
   font-weight: 400;
-  src: url('./assets/fonts/Space_Mono/SpaceMono-Italic.ttf') format('truetype');
+  font-display: swap;
+  src: url('./assets/fonts/Space_Mono/SpaceMono-Italic.woff2') format('woff2'),
+       url('./assets/fonts/Space_Mono/SpaceMono-Italic.ttf') format('truetype');
 }
 
 @font-face {
   font-family: 'Space Mono';
   font-style: normal;
   font-weight: 700;
-  src: url('./assets/fonts/Space_Mono/SpaceMono-Bold.ttf') format('truetype');
+  font-display: swap;
+  src: url('./assets/fonts/Space_Mono/SpaceMono-Bold.woff2') format('woff2'),
+       url('./assets/fonts/Space_Mono/SpaceMono-Bold.ttf') format('truetype');
 }
 
 @font-face {
   font-family: 'Space Mono';
   font-style: italic;
   font-weight: 700;
-  src: url('./assets/fonts/Space_Mono/SpaceMono-BoldItalic.ttf') format('truetype');
+  font-display: swap;
+  src: url('./assets/fonts/Space_Mono/SpaceMono-BoldItalic.woff2') format('woff2'),
+       url('./assets/fonts/Space_Mono/SpaceMono-BoldItalic.ttf') format('truetype');
 }
 
 :root {
@@ -150,32 +158,38 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    -webkit-text-size-adjust: 100%;
   }
 }
 
 /* 
- * Fix blurry text in xyflow canvas at non-1x zoom levels.
- * The viewport uses CSS transforms (scale) which can cause subpixel blur on macOS.
- * Using font-smoothing, geometricPrecision, and transform optimizations helps maintain text clarity.
+ * Fix blurry text in xyflow canvas on macOS.
+ *
+ * Root cause: xyflow uses CSS transform: scale() on the viewport which
+ * triggers GPU compositing. macOS WebKit then renders text in the
+ * pre-scaled layer, causing subpixel anti-aliasing loss.
+ *
+ * Mitigations:
+ * 1) WOFF2 fonts render sharper than TTF on macOS WebKit.
+ * 2) optimizeLegibility (NOT geometricPrecision) preserves
+ *    macOS Core Text hinting. geometricPrecision is for SVG,
+ *    and actually disables the hinting that makes text sharp.
+ * 3) antialiased font-smoothing uses grayscale AA which stays
+ *    crisp under transforms (subpixel AA does not).
  */
-
-/* Viewport text rendering - removed aggressive hardware acceleration that caused blur */
 
 /* All nodes should have crisp text rendering */
 .svelte-flow .svelte-flow__node {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: geometricPrecision;
+  text-rendering: optimizeLegibility;
 }
 
 /* Ensure all text inside nodes is crisp */
 .svelte-flow .svelte-flow__node * {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: geometricPrecision;
 }
-
-/* Renderer - removed preserve-3d that caused blur on scaled content */
 
 /* Optimize text rendering in pane (background layer) */
 .svelte-flow__pane {
@@ -186,12 +200,11 @@
 .svelte-flow .svelte-flow__edge-text {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: geometricPrecision;
+  text-rendering: optimizeLegibility;
 }
 
-/* Force subpixel rendering on node wrappers */
+/* Node wrappers */
 .svelte-flow [data-id] {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transform-origin: 0 0;
 }

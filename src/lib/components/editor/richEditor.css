@@ -8,7 +8,7 @@
   /* Fix blurry text rendering */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: geometricPrecision;
+  text-rendering: optimizeLegibility;
 }
 
 .rich-markdown-editor .cm-editor {
@@ -24,7 +24,7 @@
 .rich-markdown-editor .cm-scroller {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: geometricPrecision;
+  text-rendering: optimizeLegibility;
 }
 
 .rich-markdown-editor .cm-content {
@@ -34,7 +34,7 @@
 
 .rich-markdown-editor .cm-line {
   -webkit-font-smoothing: antialiased;
-  text-rendering: geometricPrecision;
+  text-rendering: optimizeLegibility;
 }
 
 /* Hide markdown syntax when not editing */
