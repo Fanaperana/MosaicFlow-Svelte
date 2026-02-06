@@ -352,25 +352,24 @@ export async function exportAsPng(): Promise<boolean> {
     }
 
     // --- 1. Compute node bounds & output dimensions -----------------------
-    const MARGIN = 50;
+    const PADDING = 0.05; // 5% padding around content
     const bounds = getNodesBounds(workspace.nodes);
-    const imageWidth  = Math.ceil(bounds.width  + MARGIN * 2);
-    const imageHeight = Math.ceil(bounds.height + MARGIN * 2);
+    const imageWidth  = Math.ceil(bounds.width  * (1 + PADDING * 2));
+    const imageHeight = Math.ceil(bounds.height * (1 + PADDING * 2));
 
     console.log('Node bounds:', bounds);
     console.log('Output dimensions:', { imageWidth, imageHeight });
 
     // --- 2. Compute the viewport transform for the capture ----------------
     //   getViewportForBounds returns {x, y, zoom} such that the node rect
-    //   is centred inside imageWidth × imageHeight.  We use minZoom=0.01
-    //   and maxZoom=8 (same as the canvas) so it picks the best fit.
+    //   is centred inside imageWidth × imageHeight with the given padding.
     const captureViewport = getViewportForBounds(
       bounds,
       imageWidth,
       imageHeight,
       0.01,  // minZoom
       8,     // maxZoom
-      0,     // padding – we already added MARGIN ourselves
+      PADDING,
     );
 
     console.log('Capture viewport:', captureViewport);
@@ -499,10 +498,10 @@ export async function exportAsSvg(): Promise<boolean> {
     }
 
     // --- 1. Compute node bounds & output dimensions -----------------------
-    const MARGIN = 50;
+    const PADDING = 0.05; // 5% padding around content
     const bounds = getNodesBounds(workspace.nodes);
-    const imageWidth  = Math.ceil(bounds.width  + MARGIN * 2);
-    const imageHeight = Math.ceil(bounds.height + MARGIN * 2);
+    const imageWidth  = Math.ceil(bounds.width  * (1 + PADDING * 2));
+    const imageHeight = Math.ceil(bounds.height * (1 + PADDING * 2));
 
     console.log('SVG Node bounds:', bounds);
     console.log('SVG Output dimensions:', { imageWidth, imageHeight });
@@ -514,7 +513,7 @@ export async function exportAsSvg(): Promise<boolean> {
       imageHeight,
       0.01,
       8,
-      0,
+      PADDING,
     );
 
     console.log('SVG Capture viewport:', captureViewport);
@@ -568,10 +567,19 @@ export async function exportAsSvg(): Promise<boolean> {
       return false;
     }
 
-    // --- 6. Decode & save -------------------------------------------------
+    // --- 6. Decode, fix background, & save --------------------------------
     toast.loading('Saving file…', { id: toastId, description: 'Writing SVG to disk' });
 
-    const svgContent = decodeURIComponent(svgDataUrl.split(',')[1]);
+    let svgContent = decodeURIComponent(svgDataUrl.split(',')[1]);
+
+    // html-to-image sets backgroundColor on the captured element only, which
+    // doesn't cover the full SVG canvas when the viewport transform is used.
+    // Inject a full-size background rect right after the opening <svg> tag.
+    svgContent = svgContent.replace(
+      /(<svg[^>]*>)/,
+      `$1<rect width="${imageWidth}" height="${imageHeight}" fill="#0a0a0a"/>`
+    );
+
     await writeTextFile(filePath, svgContent);
 
     toast.success('SVG exported successfully!', {
