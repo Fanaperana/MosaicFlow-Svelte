@@ -8,6 +8,7 @@ use kernel_api::{
     Plugin, PluginId, PluginInfo, PluginState, PluginManifest,
     KernelError, KernelResult, BuiltinPluginRegistration,
 };
+use tracing::{info, warn, error, debug, instrument};
 
 /// Registry for managing plugins
 pub struct PluginRegistry {
@@ -43,9 +44,11 @@ impl PluginRegistry {
         
         // Check if already registered
         if self.builtin_factories.read().contains_key(&id) {
+            warn!(plugin_id = %id, "Builtin plugin already registered");
             return Err(KernelError::PluginAlreadyRegistered { plugin_id: id });
         }
 
+        debug!(plugin_id = %id, "Registered builtin plugin factory");
         self.builtin_factories.write().insert(id, registration);
         Ok(())
     }
@@ -62,7 +65,10 @@ impl PluginRegistry {
         Ok(())
     }
 
-    /// Load a builtin plugin by ID
+    /// Load a builtin plugin by ID.
+    ///
+    /// Validates API compatibility before loading.
+    #[instrument(skip(self), fields(plugin_id = %plugin_id), name = "load_builtin")]
     pub fn load_builtin(&self, plugin_id: &str) -> KernelResult<()> {
         // Get the factory
         let factory = {
@@ -76,6 +82,24 @@ impl PluginRegistry {
 
         // Create plugin instance
         let mut plugin = factory();
+
+        // Validate API compatibility before initializing
+        let manifest = plugin.manifest();
+        if !manifest.is_compatible() {
+            let err = KernelError::ApiVersionMismatch {
+                required: manifest.api_version.clone(),
+                current: kernel_api::KERNEL_API_VERSION.to_string(),
+            };
+            error!(plugin_id = %plugin_id, required = %manifest.api_version, "API version mismatch");
+            return Err(err);
+        }
+
+        // Validate manifest
+        if let Err(validation_errors) = manifest.validate() {
+            let msg = validation_errors.join("; ");
+            error!(plugin_id = %plugin_id, errors = %msg, "Manifest validation failed");
+            return Err(KernelError::InvalidManifest { reason: msg });
+        }
         
         // Initialize it
         plugin.initialize()?;
@@ -94,10 +118,12 @@ impl PluginRegistry {
         // Store the loaded plugin
         self.loaded_plugins.write().insert(plugin_id.to_string(), plugin);
 
+        info!(plugin_id = %plugin_id, "Plugin loaded and active");
         Ok(())
     }
 
     /// Unload a plugin
+    #[instrument(skip(self), fields(plugin_id = %plugin_id), name = "unload_plugin")]
     pub fn unload_plugin(&self, plugin_id: &str) -> KernelResult<()> {
         let mut loaded = self.loaded_plugins.write();
         
@@ -109,6 +135,10 @@ impl PluginRegistry {
             if let Some(info) = self.plugin_info.write().get_mut(plugin_id) {
                 info.state = PluginState::Disabled;
             }
+
+            info!(plugin_id = %plugin_id, "Plugin unloaded");
+        } else {
+            debug!(plugin_id = %plugin_id, "Plugin was not loaded, nothing to unload");
         }
 
         Ok(())
@@ -152,9 +182,20 @@ impl PluginRegistry {
             .map(|info| info.manifest.clone())
     }
 
+    /// Total number of registered plugin factories
+    pub fn registered_count(&self) -> usize {
+        self.builtin_factories.read().len()
+    }
+
+    /// Total number of currently loaded plugins
+    pub fn loaded_count(&self) -> usize {
+        self.loaded_plugins.read().len()
+    }
+
     /// Load all registered builtin plugins
     pub fn load_all_builtins(&self) -> Vec<(String, KernelResult<()>)> {
         let ids: Vec<String> = self.builtin_factories.read().keys().cloned().collect();
+        info!(count = ids.len(), "Loading all builtin plugins");
         
         ids.into_iter()
             .map(|id| {

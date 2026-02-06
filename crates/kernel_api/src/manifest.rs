@@ -197,7 +197,9 @@ pub struct BackendEntry {
 }
 
 impl PluginManifest {
-    /// Validate the manifest
+    /// Validate the manifest (structural + semver correctness).
+    ///
+    /// Returns a list of human-readable validation errors.
     pub fn validate(&self) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();
 
@@ -209,17 +211,46 @@ impl PluginManifest {
             errors.push("Plugin name cannot be empty".to_string());
         }
 
+        // Validate version is valid semver
         if self.version.is_empty() {
             errors.push("Plugin version cannot be empty".to_string());
+        } else if semver::Version::parse(&self.version).is_err() {
+            errors.push(format!(
+                "Plugin version '{}' is not valid semver (expected MAJOR.MINOR.PATCH)",
+                self.version
+            ));
         }
 
+        // Validate apiVersion is valid semver
         if self.api_version.is_empty() {
             errors.push("API version cannot be empty".to_string());
+        } else if semver::Version::parse(&self.api_version).is_err() {
+            errors.push(format!(
+                "API version '{}' is not valid semver",
+                self.api_version
+            ));
         }
 
-        // Validate plugin ID format (reverse domain notation)
+        // Validate plugin ID format (reverse domain notation for non-core)
         if !self.id.contains('.') && !self.core {
             errors.push("Plugin ID should use reverse domain notation (e.g., com.example.plugin)".to_string());
+        }
+
+        // Validate dependency version requirements
+        for dep in &self.dependencies {
+            if semver::VersionReq::parse(&dep.version).is_err() {
+                errors.push(format!(
+                    "Dependency '{}' has invalid version requirement '{}'",
+                    dep.id, dep.version
+                ));
+            }
+        }
+
+        // Validate min_app_version if present
+        if let Some(ref v) = self.min_app_version {
+            if semver::VersionReq::parse(v).is_err() && semver::Version::parse(v).is_err() {
+                errors.push(format!("minAppVersion '{}' is not valid semver", v));
+            }
         }
 
         if errors.is_empty() {
@@ -227,6 +258,11 @@ impl PluginManifest {
         } else {
             Err(errors)
         }
+    }
+
+    /// Check API compatibility against the current kernel version.
+    pub fn is_compatible(&self) -> bool {
+        crate::is_api_compatible(&self.api_version)
     }
 
     /// Check if this plugin provides a specific capability type

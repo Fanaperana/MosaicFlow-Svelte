@@ -19,7 +19,7 @@ pub mod policy;
 // Re-export main types
 pub use dispatcher::CommandDispatcher;
 pub use event_bus::EventBus;
-pub use kernel::{Kernel, get_kernel, init_kernel, kernel_invoke};
+pub use kernel::{Kernel, KernelMetrics, MetricsSnapshot, get_kernel, init_kernel, kernel_invoke};
 pub use plugin_registry::PluginRegistry;
 pub use policy::PolicyChecker;
 

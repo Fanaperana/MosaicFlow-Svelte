@@ -4,6 +4,7 @@
 
 use std::collections::HashSet;
 use parking_lot::RwLock;
+use tracing::{debug, warn};
 use kernel_api::{PluginPermission, KernelError, KernelResult};
 
 /// Policy checker for plugin permissions
@@ -67,6 +68,7 @@ impl PolicyChecker {
 
     /// Grant a permission to a plugin
     pub fn grant_permission(&self, plugin_id: &str, permission: PluginPermission) {
+        debug!(plugin_id = %plugin_id, permission = ?permission, "Granting permission");
         self.granted_permissions
             .write()
             .entry(plugin_id.to_string())
@@ -76,6 +78,7 @@ impl PolicyChecker {
 
     /// Revoke a permission from a plugin
     pub fn revoke_permission(&self, plugin_id: &str, permission: &PluginPermission) {
+        debug!(plugin_id = %plugin_id, permission = ?permission, "Revoking permission");
         if let Some(perms) = self.granted_permissions.write().get_mut(plugin_id) {
             perms.remove(permission);
         }
@@ -100,6 +103,12 @@ impl PolicyChecker {
         if self.has_permission(plugin_id, permission) {
             Ok(())
         } else {
+            warn!(
+                plugin_id = %plugin_id,
+                permission = ?permission,
+                operation = %operation,
+                "Permission denied"
+            );
             Err(KernelError::PermissionDenied {
                 operation: operation.to_string(),
                 permission: format!("{:?}", permission),

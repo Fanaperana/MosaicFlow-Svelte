@@ -70,11 +70,39 @@ pub use response::KernelResponse;
 /// Kernel API version for compatibility checking
 pub const KERNEL_API_VERSION: &str = "0.1.0";
 
-/// Check if a plugin's required API version is compatible with the current kernel
+/// Parsed kernel API version (lazy-evaluated at first use)
+pub fn kernel_api_version() -> semver::Version {
+    semver::Version::parse(KERNEL_API_VERSION).expect("KERNEL_API_VERSION must be valid semver")
+}
+
+/// Check if a plugin's required API version is compatible with the current kernel.
+///
+/// Uses semver compatibility: a plugin requiring `0.1.0` is compatible with kernel `0.1.x`
+/// but not `0.2.0`. For `1.x.y`, standard major-version compat applies.
 pub fn is_api_compatible(required_version: &str) -> bool {
-    // Simple semver major version check for now
-    // In production, use the semver crate
-    let current_major = KERNEL_API_VERSION.split('.').next().unwrap_or("0");
-    let required_major = required_version.split('.').next().unwrap_or("0");
-    current_major == required_major
+    let Ok(required) = semver::Version::parse(required_version) else {
+        return false;
+    };
+    let current = kernel_api_version();
+    // semver compat: same major, required minor <= current minor
+    // For 0.x.y: both major and minor must match (0.x is treated as breaking)
+    if current.major == 0 {
+        required.major == current.major && required.minor == current.minor
+    } else {
+        required.major == current.major && required.minor <= current.minor
+    }
+}
+
+/// Parse a version string, returning a KernelError on failure
+pub fn parse_version(version: &str) -> KernelResult<semver::Version> {
+    semver::Version::parse(version).map_err(|e| KernelError::InvalidManifest {
+        reason: format!("Invalid semver '{}': {}", version, e),
+    })
+}
+
+/// Parse a version requirement string, returning a KernelError on failure
+pub fn parse_version_req(req: &str) -> KernelResult<semver::VersionReq> {
+    semver::VersionReq::parse(req).map_err(|e| KernelError::InvalidManifest {
+        reason: format!("Invalid semver requirement '{}': {}", req, e),
+    })
 }
