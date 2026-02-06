@@ -163,48 +163,20 @@
 }
 
 /* 
- * Fix blurry text in xyflow canvas on macOS.
+ * Fix blurry rendering in xyflow canvas (especially on macOS).
  *
- * Root cause: xyflow uses CSS transform: scale() on the viewport which
- * triggers GPU compositing. macOS WebKit then renders text in the
- * pre-scaled layer, causing subpixel anti-aliasing loss.
+ * Root causes:
+ * 1) xyflow uses CSS `transform: translate(Xpx, Ypx) scale(Z)` on the viewport.
+ *    The browser rasterizes content at 1x then GPU-scales the bitmap.
+ * 2) Fractional translate values cause subpixel misalignment.
  *
- * Mitigations:
- * 1) WOFF2 fonts render sharper than TTF on macOS WebKit.
- * 2) optimizeLegibility (NOT geometricPrecision) preserves
- *    macOS Core Text hinting. geometricPrecision is for SVG,
- *    and actually disables the hinting that makes text sharp.
- * 3) antialiased font-smoothing uses grayscale AA which stays
- *    crisp under transforms (subpixel AA does not).
+ * Mitigations (applied in Canvas.svelte + here):
+ * - Viewport x/y rounded to integers ($effect in Canvas.svelte)
+ * - WOFF2 fonts (sharper than TTF on macOS WebKit)
+ * - optimizeLegibility (NOT geometricPrecision) preserves Core Text hinting
+ * - antialiased (grayscale) AA stays crisp under transforms
+ *   (subpixel AA breaks when the RGB subpixel grid is rotated/scaled)
+ * - backface-visibility:hidden on nodes promotes each to its own compositor
+ *   layer, rasterized at the current scale → sharper at any zoom
+ * - image-rendering: -webkit-optimize-contrast for sharper bitmap upscaling
  */
-
-/* All nodes should have crisp text rendering */
-.svelte-flow .svelte-flow__node {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-}
-
-/* Ensure all text inside nodes is crisp */
-.svelte-flow .svelte-flow__node * {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* Optimize text rendering in pane (background layer) */
-.svelte-flow__pane {
-  -webkit-font-smoothing: antialiased;
-}
-
-/* Edge labels */
-.svelte-flow .svelte-flow__edge-text {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-}
-
-/* Node wrappers */
-.svelte-flow [data-id] {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}

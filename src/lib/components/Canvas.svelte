@@ -69,6 +69,19 @@
   // Viewport state for coordinate conversion
   let viewport = $state({ x: 0, y: 0, zoom: 1 });
   let flowContainer: HTMLDivElement | undefined;
+
+  // Round viewport translate coordinates to integers.
+  // CSS transform: translate(Xpx, Ypx) with fractional values causes
+  // subpixel rendering — the browser rasterizes at 1x then scales the bitmap,
+  // making text, images and borders look blurry. Rounding eliminates *one*
+  // major source of that blur (the translate part).
+  $effect(() => {
+    const rx = Math.round(viewport.x);
+    const ry = Math.round(viewport.y);
+    if (viewport.x !== rx || viewport.y !== ry) {
+      viewport = { x: rx, y: ry, zoom: viewport.zoom };
+    }
+  });
   
   // Helper function to convert screen coordinates to flow coordinates
   function screenToFlowPosition(screenPos: { x: number; y: number }) {
@@ -1007,9 +1020,9 @@
 
   :global(.svelte-flow) {
     background: #0d1117 !important;
-    /* macOS text blur fix - use subpixel-antialiased for sharper text */
-    -webkit-font-smoothing: subpixel-antialiased;
-    -moz-osx-font-smoothing: auto;
+    /* Grayscale AA stays sharp under CSS transforms (subpixel AA breaks) */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   :global(.svelte-flow__background) {
@@ -1020,18 +1033,33 @@
     fill: #333 !important;
   }
 
-  /* Optimize viewport transform rendering on macOS */
+  /*
+   * Viewport is the container xyflow applies `transform: translate() scale()` to.
+   * Do NOT add translate3d, will-change, or preserve-3d here — they create an
+   * extra compositing layer that rasterizes at 1x then GPU-scales, worsening blur.
+   */
   :global(.svelte-flow__viewport) {
-    /* Removed backface-visibility and transform-style as they cause blur on modern WebKit */
-    transform: translate3d(0, 0, 0);
+    /* intentionally empty — let xyflow control this */
   }
 
-  /* Node text rendering optimization */
+  /*
+   * Promote each node to its own compositing layer with backface-visibility.
+   * This means the browser rasterizes each node independently at the *current*
+   * scale, producing sharper text and images when zoomed in.
+   */
   :global(.svelte-flow__node) {
-    -webkit-font-smoothing: subpixel-antialiased;
-    -moz-osx-font-smoothing: auto;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    /* Removed backface-visibility as it causes blur */
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  /* Sharper images inside nodes when zoomed */
+  :global(.svelte-flow__node img) {
+    image-rendering: auto;
+    /* -webkit-optimize-contrast gives macOS WebKit sharper upscaling */
+    image-rendering: -webkit-optimize-contrast;
   }
 
   :global(.svelte-flow__controls) {
@@ -1149,22 +1177,9 @@
     border-color: rgba(59, 130, 246, 0.3) !important;
   }
 
-  /* Make selection outline more subtle and prevent blur on selection */
+  /* Make selection outline more subtle */
   :global(.svelte-flow__node.selected) {
     outline: none !important;
-    /* Prevent transform-induced blur on selection */
-    -webkit-font-smoothing: antialiased !important;
-    -moz-osx-font-smoothing: grayscale !important;
-    text-rendering: optimizeLegibility !important;
-    /* Prevent layer promotion that causes blur */
-    transform: translate(0);
-    will-change: auto !important;
-  }
-
-  /* Ensure all text inside selected nodes stays sharp */
-  :global(.svelte-flow__node.selected *) {
-    -webkit-font-smoothing: antialiased !important;
-    -moz-osx-font-smoothing: grayscale !important;
   }
 
   /* Edge Drop Menu Styles */
