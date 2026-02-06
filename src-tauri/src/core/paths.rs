@@ -47,6 +47,19 @@ pub fn get_config_path(app_handle: &tauri::AppHandle) -> MosaicResult<PathBuf> {
     Ok(config_dir.join("config.json"))
 }
 
+/// Get the plugins directory
+pub fn get_plugins_dir(app_handle: &tauri::AppHandle) -> MosaicResult<PathBuf> {
+    let config_dir = app_handle
+        .path()
+        .app_config_dir()
+        .map_err(|e| MosaicError::io_error(e))?;
+
+    let plugins_dir = config_dir.join("plugins");
+    super::fs::ensure_dir(&plugins_dir)?;
+
+    Ok(plugins_dir)
+}
+
 /// Standard paths within a vault
 pub struct VaultPaths {
     pub root: PathBuf,

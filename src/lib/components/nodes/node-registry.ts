@@ -18,7 +18,7 @@ import type { NodeType, MosaicNodeData } from '$lib/types';
 // TYPE DEFINITIONS
 // ============================================================================
 
-export type NodeCategory = 'content' | 'entity' | 'osint' | 'utility';
+export type NodeCategory = 'content' | 'entity' | 'data' | 'utility';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type NodeComponent = any; // Using any to avoid complex SvelteFlow NodeProps typing
@@ -78,13 +78,13 @@ import PersonNode from './entity/PersonNode.svelte';
 import OrganizationNode from './entity/OrganizationNode.svelte';
 import TimestampNode from './entity/TimestampNode.svelte';
 
-// OSINT nodes
-import DomainNode from './osint/DomainNode.svelte';
-import HashNode from './osint/HashNode.svelte';
-import CredentialNode from './osint/CredentialNode.svelte';
-import SocialPostNode from './osint/SocialPostNode.svelte';
-import RouterNode from './osint/RouterNode.svelte';
-import SnapshotNode from './osint/SnapshotNode.svelte';
+// Data nodes
+import DomainNode from './data/DomainNode.svelte';
+import HashNode from './data/HashNode.svelte';
+import CredentialNode from './data/CredentialNode.svelte';
+import SocialPostNode from './data/SocialPostNode.svelte';
+import RouterNode from './data/RouterNode.svelte';
+import SnapshotNode from './data/SnapshotNode.svelte';
 
 // Utility nodes
 import GroupNode from './utility/GroupNode.svelte';
@@ -245,12 +245,12 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     quickAccess: true,
   },
 
-  // ===== OSINT NODES =====
+  // ===== DATA NODES =====
   {
     type: 'domain',
-    label: 'Domain',
-    description: 'Website/domain details',
-    category: 'osint',
+    label: 'Website',
+    description: 'Website and domain information',
+    category: 'data',
     iconName: 'Globe',
     component: DomainNode,
     defaultData: {
@@ -263,8 +263,8 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
   {
     type: 'hash',
     label: 'Hash',
-    description: 'File hashes with threat levels',
-    category: 'osint',
+    description: 'File or data fingerprint values',
+    category: 'data',
     iconName: 'FileDigit',
     component: HashNode,
     defaultData: {
@@ -278,9 +278,9 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
   },
   {
     type: 'credential',
-    label: 'Credential',
-    description: 'Account/credential data',
-    category: 'osint',
+    label: 'Account',
+    description: 'User account information',
+    category: 'data',
     iconName: 'KeyRound',
     component: CredentialNode,
     defaultData: {
@@ -295,9 +295,9 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
   },
   {
     type: 'socialPost',
-    label: 'Social Post',
-    description: 'Social media post content',
-    category: 'osint',
+    label: 'Post',
+    description: 'Social media or forum post',
+    category: 'data',
     iconName: 'MessageSquare',
     component: SocialPostNode,
     defaultData: {
@@ -310,9 +310,9 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
   },
   {
     type: 'router',
-    label: 'Router',
-    description: 'Network device representation',
-    category: 'osint',
+    label: 'Network Device',
+    description: 'Network device or infrastructure',
+    category: 'data',
     iconName: 'Router',
     component: RouterNode,
     defaultData: {
@@ -325,9 +325,9 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
   },
   {
     type: 'snapshot',
-    label: 'Snapshot',
-    description: 'Web page snapshots',
-    category: 'osint',
+    label: 'Capture',
+    description: 'Webpage screenshot or capture',
+    category: 'data',
     iconName: 'Camera',
     component: SnapshotNode,
     defaultData: {
@@ -441,7 +441,7 @@ export const nodeTypes: Record<string, NodeComponent> = Object.fromEntries(
 export const NODE_CATEGORIES: { id: NodeCategory; label: string; icon: string }[] = [
   { id: 'content', label: 'Content', icon: '📝' },
   { id: 'entity', label: 'Entities', icon: '👤' },
-  { id: 'osint', label: 'OSINT', icon: '🔍' },
+  { id: 'data', label: 'Data', icon: '🔗' },
   { id: 'utility', label: 'Utility', icon: '🔧' },
 ];
 
@@ -470,7 +470,7 @@ export function getNodesGroupedByCategory(): Record<NodeCategory, NodeDefinition
   const groups: Record<NodeCategory, NodeDefinition[]> = {
     content: [],
     entity: [],
-    osint: [],
+    data: [],
     utility: [],
   };
   

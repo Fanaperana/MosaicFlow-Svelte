@@ -1,0 +1,26 @@
+{
+  "id": "community.example.todo",
+  "name": "Todo Node",
+  "version": "1.0.0",
+  "description": "An example community plugin that adds a Todo node type for task management",
+  "author": "MosaicFlow Community",
+  "license": "MIT",
+  "homepage": "https://github.com/mosaicflow/example-todo-plugin",
+  "apiVersion": "0.1.0",
+  "pluginType": "community",
+  "core": false,
+  "capabilities": [
+    {
+      "type": "nodeTypes",
+      "types": ["todo"]
+    }
+  ],
+  "permissions": [
+    "storage"
+  ],
+  "dependencies": [],
+  "frontend": {
+    "main": "./index.js",
+    "styles": "./styles.css"
+  }
+}

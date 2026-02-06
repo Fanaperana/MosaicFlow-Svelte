@@ -29,7 +29,7 @@ nodes/
 │   ├── OrganizationNode.svelte
 │   └── TimestampNode.svelte
 │
-├── osint/                   # OSINT/security research nodes
+├── data/                    # Data/structured information nodes
 │   ├── index.ts
 │   ├── DomainNode.svelte
 │   ├── HashNode.svelte
@@ -61,7 +61,7 @@ Decide which category your node belongs to:
 |----------|---------|----------|
 | `content/` | Text, media, embedded content | Note, Image, Code, Link |
 | `entity/` | People, organizations, time | Person, Organization, Timestamp |
-| `osint/` | Security research, intelligence | Domain, Hash, Credential |
+| `data/` | Structured data, references | Domain, Hash, Account |
 | `utility/` | Canvas helpers, grouping | Group, Action, Annotation |
 
 ### Step 2: Create the Component File
@@ -142,7 +142,7 @@ myCustom: {
   type: 'myCustom',
   label: 'My Custom Node',
   description: 'Brief description',
-  category: 'content', // or entity, osint, utility
+  category: 'content', // or entity, data, utility
   icon: MyIcon,
   component: MyCustomNode,
   defaultData: {
@@ -283,8 +283,8 @@ import {
   NODE_CATEGORIES,     // Category metadata
 } from './registry';
 
-// Get all OSINT nodes
-const osintNodes = getNodesByCategory('osint');
+// Get all data nodes
+const dataNodes = getNodesByCategory('data');
 
 // Get default data for a new note
 const noteDefaults = getDefaultNodeData('note');

@@ -1,0 +1,22 @@
+{
+  "id": "core.utility",
+  "name": "Utility Nodes",
+  "version": "0.1.0",
+  "description": "Core utility nodes: Group, Map, LinkList, Action, Annotation",
+  "author": "MosaicFlow Team",
+  "license": "MIT",
+  "apiVersion": "0.1.0",
+  "pluginType": "core",
+  "core": true,
+  "capabilities": [
+    {
+      "type": "nodeTypes",
+      "types": ["group", "map", "linkList", "action", "annotation"]
+    }
+  ],
+  "permissions": [],
+  "dependencies": [],
+  "frontend": {
+    "main": "./index.ts"
+  }
+}

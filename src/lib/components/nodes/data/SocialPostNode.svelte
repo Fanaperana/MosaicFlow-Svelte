@@ -1,5 +1,5 @@
 <!--
-  SocialPostNode - OSINT Category
+  SocialPostNode - Data Category
   
   Social media post/comment reference.
 -->

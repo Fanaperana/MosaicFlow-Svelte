@@ -1,0 +1,22 @@
+{
+  "id": "core.content",
+  "name": "Content Nodes",
+  "version": "0.1.0",
+  "description": "Core content nodes: Note, SimpleText, Image, Link, Code, Iframe",
+  "author": "MosaicFlow Team",
+  "license": "MIT",
+  "apiVersion": "0.1.0",
+  "pluginType": "core",
+  "core": true,
+  "capabilities": [
+    {
+      "type": "nodeTypes",
+      "types": ["note", "simpleText", "image", "link", "code", "iframe"]
+    }
+  ],
+  "permissions": [],
+  "dependencies": [],
+  "frontend": {
+    "main": "./index.ts"
+  }
+}

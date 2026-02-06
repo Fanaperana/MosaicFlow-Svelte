@@ -1,5 +1,5 @@
 <!--
-  SnapshotNode - OSINT Category
+  SnapshotNode - Data Category
   
   Evidence screenshot/capture reference.
 -->

@@ -96,7 +96,7 @@
         <Layers size={48} strokeWidth={1.5} />
       </div>
       <h1>MosaicFlow</h1>
-      <p class="tagline">Visual canvas for OSINT investigations</p>
+      <p class="tagline">Visual canvas for ideas and research</p>
     </div>
 
     {#if vaultStore.isLoading}

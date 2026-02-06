@@ -1,5 +1,5 @@
 <!--
-  RouterNode - OSINT Category
+  RouterNode - Data Category
   
   Network router/device information.
 -->

@@ -1,7 +1,7 @@
 <!--
-  DomainNode - OSINT Category
+  DomainNode - Data Category
   
-  Domain/IP information for OSINT research.
+  Domain/IP information for data reference.
 -->
 <script lang="ts">
   import { type NodeProps, type Node } from '@xyflow/svelte';

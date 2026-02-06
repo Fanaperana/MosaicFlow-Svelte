@@ -1,5 +1,5 @@
 <!--
-  HashNode - OSINT Category
+  HashNode - Data Category
   
   Cryptographic hash display (MD5, SHA, etc).
 -->

@@ -5,7 +5,7 @@
 <h1 align="center">MosaicFlow</h1>
 
 <p align="center">
-  <strong>A powerful node-based canvas for visual information mapping and OSINT investigations</strong>
+  <strong>A powerful node-based canvas for visual information mapping and research</strong>
 </p>
 
 <p align="center">
@@ -228,5 +228,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <p align="center">
-  Made with ❤️ for OSINT investigators and visual thinkers
+  Made with ❤️ for researchers and visual thinkers
 </p>

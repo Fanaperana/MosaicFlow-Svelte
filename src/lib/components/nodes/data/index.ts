@@ -1,7 +1,7 @@
 /**
- * OSINT Nodes Index
+ * Data Nodes Index
  * 
- * Re-exports all OSINT category nodes.
+ * Re-exports all Data category nodes.
  */
 
 export { default as DomainNode } from './DomainNode.svelte';

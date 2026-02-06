@@ -6,6 +6,10 @@
 // ├── services/     - Business logic (DRY, testable)
 // ├── commands/     - Tauri command handlers (thin wrappers)
 // └── events/       - Real-time event system for reactive updates
+//
+// Microkernel Architecture:
+// ├── kernel_api    - Stable types for plugin system
+// └── kernel_runtime - Plugin loading, dispatch, and event bus
 
 // Module declarations
 pub mod commands;
@@ -28,6 +32,13 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         // Command handlers
         .invoke_handler(tauri::generate_handler![
+            // Kernel commands (microkernel architecture)
+            kernel_invoke,
+            kernel_init,
+            kernel_list_plugins,
+            kernel_get_plugin_info,
+            kernel_is_initialized,
+            kernel_emit_event,
             // Vault commands
             create_vault,
             open_vault,
@@ -76,6 +87,10 @@ pub fn run() {
             get_recent_canvases,
             find_vault_by_id,
             find_canvas_by_id,
+            // Plugin commands
+            get_plugins_dir,
+            discover_plugins,
+            read_plugin_module,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

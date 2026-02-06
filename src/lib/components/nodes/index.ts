@@ -18,8 +18,8 @@ export * from './content';
 // Entity Nodes - People, organizations, and time markers
 export * from './entity';
 
-// OSINT Nodes - Security research and intelligence gathering
-export * from './osint';
+// Data Nodes - Structured data like domains, hashes, accounts
+export * from './data';
 
 // Utility Nodes - Grouping, actions, and annotations
 export * from './utility';
@@ -70,8 +70,8 @@ export {
 import { NoteNode, SimpleTextNode, ImageNode, LinkNode, CodeNode, IframeNode } from './content';
 // Entity
 import { PersonNode, OrganizationNode, TimestampNode } from './entity';
-// OSINT
-import { DomainNode, HashNode, CredentialNode, SocialPostNode, RouterNode, SnapshotNode } from './osint';
+// Data
+import { DomainNode, HashNode, CredentialNode, SocialPostNode, RouterNode, SnapshotNode } from './data';
 // Utility
 import { GroupNode, MapNode, LinkListNode, ActionNode, AnnotationNode } from './utility';
 
@@ -88,7 +88,7 @@ export {
   PersonNode,
   OrganizationNode,
   TimestampNode,
-  // OSINT
+  // Data
   DomainNode,
   HashNode,
   CredentialNode,

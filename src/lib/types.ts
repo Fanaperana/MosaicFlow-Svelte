@@ -122,7 +122,7 @@ export interface DomainNodeData extends BaseNodeData {
   expiryDate?: string;
   nameservers?: string[];
   ipAddresses?: string[];
-  // Additional OSINT properties
+  // Additional domain properties
   protocol?: 'http' | 'https';
   ip?: string;
   created?: string;

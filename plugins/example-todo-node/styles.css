@@ -1,0 +1,67 @@
+/**
+ * Example Todo Node Styles
+ * 
+ * Custom styles for the Todo node component.
+ */
+
+.todo-node {
+  padding: 8px;
+}
+
+.todo-node .todo-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.todo-node .todo-item:last-child {
+  border-bottom: none;
+}
+
+.todo-node .todo-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #4a6a4a;
+}
+
+.todo-node .todo-text {
+  flex: 1;
+  color: #e0e0e0;
+}
+
+.todo-node .todo-text.completed {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.todo-node .add-todo {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.todo-node .add-todo input {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 4px 8px;
+  color: #e0e0e0;
+}
+
+.todo-node .add-todo button {
+  background: #4a6a4a;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 12px;
+  color: #fff;
+  cursor: pointer;
+}
+
+.todo-node .add-todo button:hover {
+  background: #5a7a5a;
+}

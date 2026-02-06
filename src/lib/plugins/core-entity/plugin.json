@@ -1,0 +1,22 @@
+{
+  "id": "core.entity",
+  "name": "Entity Nodes",
+  "version": "0.1.0",
+  "description": "Core entity nodes: Person, Organization, Timestamp",
+  "author": "MosaicFlow Team",
+  "license": "MIT",
+  "apiVersion": "0.1.0",
+  "pluginType": "core",
+  "core": true,
+  "capabilities": [
+    {
+      "type": "nodeTypes",
+      "types": ["person", "organization", "timestamp"]
+    }
+  ],
+  "permissions": [],
+  "dependencies": [],
+  "frontend": {
+    "main": "./index.ts"
+  }
+}

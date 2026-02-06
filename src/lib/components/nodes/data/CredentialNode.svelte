@@ -1,5 +1,5 @@
 <!--
-  CredentialNode - OSINT Category
+  CredentialNode - Data Category
   
   Credential/secret data (masked by default).
 -->

@@ -1,0 +1,22 @@
+{
+  "id": "core.data",
+  "name": "Data Nodes",
+  "version": "0.1.0",
+  "description": "Core data nodes: Website, Hash, Account, Post, Network, Capture",
+  "author": "MosaicFlow Team",
+  "license": "MIT",
+  "apiVersion": "0.1.0",
+  "pluginType": "core",
+  "core": true,
+  "capabilities": [
+    {
+      "type": "nodeTypes",
+      "types": ["domain", "hash", "credential", "socialPost", "router", "snapshot"]
+    }
+  ],
+  "permissions": [],
+  "dependencies": [],
+  "frontend": {
+    "main": "./index.ts"
+  }
+}

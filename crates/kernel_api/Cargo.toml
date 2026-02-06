@@ -1,0 +1,11 @@
+[package]
+name = "kernel_api"
+version = "0.1.0"
+edition = "2021"
+description = "MosaicFlow Kernel API - Stable types and traits for the plugin system"
+authors = ["MosaicFlow Team"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"

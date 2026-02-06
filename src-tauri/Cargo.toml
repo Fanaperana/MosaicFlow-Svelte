@@ -31,6 +31,10 @@ chrono = { version = "0.4", features = ["serde"] }
 base64 = "0.22"
 tauri-plugin-persisted-scope = "2"
 
+# Kernel crates
+kernel_api = { path = "../crates/kernel_api" }
+kernel_runtime = { path = "../crates/kernel_runtime" }
+
 # SVG to PNG conversion (resvg for pure SVG, headless_chrome for HTML/CSS)
 resvg = "0.44"
 usvg = "0.44"

@@ -4,7 +4,7 @@ This document provides instructions for GitHub Copilot to better assist with the
 
 ## Project Overview
 
-**MosaicFlow** is a powerful node-based canvas application for visual information mapping and OSINT (Open Source Intelligence) investigations. It's built as a desktop application using Tauri 2.0 with a Svelte 5 frontend.
+**MosaicFlow** is a powerful node-based canvas application for visual information mapping and research. It's built as a desktop application using Tauri 2.0 with a Svelte 5 frontend.
 
 ## Tech Stack
 
@@ -36,7 +36,7 @@ src/
 │   │   │   ├── _shared/   # Shared node utilities
 │   │   │   ├── content/   # Content nodes (Note, Image, Link, etc.)
 │   │   │   ├── entity/    # Entity nodes (Person, Organization, etc.)
-│   │   │   ├── osint/     # OSINT nodes (Domain, IP, Hash, etc.)
+│   │   │   ├── data/      # Data nodes (Domain, Hash, Account, etc.)
 │   │   │   └── utility/   # Utility nodes (Group, Map, LinkList, etc.)
 │   │   ├── edges/     # Edge components
 │   │   ├── editor/    # Editor components
