@@ -263,7 +263,11 @@ async function prepareForCapture(): Promise<{
   // Wait for DOM to update with forced LOD
   await new Promise(resolve => setTimeout(resolve, 300));
 
-  // Convert all asset:// and http images to base64 data URLs before capture
+  // ---------------------------------------------------------------------------
+  // Convert all <img> elements to base64 data URLs so they survive the
+  // html-to-image SVG foreignObject serialisation.  asset:// and http(s)://
+  // URLs are opaque to the foreign document context.
+  // ---------------------------------------------------------------------------
   const images = document.querySelectorAll('#mosaic-flow img') as NodeListOf<HTMLImageElement>;
   const originalSrcs = new Map<HTMLImageElement, string>();
   for (const img of images) {
@@ -278,13 +282,69 @@ async function prepareForCapture(): Promise<{
           reader.readAsDataURL(blob);
         });
         img.src = dataUrl;
+        // Wait for the image to load with the new data URL src
+        await new Promise<void>((resolve) => {
+          if (img.complete) { resolve(); return; }
+          img.onload = () => resolve();
+          img.onerror = () => resolve(); // proceed even on error
+        });
       } catch (e) {
         console.warn('Could not convert image to base64:', img.src, e);
       }
     }
   }
 
-  // Wait for image src updates
+  // ---------------------------------------------------------------------------
+  // Snapshot all <canvas> elements (e.g. MapLibre GL) into <img> overlays.
+  // html-to-image serialises the DOM as SVG foreignObject, which cannot
+  // capture canvas pixel data.  We create a temporary <img> with the canvas
+  // snapshot placed on top and hide the original canvas during capture.
+  // ---------------------------------------------------------------------------
+  const canvasOverlays: { canvas: HTMLCanvasElement; overlay: HTMLImageElement }[] = [];
+  const canvasElements = document.querySelectorAll('#mosaic-flow canvas') as NodeListOf<HTMLCanvasElement>;
+  for (const cvs of canvasElements) {
+    try {
+      const dataUrl = cvs.toDataURL('image/png');
+      const overlay = document.createElement('img');
+      overlay.src = dataUrl;
+      overlay.style.cssText = `
+        position: absolute;
+        top: 0; left: 0;
+        width: ${cvs.clientWidth}px;
+        height: ${cvs.clientHeight}px;
+        pointer-events: none;
+        z-index: 9999;
+      `;
+      overlay.dataset.exportOverlay = 'true';
+
+      // Place the overlay image relative to the canvas's parent
+      const parent = cvs.parentElement;
+      if (parent) {
+        // Ensure parent is positioned so absolute overlay works
+        const parentPos = getComputedStyle(parent).position;
+        if (parentPos === 'static') {
+          parent.style.position = 'relative';
+          (parent as HTMLElement).dataset.exportResetPosition = 'true';
+        }
+        parent.appendChild(overlay);
+      }
+
+      // Hide the original canvas
+      cvs.style.visibility = 'hidden';
+      canvasOverlays.push({ canvas: cvs, overlay });
+
+      // Wait for the overlay image to load
+      await new Promise<void>((resolve) => {
+        if (overlay.complete) { resolve(); return; }
+        overlay.onload = () => resolve();
+        overlay.onerror = () => resolve();
+      });
+    } catch (e) {
+      console.warn('Could not snapshot canvas element:', e);
+    }
+  }
+
+  // Wait for image src updates and overlays to settle
   await new Promise(resolve => setTimeout(resolve, 100));
 
   const viewportEl = document.querySelector('.svelte-flow__viewport') as HTMLElement;
@@ -292,6 +352,12 @@ async function prepareForCapture(): Promise<{
     console.error('SvelteFlow viewport element not found');
     // Immediate cleanup
     originalSrcs.forEach((src, img) => { img.src = src; });
+    canvasOverlays.forEach(({ canvas, overlay }) => {
+      canvas.style.visibility = '';
+      overlay.remove();
+      const p = canvas.parentElement;
+      if (p?.dataset.exportResetPosition) { p.style.position = ''; delete p.dataset.exportResetPosition; }
+    });
     overrideStyle.remove();
     if (flowEl && originalLodClass) flowEl.className = originalLodClass;
     if (canvasEl) delete canvasEl.dataset.exporting;
@@ -300,7 +366,20 @@ async function prepareForCapture(): Promise<{
   }
 
   const cleanup = () => {
+    // Restore original image sources
     originalSrcs.forEach((src, img) => { img.src = src; });
+
+    // Remove canvas overlays and restore original canvases
+    canvasOverlays.forEach(({ canvas, overlay }) => {
+      canvas.style.visibility = '';
+      overlay.remove();
+      const p = canvas.parentElement;
+      if (p?.dataset.exportResetPosition) {
+        p.style.position = '';
+        delete p.dataset.exportResetPosition;
+      }
+    });
+
     overrideStyle.remove();
     if (flowEl && originalLodClass) flowEl.className = originalLodClass;
     if (canvasEl) delete canvasEl.dataset.exporting;
