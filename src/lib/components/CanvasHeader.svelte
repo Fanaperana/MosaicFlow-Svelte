@@ -59,6 +59,7 @@
     <ChevronRight size={14} class="separator" />
     {#if isEditing}
       <div class="edit-container">
+        <!-- svelte-ignore a11y_autofocus -->
         <input
           type="text"
           bind:value={editName}

@@ -19,9 +19,13 @@
 	let visible = $state(false);
 	let timeout: ReturnType<typeof setTimeout> | null = null;
 	let wrapperElement: HTMLDivElement | null = null;
-	let tooltipElement: HTMLDivElement | null = null;
-	let adjustedPosition = $state(position);
+	let tooltipElement = $state<HTMLDivElement | null>(null);
+	let adjustedPosition = $state<'top' | 'bottom' | 'left' | 'right'>('bottom');
 	let tooltipStyle = $state('');
+
+	$effect(() => {
+		adjustedPosition = position;
+	});
 
 	function calculatePosition() {
 		if (!wrapperElement || !tooltipElement) return;

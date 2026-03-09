@@ -290,7 +290,7 @@
         <div class="section-header">General</div>
         
         <div class="field">
-          <label>Label</label>
+          <span>Label</span>
           <input 
             type="text" 
             value={selectedEdge.label || ''}
@@ -303,7 +303,7 @@
         </div>
 
         <div class="field">
-          <label>Edge Type</label>
+          <span>Edge Type</span>
           <select 
             value={selectedEdge.type || 'default'}
             onchange={(e) => {
@@ -338,7 +338,7 @@
         <div class="section-header">Markers</div>
         
         <div class="field">
-          <label>Start Marker</label>
+          <span>Start Marker</span>
           <select 
             value={selectedEdge.data?.markerStart || 'none'}
             onchange={(e) => {
@@ -353,7 +353,7 @@
         </div>
 
         <div class="field">
-          <label>End Marker</label>
+          <span>End Marker</span>
           <select 
             value={selectedEdge.data?.markerEnd || 'none'}
             onchange={(e) => {
@@ -482,7 +482,7 @@
       <!-- General Section -->
       <PropertyGroup title="General" bind:open={generalOpen}>
         <div class="field">
-          <label>Title</label>
+          <span>Title</span>
           <input 
             type="text" 
             value={selectedNode.data.title || ''}
@@ -491,7 +491,7 @@
         </div>
 
         <div class="field">
-          <label class="muted">ID</label>
+          <span class="muted">ID</span>
           <input 
             type="text" 
             value={selectedNode.id}
@@ -689,7 +689,7 @@
         <div class="field-with-lock">
           <div class="field-row">
             <div class="field">
-              <label class="muted">X</label>
+              <span class="muted">X</span>
               <input 
                 type="number" 
                 value={Math.round(selectedNode.position.x)}
@@ -698,7 +698,7 @@
               />
             </div>
             <div class="field">
-              <label class="muted">Y</label>
+              <span class="muted">Y</span>
               <input 
                 type="number" 
                 value={Math.round(selectedNode.position.y)}
@@ -723,7 +723,7 @@
         <div class="field-with-lock">
           <div class="field-row">
             <div class="field">
-              <label class="muted">Width</label>
+              <span class="muted">Width</span>
               <input 
                 type="number" 
                 value={selectedNode.width || 200}
@@ -733,7 +733,7 @@
               />
             </div>
             <div class="field">
-              <label class="muted">Height</label>
+              <span class="muted">Height</span>
               <input 
                 type="number" 
                 value={selectedNode.height || 100}
@@ -761,7 +761,7 @@
       {#if selectedNode.type === 'note'}
         <PropertyGroup title="Note Options" bind:open={optionsOpen}>
           <div class="field">
-            <label>Mode</label>
+            <span>Mode</span>
             <div class="mode-toggle">
               <button 
                 class="mode-btn" 
@@ -789,7 +789,7 @@
         <PropertyGroup title="Display Options" bind:open={optionsOpen}>
           <!-- Custom Timestamp Picker -->
           <div class="input-group">
-            <label class="input-label">Custom Date/Time</label>
+            <span class="input-label">Custom Date/Time</span>
             <input 
               type="datetime-local" 
               class="datetime-input nodrag"
@@ -921,7 +921,7 @@
         <PropertyGroup title="Annotation Options" bind:open={optionsOpen}>
           <!-- Text Color -->
           <div class="field">
-            <label>Text Color</label>
+            <span>Text Color</span>
             <ColorInput 
               value={(selectedNode.data as any).textColor || '#999999'}
               onchange={(color) => updateNodeData('textColor', color)}
@@ -932,7 +932,7 @@
 
           <!-- Arrow Position -->
           <div class="field">
-            <label>Arrow Position</label>
+            <span>Arrow Position</span>
             <select 
               class="select-input"
               value={(selectedNode.data as any).arrowPosition || 'bottom-left'}
@@ -950,7 +950,7 @@
 
           <!-- Arrow Rotation -->
           <div class="field">
-            <label>Arrow Rotation</label>
+            <span>Arrow Rotation</span>
             <select 
               class="select-input"
               value={(selectedNode.data as any).arrowRotation || 0}
@@ -969,7 +969,7 @@
 
           <!-- Arrow Flip -->
           <div class="field">
-            <label>Arrow Flip</label>
+            <span>Arrow Flip</span>
             <div class="mode-toggle">
               <button 
                 class="mode-btn" 
@@ -992,7 +992,7 @@
 
           <!-- Font Style -->
           <div class="field">
-            <label>Font Weight</label>
+            <span>Font Weight</span>
             <select 
               class="select-input"
               value={(selectedNode.data as any).fontWeight || '400'}
@@ -1007,7 +1007,7 @@
           </div>
 
           <div class="field">
-            <label>Font Style</label>
+            <span>Font Style</span>
             <div class="mode-toggle">
               <button 
                 class="mode-btn" 
@@ -1028,7 +1028,7 @@
 
           <!-- Text Align -->
           <div class="field">
-            <label>Text Align</label>
+            <span>Text Align</span>
             <div class="mode-toggle">
               <button 
                 class="mode-btn" 
@@ -1061,7 +1061,7 @@
         <PropertyGroup title="Group Options" bind:open={optionsOpen}>
           <!-- Label -->
           <div class="input-group">
-            <label class="input-label">Label</label>
+            <span class="input-label">Label</span>
             <input 
               type="text" 
               class="text-input"
@@ -1075,7 +1075,7 @@
           <div class="subsection-header">Label Settings</div>
 
           <div class="input-group">
-            <label class="input-label">Font Size</label>
+            <span class="input-label">Font Size</span>
             <input 
               type="number" 
               class="text-input"
@@ -1087,7 +1087,7 @@
           </div>
 
           <div class="input-group">
-            <label class="input-label">Font Weight</label>
+            <span class="input-label">Font Weight</span>
             <select 
               class="select-input"
               value={(selectedNode.data as any).fontWeight || 'semibold'}
@@ -1101,7 +1101,7 @@
           </div>
 
           <div class="input-group">
-            <label class="input-label">Font Style</label>
+            <span class="input-label">Font Style</span>
             <select 
               class="select-input"
               value={(selectedNode.data as any).fontStyle || 'normal'}
@@ -1118,7 +1118,7 @@
           {#if true}
             {@const childNodes = workspace.getChildNodes(selectedNode.id)}
             <div class="input-group">
-              <label class="input-label">Contained Nodes ({childNodes.length})</label>
+              <span class="input-label">Contained Nodes ({childNodes.length})</span>
               {#if childNodes.length > 0}
                 <div class="child-nodes-list">
                   {#each childNodes as childNode (childNode.id)}
@@ -1321,12 +1321,12 @@
     gap: 4px;
   }
 
-  .field label {
+  .field > span {
     font-size: 11px;
     color: #c9d1d9;
   }
 
-  .field label.muted {
+  .field > span.muted {
     color: #8b949e;
   }
 

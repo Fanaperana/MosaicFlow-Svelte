@@ -99,6 +99,7 @@
 
     {#if showCreateInput}
       <div class="create-input-row">
+        <!-- svelte-ignore a11y_autofocus -->
         <input
           type="text"
           bind:value={newCanvasName}
@@ -122,13 +123,15 @@
 
     <div class="canvas-grid">
       {#each vaultStore.canvases as canvas}
-        <div class="canvas-card" onclick={() => handleOpenCanvas(canvas)}>
+        <div class="canvas-card" role="button" tabindex="0" onclick={() => handleOpenCanvas(canvas)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleOpenCanvas(canvas); }}>
           <div class="canvas-icon">
             <FileText size={32} strokeWidth={1.5} />
           </div>
           <div class="canvas-info">
             {#if editingCanvasId === canvas.id}
-              <div class="edit-name-row" onclick={(e) => e.stopPropagation()}>
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div class="edit-name-row" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+                <!-- svelte-ignore a11y_autofocus -->
                 <input
                   type="text"
                   bind:value={editingName}

@@ -18,7 +18,7 @@
 
 <div class="property-row" class:inline>
   {#if label}
-    <label class="row-label" class:muted>{label}</label>
+    <span class="row-label" class:muted>{label}</span>
   {/if}
   <div class="row-content">
     {@render children()}

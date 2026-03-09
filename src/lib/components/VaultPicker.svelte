@@ -132,7 +132,7 @@
         </div>
         
         <div class="form-field">
-          <label>Location</label>
+          <span>Location</span>
           {#if selectedParentPath}
             <div class="selected-path">
               <span class="path-text">{selectedParentPath}</span>
@@ -325,7 +325,8 @@
     margin-bottom: 1.25rem;
   }
 
-  .form-field label {
+  .form-field label,
+  .form-field > span {
     display: block;
     font-size: 0.875rem;
     font-weight: 500;

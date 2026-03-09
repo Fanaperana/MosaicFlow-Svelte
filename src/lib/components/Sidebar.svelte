@@ -86,8 +86,7 @@
       </SimpleTooltip>
       
       {#if exportMenuOpen}
-        <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-        <div class="dropdown-menu" onclick={(e) => e.stopPropagation()}>
+        <div class="dropdown-menu" role="menu" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
           <button class="menu-item" onclick={() => { onExport(); exportMenuOpen = false; }}>
             <Download size={16} strokeWidth={1.5} />
             <span>Export as JSON</span>
@@ -245,15 +244,6 @@
     cursor: not-allowed;
   }
 
-  .sidebar-btn.primary {
-    background: #3b82f6;
-    color: white;
-  }
-
-  .sidebar-btn.primary:hover {
-    background: #2563eb;
-  }
-
   .sidebar-btn.danger:hover:not(:disabled) {
     background: rgba(239, 68, 68, 0.1);
     color: #ef4444;
@@ -300,31 +290,6 @@
     padding: 4px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     z-index: 1000;
-  }
-
-  .dropdown-menu.add-menu {
-    min-width: 200px;
-    max-height: 400px;
-    overflow-y: auto;
-  }
-
-  .menu-category {
-    padding: 4px 0;
-  }
-
-  .menu-category:not(:last-child) {
-    border-bottom: 1px solid #1e1e2e;
-    margin-bottom: 4px;
-  }
-
-  .category-label {
-    display: block;
-    padding: 4px 8px;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #666;
   }
 
   .menu-item {
