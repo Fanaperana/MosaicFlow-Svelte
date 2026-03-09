@@ -51,7 +51,7 @@ export async function updateTags(canvasPath: string, tags: string[]): Promise<Ca
   return safeInvoke('update_canvas_tags', {
     canvasPath,
     tags
-  });
+  }, () => devStorage.updateCanvasTags(canvasPath, tags));
 }
 
 export async function updateDescription(
@@ -61,7 +61,7 @@ export async function updateDescription(
   return safeInvoke('update_canvas_description', {
     canvasPath,
     description
-  });
+  }, () => devStorage.updateCanvasDescription(canvasPath, description));
 }
 
 export async function loadState(canvasPath: string): Promise<CanvasUIState> {

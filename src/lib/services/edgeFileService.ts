@@ -91,6 +91,7 @@ export function saveEdge(edge: MosaicEdge) {
   
   // Set new debounced timer
   edgeTimers.set(edge.id, setTimeout(async () => {
+    edgeTimers.delete(edge.id);
     try {
       await ensureEdgesFolder();
       await ensureEdgeFolder(edge.id);
@@ -101,7 +102,6 @@ export function saveEdge(edge: MosaicEdge) {
       
       // Write as NDJSON (single line JSON for this edge)
       await writeTextFile(joinedPath, JSON.stringify(edgeData));
-      edgeTimers.delete(edge.id);
     } catch (error) {
       console.error(`Error saving edge ${edge.id}:`, error);
     }

@@ -10,7 +10,7 @@ use super::result::MosaicResult;
 
 /// Sanitize a name for use as a folder name
 pub fn sanitize_name(name: &str) -> String {
-    name.chars()
+    let sanitized: String = name.chars()
         .map(|c| {
             if c.is_alphanumeric() || c == '-' || c == '_' || c == ' ' {
                 c
@@ -20,7 +20,25 @@ pub fn sanitize_name(name: &str) -> String {
         })
         .collect::<String>()
         .trim()
-        .to_string()
+        .to_string();
+
+    // Prevent empty names
+    if sanitized.is_empty() {
+        return "untitled".to_string();
+    }
+
+    // Prevent Windows reserved filenames
+    let upper = sanitized.to_uppercase();
+    let reserved = [
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    ];
+    if reserved.contains(&upper.as_str()) {
+        return format!("{}_", sanitized);
+    }
+
+    sanitized
 }
 
 /// Get the app data directory

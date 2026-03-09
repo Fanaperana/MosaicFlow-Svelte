@@ -235,9 +235,23 @@
   }
 
   function highlightMatch(text: string, query: string): string {
-    if (!query) return text;
-    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    return text.replace(regex, '<mark>$1</mark>');
+    if (!query) return escapeHtml(text);
+    const escapedText = escapeHtml(text);
+    const escapedQuery = escapeHtml(query);
+    // Use indexOf for safe matching (no regex on user input)
+    const lowerText = escapedText.toLowerCase();
+    const lowerQuery = escapedQuery.toLowerCase();
+    const idx = lowerText.indexOf(lowerQuery);
+    if (idx === -1) return escapedText;
+    return (
+      escapedText.slice(0, idx) +
+      '<mark>' + escapedText.slice(idx, idx + escapedQuery.length) + '</mark>' +
+      escapedText.slice(idx + escapedQuery.length)
+    );
+  }
+
+  function escapeHtml(str: string): string {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 </script>
 

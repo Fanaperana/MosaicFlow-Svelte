@@ -114,15 +114,37 @@ impl PluginService {
                     // Build the plugin info
                     let plugin_path = path.to_string_lossy().to_string();
                     
-                    // Resolve main URL (relative to plugin directory)
-                    let main_url = manifest.frontend.as_ref().map(|f| {
-                        format!("file://{}", path.join(&f.main).to_string_lossy())
+                    // Resolve and validate main URL (prevent path traversal)
+                    let main_url = manifest.frontend.as_ref().and_then(|f| {
+                        let resolved = path.join(&f.main);
+                        match resolved.canonicalize() {
+                            Ok(canonical) => {
+                                if canonical.starts_with(&path) {
+                                    Some(format!("file://{}", canonical.to_string_lossy()))
+                                } else {
+                                    eprintln!("Plugin {:?} main path escapes plugin directory: {:?}", manifest_path, f.main);
+                                    None
+                                }
+                            }
+                            Err(_) => None,
+                        }
                     });
                     
-                    // Resolve styles URL
+                    // Resolve and validate styles URL (prevent path traversal)
                     let styles_url = manifest.frontend.as_ref().and_then(|f| {
-                        f.styles.as_ref().map(|s| {
-                            format!("file://{}", path.join(s).to_string_lossy())
+                        f.styles.as_ref().and_then(|s| {
+                            let resolved = path.join(s);
+                            match resolved.canonicalize() {
+                                Ok(canonical) => {
+                                    if canonical.starts_with(&path) {
+                                        Some(format!("file://{}", canonical.to_string_lossy()))
+                                    } else {
+                                        eprintln!("Plugin {:?} styles path escapes plugin directory: {:?}", manifest_path, s);
+                                        None
+                                    }
+                                }
+                                Err(_) => None,
+                            }
                         })
                     });
 
@@ -175,7 +197,16 @@ impl PluginService {
                     // Found the plugin, read its main module
                     if let Some(frontend) = manifest.frontend {
                         let main_path = path.join(&frontend.main);
-                        let content = fs::read_to_string(&main_path)
+                        // Validate path doesn't escape plugin directory
+                        let canonical = main_path.canonicalize()
+                            .map_err(|e| MosaicError::io_error(e))?;
+                        if !canonical.starts_with(&path) {
+                            return Err(MosaicError::new(
+                                crate::core::error::ErrorCode::PermissionDenied,
+                                format!("Plugin {} main path escapes plugin directory", plugin_id)
+                            ));
+                        }
+                        let content = fs::read_to_string(&canonical)
                             .map_err(|e| MosaicError::io_error(e))?;
                         return Ok(content);
                     } else {

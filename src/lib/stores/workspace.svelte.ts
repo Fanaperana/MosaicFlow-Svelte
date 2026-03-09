@@ -98,12 +98,17 @@ class WorkspaceStore {
     if (this.isUndoRedoOperation) return;
     
     // Deep clone current state
-    const snapshot = {
-      nodes: JSON.parse(JSON.stringify(this.nodes)),
-      edges: JSON.parse(JSON.stringify(this.edges)),
-    };
-    
-    this.undoStack.push(snapshot);
+    try {
+      const snapshot = {
+        nodes: JSON.parse(JSON.stringify(this.nodes)),
+        edges: JSON.parse(JSON.stringify(this.edges)),
+      };
+      
+      this.undoStack.push(snapshot);
+    } catch (error) {
+      console.error('Failed to save history snapshot:', error);
+      return;
+    }
     
     // Limit stack size
     if (this.undoStack.length > this.maxHistorySize) {
@@ -125,28 +130,29 @@ class WorkspaceStore {
     if (this.undoStack.length === 0) return;
     
     this.isUndoRedoOperation = true;
-    
-    // Save current state to redo stack
-    const currentState = {
-      nodes: JSON.parse(JSON.stringify(this.nodes)),
-      edges: JSON.parse(JSON.stringify(this.edges)),
-    };
-    this.redoStack.push(currentState);
-    
-    // Restore previous state
-    const previousState = this.undoStack.pop()!;
-    this.nodes = previousState.nodes;
-    this.edges = previousState.edges;
-    
-    // Update reactive state
-    this.canUndo = this.undoStack.length > 0;
-    this.canRedo = this.redoStack.length > 0;
-    
-    this.isUndoRedoOperation = false;
-    
-    // Save the restored state to files
-    if (this.workspacePath) {
-      this.saveWorkspaceManifest();
+    try {
+      // Save current state to redo stack
+      const currentState = {
+        nodes: JSON.parse(JSON.stringify(this.nodes)),
+        edges: JSON.parse(JSON.stringify(this.edges)),
+      };
+      this.redoStack.push(currentState);
+      
+      // Restore previous state
+      const previousState = this.undoStack.pop()!;
+      this.nodes = previousState.nodes;
+      this.edges = previousState.edges;
+      
+      // Update reactive state
+      this.canUndo = this.undoStack.length > 0;
+      this.canRedo = this.redoStack.length > 0;
+      
+      // Save the restored state to files
+      if (this.workspacePath) {
+        this.saveWorkspaceManifest();
+      }
+    } finally {
+      this.isUndoRedoOperation = false;
     }
   }
 
@@ -157,28 +163,29 @@ class WorkspaceStore {
     if (this.redoStack.length === 0) return;
     
     this.isUndoRedoOperation = true;
-    
-    // Save current state to undo stack
-    const currentState = {
-      nodes: JSON.parse(JSON.stringify(this.nodes)),
-      edges: JSON.parse(JSON.stringify(this.edges)),
-    };
-    this.undoStack.push(currentState);
-    
-    // Restore next state
-    const nextState = this.redoStack.pop()!;
-    this.nodes = nextState.nodes;
-    this.edges = nextState.edges;
-    
-    // Update reactive state
-    this.canUndo = this.undoStack.length > 0;
-    this.canRedo = this.redoStack.length > 0;
-    
-    this.isUndoRedoOperation = false;
-    
-    // Save the restored state to files
-    if (this.workspacePath) {
-      this.saveWorkspaceManifest();
+    try {
+      // Save current state to undo stack
+      const currentState = {
+        nodes: JSON.parse(JSON.stringify(this.nodes)),
+        edges: JSON.parse(JSON.stringify(this.edges)),
+      };
+      this.undoStack.push(currentState);
+      
+      // Restore next state
+      const nextState = this.redoStack.pop()!;
+      this.nodes = nextState.nodes;
+      this.edges = nextState.edges;
+      
+      // Update reactive state
+      this.canUndo = this.undoStack.length > 0;
+      this.canRedo = this.redoStack.length > 0;
+      
+      // Save the restored state to files
+      if (this.workspacePath) {
+        this.saveWorkspaceManifest();
+      }
+    } finally {
+      this.isUndoRedoOperation = false;
     }
   }
 

@@ -180,6 +180,7 @@ export function saveNodeContent(node: MosaicNode) {
   
   // Set new debounced timer
   contentTimers.set(node.id, setTimeout(async () => {
+    contentTimers.delete(node.id);
     try {
       await ensureNodeFolder(node.id);
       const { writeTextFile } = await import('@tauri-apps/plugin-fs');
@@ -188,7 +189,6 @@ export function saveNodeContent(node: MosaicNode) {
       const contentPath = `${getDataFolderPath(node.id)}/content`;
       
       await writeTextFile(contentPath, content);
-      contentTimers.delete(node.id);
     } catch (error) {
       console.error(`Error saving content for node ${node.id}:`, error);
     }
@@ -206,6 +206,7 @@ export function saveNodeProperties(node: MosaicNode) {
   
   // Set new debounced timer
   propertiesTimers.set(node.id, setTimeout(async () => {
+    propertiesTimers.delete(node.id);
     try {
       await ensureNodeFolder(node.id);
       const { writeTextFile } = await import('@tauri-apps/plugin-fs');
@@ -214,7 +215,6 @@ export function saveNodeProperties(node: MosaicNode) {
       const propsPath = `${getDataFolderPath(node.id)}/properties.json`;
       
       await writeTextFile(propsPath, JSON.stringify(properties, null, 2));
-      propertiesTimers.delete(node.id);
     } catch (error) {
       console.error(`Error saving properties for node ${node.id}:`, error);
     }
@@ -377,9 +377,11 @@ function applyContentToData(type: NodeType, data: Record<string, unknown>, conte
       data.label = content;
       break;
     case 'map':
-      const [lat, lon] = content.split(',').map(Number);
-      data.latitude = lat || 0;
-      data.longitude = lon || 0;
+      const parts = content.split(',');
+      const lat = parts.length >= 1 ? Number(parts[0]) : NaN;
+      const lon = parts.length >= 2 ? Number(parts[1]) : NaN;
+      data.latitude = Number.isFinite(lat) ? lat : 0;
+      data.longitude = Number.isFinite(lon) ? lon : 0;
       break;
     case 'linkList':
       if (content) {

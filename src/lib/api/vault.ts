@@ -37,7 +37,7 @@ export async function updateDescription(
   return safeInvoke('update_vault_description', {
     vaultPath,
     description
-  });
+  }, () => devStorage.updateVaultDescription(vaultPath, description));
 }
 
 export async function isValid(path: string): Promise<boolean> {

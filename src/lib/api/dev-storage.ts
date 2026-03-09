@@ -111,6 +111,16 @@ class DevStorage {
     return vault;
   }
 
+  updateVaultDescription(path: string, description: string): VaultInfo {
+    const vault = this.vaults.get(path);
+    if (!vault) throw new Error('Vault not found');
+    
+    vault.description = description;
+    vault.updated_at = now();
+    
+    return vault;
+  }
+
   isValidVault(path: string): boolean {
     return this.vaults.has(path);
   }
@@ -203,6 +213,24 @@ class DevStorage {
     this.canvases.delete(canvasPath);
     this.canvasStates.delete(canvasPath);
     this.workspaces.delete(canvasPath);
+  }
+
+  updateCanvasTags(canvasPath: string, tags: string[]): CanvasInfo {
+    const canvas = this.canvases.get(canvasPath);
+    if (!canvas) throw new Error('Canvas not found');
+    
+    (canvas as CanvasInfo & { tags?: string[] }).tags = tags;
+    canvas.updated_at = now();
+    return canvas;
+  }
+
+  updateCanvasDescription(canvasPath: string, description: string): CanvasInfo {
+    const canvas = this.canvases.get(canvasPath);
+    if (!canvas) throw new Error('Canvas not found');
+    
+    canvas.description = description;
+    canvas.updated_at = now();
+    return canvas;
   }
 
   loadCanvasState(canvasPath: string): CanvasUIState {
