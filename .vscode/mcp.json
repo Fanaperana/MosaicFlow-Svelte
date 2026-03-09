@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "tauri-mcp-server": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/tauri-mcp-server"]
+    }
+  }
+}

@@ -77,6 +77,7 @@ class WorkspaceStore {
   // Properties panel state
   propertiesPanelOpen = $state(false);
   selectedNodeForProperties = $state<MosaicNode | null>(null);
+  suppressPropertiesPanel = $state(false);
   
   // Canvas mode (select or drag)
   canvasMode = $state<CanvasMode>('select');
@@ -664,6 +665,7 @@ class WorkspaceStore {
   // Selection management
   setSelectedNodes(ids: string[]) {
     this.selectedNodeIds = ids;
+    if (this.suppressPropertiesPanel) return;
     if (ids.length === 1) {
       const node = this.nodes.find(n => n.id === ids[0]);
       if (node) {

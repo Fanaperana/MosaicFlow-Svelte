@@ -33,6 +33,7 @@
     "fs:scope-appdata-recursive",
     "fs:scope-applocaldata-recursive",
     "fs:scope-temp-recursive",
-    "fs:scope-localdata-recursive"
+    "fs:scope-localdata-recursive",
+    "mcp-bridge:default"
   ]
 }
