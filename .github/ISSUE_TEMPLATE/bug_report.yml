@@ -1,0 +1,53 @@
+name: Bug Report
+description: Report a reproducible bug in MosaicFlow
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug report.
+        Please include enough detail for maintainers to reproduce and validate a fix.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened and what did you expect?
+      placeholder: Short description of the bug and expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide exact, numbered steps.
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, app version/commit, and runtime details.
+      placeholder: macOS 14, main@abc123, pnpm 9.x, node 20.x
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and screenshots
+      description: Paste relevant logs, stack traces, or screenshots.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmation
+      options:
+        - label: I searched existing issues before opening this report.
+          required: true
+        - label: I can reproduce this issue on the latest main branch.
+          required: true

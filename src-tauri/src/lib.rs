@@ -49,6 +49,7 @@ pub fn run() {
             // Vault commands
             create_vault,
             open_vault,
+            close_vault,
             rename_vault,
             update_vault_description,
             is_valid_vault,
@@ -56,6 +57,7 @@ pub fn run() {
             // Canvas commands
             create_canvas,
             open_canvas,
+            close_canvas,
             list_canvases,
             rename_canvas,
             delete_canvas,

@@ -10,6 +10,8 @@ import {
   saveAppConfig,
   createVault as createVaultApi,
   openVault as openVaultApi,
+  closeVault as closeVaultApi,
+  closeCanvas as closeCanvasApi,
   listCanvases as listCanvasesApi,
   createCanvas as createCanvasApi,
   renameCanvas as renameCanvasApi,
@@ -297,6 +299,9 @@ class VaultStore {
    * Close current vault and go back to vault picker
    */
   closeVault(): void {
+    if (this.currentVault) {
+      closeVaultApi(this.currentVault.id, this.currentVault.path, this.currentVault.name);
+    }
     this.currentVault = null;
     this.currentCanvas = null;
     this.canvases = [];
@@ -357,6 +362,14 @@ class VaultStore {
    * Close current canvas and show canvas list
    */
   closeCanvas(): void {
+    if (this.currentCanvas && this.currentVault) {
+      closeCanvasApi(
+        this.currentCanvas.id,
+        this.currentCanvas.path,
+        this.currentCanvas.name,
+        this.currentVault.id,
+      );
+    }
     this.currentCanvas = null;
     this._config.current_canvas_path = null;
     this.saveConfig();

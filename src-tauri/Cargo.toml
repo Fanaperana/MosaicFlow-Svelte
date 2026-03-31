@@ -35,6 +35,10 @@ tauri-plugin-persisted-scope = "2"
 kernel_api = { path = "../crates/kernel_api" }
 kernel_runtime = { path = "../crates/kernel_runtime" }
 
+# Core crates
+mosaicflow_core = { path = "../crates/mosaicflow_core" }
+mosaicflow_models = { path = "../crates/mosaicflow_models" }
+
 # SVG to PNG conversion (resvg for pure SVG, headless_chrome for HTML/CSS)
 resvg = "0.44"
 usvg = "0.44"

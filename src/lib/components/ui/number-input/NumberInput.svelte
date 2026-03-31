@@ -30,7 +30,7 @@
 
 <input
   type="number"
-  class="number-input {className}"
+  class="w-full px-1.5 py-0.5 bg-[#161b22] border border-[#30363d] rounded text-[#c9d1d9] text-[11px] font-mono text-right outline-none focus:border-[#58a6ff] disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none {className}"
   {value}
   {min}
   {max}
@@ -39,38 +39,3 @@
   {placeholder}
   oninput={handleInput}
 />
-
-<style>
-  .number-input {
-    width: 100%;
-    padding: 6px 8px;
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 4px;
-    color: #c9d1d9;
-    font-size: 11px;
-    font-family: 'Space Mono', monospace;
-    outline: none;
-    text-align: right;
-  }
-
-  .number-input:focus {
-    border-color: #58a6ff;
-  }
-
-  .number-input:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  /* Hide spinner arrows */
-  .number-input::-webkit-outer-spin-button,
-  .number-input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-
-  .number-input[type=number] {
-    -moz-appearance: textfield;
-  }
-</style>

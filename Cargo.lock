@@ -2406,6 +2406,8 @@ dependencies = [
  "headless_chrome",
  "kernel_api",
  "kernel_runtime",
+ "mosaicflow_core",
+ "mosaicflow_models",
  "regex",
  "resvg",
  "serde",
@@ -2423,6 +2425,25 @@ dependencies = [
  "urlencoding",
  "usvg",
  "uuid",
+]
+
+[[package]]
+name = "mosaicflow_core"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
+name = "mosaicflow_models"
+version = "0.1.0"
+dependencies = [
+ "mosaicflow_core",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

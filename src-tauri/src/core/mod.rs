@@ -1,22 +1,23 @@
 // MosaicFlow Core Module
 //
-// This module provides the foundational utilities and types used across all
-// other modules. It follows the principle of single responsibility and DRY.
+// Re-exports from mosaicflow_core crate + Tauri-specific path utilities.
+// The portable utilities live in crates/mosaicflow_core.
 
-pub mod error;
-pub mod fs;
-pub mod id;
 pub mod paths;
-pub mod result;
-pub mod time;
+
+// Re-export everything from the core crate
+pub use mosaicflow_core::error;
+pub use mosaicflow_core::fs;
+pub use mosaicflow_core::id;
+pub use mosaicflow_core::result;
+pub use mosaicflow_core::time;
 
 // Re-export commonly used items
-pub use error::MosaicError;
-pub use fs::{
-    copy_file, ensure_dir, file_exists, list_subdirs, read_json, read_string, remove_dir_all,
-    rename, write_json, write_string,
+pub use mosaicflow_core::{
+    copy_file, ensure_dir, file_exists, generate_short_id, generate_uuid, list_subdirs, now_iso,
+    now_timestamp, read_json, read_string, remove_dir_all, rename, sanitize_name, write_json,
+    write_string, CanvasPaths, ErrorCode, MosaicError, MosaicResult, VaultPaths,
 };
-pub use id::{generate_short_id, generate_uuid};
-pub use paths::{get_config_path, get_data_dir, sanitize_name, CanvasPaths, VaultPaths};
-pub use result::MosaicResult;
-pub use time::{now_iso, now_timestamp};
+
+// Re-export Tauri-specific path utilities
+pub use paths::{get_config_path, get_data_dir, get_plugins_dir};

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security Vulnerability Report
+    url: https://github.com/Fanaperana/MosaicFlow-Svelte/security/advisories/new
+    about: Report security issues privately through GitHub Security Advisories.
+  - name: Report Abuse or Content Policy Violations
+    url: https://support.github.com/contact/report-content
+    about: Use GitHub's report content flow for abuse or policy violations.

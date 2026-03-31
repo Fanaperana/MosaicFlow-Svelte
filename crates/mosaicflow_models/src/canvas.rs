@@ -34,7 +34,7 @@ fn default_version() -> String {
 
 impl CanvasMeta {
     pub fn new(id: String, vault_id: String, name: String) -> Self {
-        let now = crate::core::now_iso();
+        let now = mosaicflow_core::now_iso();
         Self {
             id,
             vault_id,
@@ -58,7 +58,7 @@ impl CanvasMeta {
     }
 
     pub fn touch(&mut self) {
-        self.updated_at = crate::core::now_iso();
+        self.updated_at = mosaicflow_core::now_iso();
     }
 
     pub fn add_tag(&mut self, tag: String) {
@@ -168,6 +168,6 @@ impl Default for ViewportState {
 
 impl CanvasUIState {
     pub fn touch(&mut self) {
-        self.updated_at = crate::core::now_iso();
+        self.updated_at = mosaicflow_core::now_iso();
     }
 }

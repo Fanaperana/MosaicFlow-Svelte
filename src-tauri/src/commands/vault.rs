@@ -34,9 +34,12 @@ pub async fn create_vault(
     StateService::update_last_opened(&app_handle, Some(vault.id.clone()), None)
         .map_err(|e| e.to_string())?;
 
-    // Emit event
+    // Emit events
     let emitter = EventEmitter::new(&app_handle);
     emitter.vault_created(&vault.id, &vault.path, &vault.name);
+    if let Ok(h) = HistoryService::load(&app_handle) {
+        emitter.history_changed(h.vaults.len(), h.canvases.len());
+    }
 
     Ok(vault)
 }
@@ -61,9 +64,12 @@ pub async fn open_vault(app_handle: AppHandle, path: String) -> Result<VaultInfo
     StateService::update_last_opened(&app_handle, Some(vault.id.clone()), None)
         .map_err(|e| e.to_string())?;
 
-    // Emit event
+    // Emit events
     let emitter = EventEmitter::new(&app_handle);
     emitter.vault_opened(&vault.id, &vault.path, &vault.name);
+    if let Ok(h) = HistoryService::load(&app_handle) {
+        emitter.history_changed(h.vaults.len(), h.canvases.len());
+    }
 
     Ok(vault)
 }
@@ -88,9 +94,12 @@ pub async fn rename_vault(
     )
     .map_err(|e| e.to_string())?;
 
-    // Emit event
+    // Emit events
     let emitter = EventEmitter::new(&app_handle);
     emitter.vault_updated(&vault.id, &vault.path, &vault.name);
+    if let Ok(h) = HistoryService::load(&app_handle) {
+        emitter.history_changed(h.vaults.len(), h.canvases.len());
+    }
 
     Ok(vault)
 }
@@ -117,6 +126,25 @@ pub async fn update_vault_description(
 #[tauri::command]
 pub async fn is_valid_vault(path: String) -> Result<bool, String> {
     Ok(VaultService::is_valid(Path::new(&path)))
+}
+
+/// Close a vault (notify backend, clear state)
+#[tauri::command]
+pub async fn close_vault(
+    app_handle: AppHandle,
+    vault_id: String,
+    vault_path: String,
+    vault_name: String,
+) -> Result<(), String> {
+    // Clear last opened vault from state
+    StateService::update_last_opened(&app_handle, None::<String>, None::<String>)
+        .map_err(|e| e.to_string())?;
+
+    // Emit event
+    let emitter = EventEmitter::new(&app_handle);
+    emitter.vault_closed(&vault_id, &vault_path, &vault_name);
+
+    Ok(())
 }
 
 /// Get vault info without opening

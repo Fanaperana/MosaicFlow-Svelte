@@ -24,6 +24,10 @@ export async function open(path: string): Promise<VaultInfo> {
   );
 }
 
+export async function close(vaultId: string, vaultPath: string, vaultName: string): Promise<void> {
+  return safeInvoke('close_vault', { vaultId, vaultPath, vaultName }, () => {});
+}
+
 export async function rename(vaultPath: string, newName: string): Promise<VaultInfo> {
   return safeInvoke('rename_vault', { vaultPath, newName }, () =>
     devStorage.renameVault(vaultPath, newName)

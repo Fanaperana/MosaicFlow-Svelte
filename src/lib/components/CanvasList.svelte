@@ -91,8 +91,8 @@
         <h1>{vaultStore.currentVault?.name || 'Vault'}</h1>
         <p class="canvas-count">{vaultStore.canvases.length} canvas{vaultStore.canvases.length !== 1 ? 'es' : ''}</p>
       </div>
-      <Button onclick={() => showCreateInput = true} size="sm">
-        <Plus size={16} class="mr-1" />
+      <Button onclick={() => showCreateInput = true} size="sm" class="px-4">
+        <Plus size={14} class="mr-1" />
         New Canvas
       </Button>
     </header>

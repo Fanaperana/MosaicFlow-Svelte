@@ -93,6 +93,33 @@ export async function openVault(path: string): Promise<VaultInfo | null> {
 }
 
 /**
+ * Notify backend that a vault was closed
+ */
+export async function closeVault(vaultId: string, vaultPath: string, vaultName: string): Promise<void> {
+  try {
+    await invoke('close_vault', { vaultId, vaultPath, vaultName });
+  } catch (error) {
+    console.error('Failed to close vault:', error);
+  }
+}
+
+/**
+ * Notify backend that a canvas was closed
+ */
+export async function closeCanvas(
+  canvasId: string,
+  canvasPath: string,
+  canvasName: string,
+  vaultId: string,
+): Promise<void> {
+  try {
+    await invoke('close_canvas', { canvasId, canvasPath, canvasName, vaultId });
+  } catch (error) {
+    console.error('Failed to close canvas:', error);
+  }
+}
+
+/**
  * Check if a path is a valid vault
  */
 export async function isValidVault(path: string): Promise<boolean> {

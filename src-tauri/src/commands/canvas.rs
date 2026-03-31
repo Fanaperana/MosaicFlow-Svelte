@@ -42,9 +42,12 @@ pub async fn create_canvas(
     StateService::update_last_opened(&app_handle, None, Some(canvas.id.clone()))
         .map_err(|e| e.to_string())?;
 
-    // Emit event
+    // Emit events
     let emitter = EventEmitter::new(&app_handle);
     emitter.canvas_created(&canvas.id, &canvas.path, &canvas.name, &canvas.vault_id);
+    if let Ok(h) = HistoryService::load(&app_handle) {
+        emitter.history_changed(h.vaults.len(), h.canvases.len());
+    }
 
     Ok(canvas)
 }
@@ -73,9 +76,12 @@ pub async fn open_canvas(app_handle: AppHandle, canvas_path: String) -> Result<C
     StateService::update_last_opened(&app_handle, None, Some(canvas.id.clone()))
         .map_err(|e| e.to_string())?;
 
-    // Emit event
+    // Emit events
     let emitter = EventEmitter::new(&app_handle);
     emitter.canvas_opened(&canvas.id, &canvas.path, &canvas.name, &canvas.vault_id);
+    if let Ok(h) = HistoryService::load(&app_handle) {
+        emitter.history_changed(h.vaults.len(), h.canvases.len());
+    }
 
     Ok(canvas)
 }
@@ -84,6 +90,26 @@ pub async fn open_canvas(app_handle: AppHandle, canvas_path: String) -> Result<C
 #[tauri::command]
 pub async fn list_canvases(vault_path: String) -> Result<Vec<CanvasInfo>, String> {
     VaultService::list_canvases(Path::new(&vault_path)).map_err(|e| e.to_string())
+}
+
+/// Close a canvas (notify backend, clear state)
+#[tauri::command]
+pub async fn close_canvas(
+    app_handle: AppHandle,
+    canvas_id: String,
+    canvas_path: String,
+    canvas_name: String,
+    vault_id: String,
+) -> Result<(), String> {
+    // Clear last opened canvas from state
+    StateService::update_last_opened(&app_handle, None::<String>, None::<String>)
+        .map_err(|e| e.to_string())?;
+
+    // Emit event
+    let emitter = EventEmitter::new(&app_handle);
+    emitter.canvas_closed(&canvas_id, &canvas_path, &canvas_name, &vault_id);
+
+    Ok(())
 }
 
 /// Rename a canvas
@@ -107,9 +133,12 @@ pub async fn rename_canvas(
     )
     .map_err(|e| e.to_string())?;
 
-    // Emit event
+    // Emit events
     let emitter = EventEmitter::new(&app_handle);
     emitter.canvas_updated(&canvas.id, &canvas.path, &canvas.name, &canvas.vault_id);
+    if let Ok(h) = HistoryService::load(&app_handle) {
+        emitter.history_changed(h.vaults.len(), h.canvases.len());
+    }
 
     Ok(canvas)
 }
@@ -134,6 +163,9 @@ pub async fn delete_canvas(app_handle: AppHandle, canvas_path: String) -> Result
     if let Some(c) = canvas {
         let emitter = EventEmitter::new(&app_handle);
         emitter.canvas_deleted(&c.id, &c.vault_id);
+        if let Ok(h) = HistoryService::load(&app_handle) {
+            emitter.history_changed(h.vaults.len(), h.canvases.len());
+        }
     }
 
     Ok(())

@@ -25,7 +25,7 @@ fn default_max_history() -> usize {
 impl AppHistory {
     /// Add or update vault in history
     pub fn track_vault(&mut self, id: String, name: String, path: String) {
-        let now = crate::core::now_iso();
+        let now = mosaicflow_core::now_iso();
 
         if let Some(entry) = self.vaults.iter_mut().find(|v| v.id == id) {
             entry.name = name;
@@ -55,7 +55,7 @@ impl AppHistory {
 
     /// Add or update canvas in history
     pub fn track_canvas(&mut self, id: String, vault_id: String, name: String, path: String) {
-        let now = crate::core::now_iso();
+        let now = mosaicflow_core::now_iso();
 
         if let Some(entry) = self.canvases.iter_mut().find(|c| c.id == id) {
             entry.name = name;

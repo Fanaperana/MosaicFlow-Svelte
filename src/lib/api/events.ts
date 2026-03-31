@@ -33,20 +33,8 @@ async function subscribeToEvent<T>(
 }
 
 // Vault event subscriptions
-export async function onVaultCreated(callback: VaultEventCallback): Promise<UnlistenFn> {
-  return subscribeToEvent(EventNames.VAULT_CREATED, callback);
-}
-
-export async function onVaultOpened(callback: VaultEventCallback): Promise<UnlistenFn> {
-  return subscribeToEvent(EventNames.VAULT_OPENED, callback);
-}
-
 export async function onVaultUpdated(callback: VaultEventCallback): Promise<UnlistenFn> {
   return subscribeToEvent(EventNames.VAULT_UPDATED, callback);
-}
-
-export async function onVaultClosed(callback: VaultEventCallback): Promise<UnlistenFn> {
-  return subscribeToEvent(EventNames.VAULT_CLOSED, callback);
 }
 
 // Canvas event subscriptions
@@ -54,16 +42,8 @@ export async function onCanvasCreated(callback: CanvasEventCallback): Promise<Un
   return subscribeToEvent(EventNames.CANVAS_CREATED, callback);
 }
 
-export async function onCanvasOpened(callback: CanvasEventCallback): Promise<UnlistenFn> {
-  return subscribeToEvent(EventNames.CANVAS_OPENED, callback);
-}
-
 export async function onCanvasUpdated(callback: CanvasEventCallback): Promise<UnlistenFn> {
   return subscribeToEvent(EventNames.CANVAS_UPDATED, callback);
-}
-
-export async function onCanvasClosed(callback: CanvasEventCallback): Promise<UnlistenFn> {
-  return subscribeToEvent(EventNames.CANVAS_CLOSED, callback);
 }
 
 export async function onCanvasDeleted(callback: CanvasEventCallback): Promise<UnlistenFn> {
@@ -71,14 +51,6 @@ export async function onCanvasDeleted(callback: CanvasEventCallback): Promise<Un
 }
 
 // Workspace event subscriptions
-export async function onWorkspaceLoaded(callback: WorkspaceEventCallback): Promise<UnlistenFn> {
-  return subscribeToEvent(EventNames.WORKSPACE_LOADED, callback);
-}
-
-export async function onWorkspaceSaved(callback: WorkspaceEventCallback): Promise<UnlistenFn> {
-  return subscribeToEvent(EventNames.WORKSPACE_SAVED, callback);
-}
-
 export async function onWorkspaceChanged(callback: WorkspaceEventCallback): Promise<UnlistenFn> {
   return subscribeToEvent(EventNames.WORKSPACE_CHANGED, callback);
 }
@@ -90,25 +62,4 @@ export async function onStateChanged(callback: StateEventCallback): Promise<Unli
 
 export async function onHistoryChanged(callback: HistoryEventCallback): Promise<UnlistenFn> {
   return subscribeToEvent(EventNames.HISTORY_CHANGED, callback);
-}
-
-// Subscribe to all vault events
-export async function onAnyVaultEvent(callback: VaultEventCallback): Promise<UnlistenFn[]> {
-  return Promise.all([
-    onVaultCreated(callback),
-    onVaultOpened(callback),
-    onVaultUpdated(callback),
-    onVaultClosed(callback),
-  ]);
-}
-
-// Subscribe to all canvas events
-export async function onAnyCanvasEvent(callback: CanvasEventCallback): Promise<UnlistenFn[]> {
-  return Promise.all([
-    onCanvasCreated(callback),
-    onCanvasOpened(callback),
-    onCanvasUpdated(callback),
-    onCanvasClosed(callback),
-    onCanvasDeleted(callback),
-  ]);
 }

@@ -61,7 +61,11 @@ pub fn relative_time(iso: &str) -> String {
 
     let months = days / 30;
     if months < 12 {
-        return format!("{} month{} ago", months, if months == 1 { "" } else { "s" });
+        return format!(
+            "{} month{} ago",
+            months,
+            if months == 1 { "" } else { "s" }
+        );
     }
 
     let years = months / 12;

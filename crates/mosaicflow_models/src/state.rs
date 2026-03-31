@@ -31,13 +31,13 @@ impl AppState {
         Self {
             last_vault_id: None,
             last_canvas_id: None,
-            updated_at: crate::core::now_iso(),
+            updated_at: mosaicflow_core::now_iso(),
             version: default_version(),
         }
     }
 
     pub fn touch(&mut self) {
-        self.updated_at = crate::core::now_iso();
+        self.updated_at = mosaicflow_core::now_iso();
     }
 
     pub fn set_last_vault(&mut self, vault_id: String) {

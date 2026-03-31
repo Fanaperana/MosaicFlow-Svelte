@@ -7,4 +7,6 @@ members = [
     "src-tauri",
     "crates/kernel_api",
     "crates/kernel_runtime",
+    "crates/mosaicflow_core",
+    "crates/mosaicflow_models",
 ]

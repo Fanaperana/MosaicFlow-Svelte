@@ -2,7 +2,7 @@
 //
 // Handles workspace data operations (nodes, edges)
 
-use crate::core::{self, paths::CanvasPaths, MosaicResult};
+use crate::core::{self, CanvasPaths, MosaicResult};
 use crate::models::{WorkspaceData, WorkspaceEdge, WorkspaceNode};
 use std::path::Path;
 

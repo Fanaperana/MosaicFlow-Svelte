@@ -2,7 +2,7 @@
 //
 // Handles all canvas-related operations
 
-use crate::core::{self, paths::CanvasPaths, MosaicError, MosaicResult};
+use crate::core::{self, CanvasPaths, MosaicError, MosaicResult};
 use crate::models::{CanvasInfo, CanvasMeta, CanvasUIState, WorkspaceData};
 use crate::services::MigrationService;
 use std::path::Path;

@@ -1,44 +1,39 @@
 <script lang="ts" module>
 	import { cn, type WithElementRef } from "$lib/utils.js";
 	import type { HTMLAnchorAttributes, HTMLButtonAttributes } from "svelte/elements";
-	import { type VariantProps, tv } from "tailwind-variants";
 
-	export const buttonVariants = tv({
-		base: "focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-		variants: {
-			variant: {
-				default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs",
-				destructive:
-					"bg-destructive hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60 text-white shadow-xs",
-				outline:
-					"bg-background hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border shadow-xs",
-				secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-xs",
-				ghost: "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-				link: "text-primary underline-offset-4 hover:underline",
-			},
-			size: {
-				default: "h-9 px-4 py-2 has-[>svg]:px-3",
-				sm: "h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5",
-				lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-				icon: "size-9",
-				"icon-sm": "size-8",
-				"icon-lg": "size-10",
-			},
-		},
-		defaultVariants: {
-			variant: "default",
-			size: "default",
-		},
-	});
-
-	export type ButtonVariant = VariantProps<typeof buttonVariants>["variant"];
-	export type ButtonSize = VariantProps<typeof buttonVariants>["size"];
+	export type ButtonVariant = "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+	export type ButtonSize = "default" | "sm" | "lg" | "icon" | "icon-sm" | "icon-lg";
 
 	export type ButtonProps = WithElementRef<HTMLButtonAttributes> &
 		WithElementRef<HTMLAnchorAttributes> & {
 			variant?: ButtonVariant;
 			size?: ButtonSize;
 		};
+
+	const base = "inline-flex shrink-0 items-center justify-center gap-2 rounded text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0";
+
+	const variantStyles: Record<ButtonVariant, string> = {
+		default: "bg-[#3d2b1f] text-[#e8d5c4] hover:bg-[#4a3428] border border-[#5a3d2e]",
+		destructive: "bg-red-600 text-white hover:bg-red-500",
+		outline: "bg-transparent border border-[#2a2a3a] text-[#c9d1d9] hover:bg-white/5",
+		secondary: "bg-[#1a1a2e] text-[#c9d1d9] border border-[#2a2a3a] hover:bg-[#252540]",
+		ghost: "text-[#c9d1d9] hover:bg-white/5",
+		link: "text-blue-400 underline-offset-4 hover:underline",
+	};
+
+	const sizeStyles: Record<ButtonSize, string> = {
+		default: "h-8 px-4 py-1.5",
+		sm: "h-7 px-3 py-1 text-xs",
+		lg: "h-9 px-5 py-2",
+		icon: "size-8",
+		"icon-sm": "size-7",
+		"icon-lg": "size-9",
+	};
+
+	export function buttonClass(variant: ButtonVariant = "default", size: ButtonSize = "default", className?: unknown) {
+		return cn(base, variantStyles[variant], sizeStyles[size], className as string);
+	}
 </script>
 
 <script lang="ts">
@@ -53,29 +48,31 @@
 		children,
 		...restProps
 	}: ButtonProps = $props();
+
+	const computedClass = $derived(buttonClass(variant, size, className));
 </script>
 
 {#if href}
 	<a
 		bind:this={ref}
+		{...restProps}
 		data-slot="button"
-		class={cn(buttonVariants({ variant, size }), className)}
+		class={computedClass}
 		href={disabled ? undefined : href}
 		aria-disabled={disabled}
 		role={disabled ? "link" : undefined}
 		tabindex={disabled ? -1 : undefined}
-		{...restProps}
 	>
 		{@render children?.()}
 	</a>
 {:else}
 	<button
 		bind:this={ref}
+		{...restProps}
 		data-slot="button"
-		class={cn(buttonVariants({ variant, size }), className)}
+		class={computedClass}
 		{type}
 		{disabled}
-		{...restProps}
 	>
 		{@render children?.()}
 	</button>

@@ -2,7 +2,7 @@
 //
 // Handles all vault-related operations
 
-use crate::core::{self, paths::VaultPaths, MosaicError, MosaicResult};
+use crate::core::{self, VaultPaths, MosaicError, MosaicResult};
 use crate::models::{CanvasInfo, VaultInfo, VaultMeta};
 use crate::services::CanvasService;
 use std::path::Path;

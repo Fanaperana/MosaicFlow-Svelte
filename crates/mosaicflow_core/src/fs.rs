@@ -6,7 +6,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::fs;
 use std::path::Path;
 
-use super::result::MosaicResult;
+use crate::result::MosaicResult;
 
 /// Read and parse JSON file
 pub fn read_json<T: DeserializeOwned>(path: &Path) -> MosaicResult<T> {

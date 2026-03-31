@@ -27,7 +27,7 @@
 		{sideOffset}
 		{side}
 		class={cn(
-			"tooltip-content bg-popover text-popover-foreground z-50 w-fit rounded-md px-3 py-1.5 text-xs font-medium border border-border shadow-md",
+			"tooltip-content bg-popover text-popover-foreground z-50 w-fit rounded-md px-2 py-1 text-xs font-medium border border-border shadow-md",
 			className
 		)}
 		{...restProps}

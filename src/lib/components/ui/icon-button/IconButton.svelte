@@ -25,10 +25,7 @@
 
 <SimpleTooltip text={label} position="bottom">
   <button 
-    class="icon-btn"
-    class:active
-    class:danger={variant === 'danger'}
-    class:success={variant === 'success'}
+    class="flex items-center justify-center size-6 p-0 bg-[#161b22] border border-[#30363d] rounded text-[#8b949e] cursor-pointer transition-all duration-150 ease-in-out hover:not-disabled:bg-[#21262d] hover:not-disabled:text-[#c9d1d9] hover:not-disabled:border-[#8b949e] disabled:opacity-50 disabled:cursor-not-allowed {active ? 'bg-[rgba(56,139,253,0.15)] border-[#58a6ff] text-[#58a6ff]' : ''} {variant === 'danger' ? 'hover:not-disabled:bg-[rgba(248,81,73,0.15)] hover:not-disabled:border-[#f85149] hover:not-disabled:text-[#f85149]' : ''} {variant === 'success' ? 'hover:not-disabled:bg-[rgba(63,185,80,0.15)] hover:not-disabled:border-[#3fb950] hover:not-disabled:text-[#3fb950]' : ''}"
     {disabled}
     {onclick}
     type="button"
@@ -36,49 +33,3 @@
     <Icon {size} />
   </button>
 </SimpleTooltip>
-
-<style>
-  .icon-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 4px;
-    color: #8b949e;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-
-  .icon-btn:hover:not(:disabled) {
-    background: #21262d;
-    color: #c9d1d9;
-    border-color: #8b949e;
-  }
-
-  .icon-btn.active {
-    background: rgba(56, 139, 253, 0.15);
-    border-color: #58a6ff;
-    color: #58a6ff;
-  }
-
-  .icon-btn.danger:hover:not(:disabled) {
-    background: rgba(248, 81, 73, 0.15);
-    border-color: #f85149;
-    color: #f85149;
-  }
-
-  .icon-btn.success:hover:not(:disabled) {
-    background: rgba(63, 185, 80, 0.15);
-    border-color: #3fb950;
-    color: #3fb950;
-  }
-
-  .icon-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-</style>

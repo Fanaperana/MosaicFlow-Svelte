@@ -2,11 +2,7 @@
 //
 // Handles migration of old data formats to new versions
 
-use crate::core::{
-    self,
-    paths::{CanvasPaths, VaultPaths},
-    MosaicError, MosaicResult,
-};
+use crate::core::{self, CanvasPaths, VaultPaths, MosaicError, MosaicResult};
 use crate::models::{CanvasInfo, CanvasMeta, CanvasUIState, VaultInfo, VaultMeta};
 use std::path::Path;
 

@@ -23,10 +23,9 @@
   }
 </script>
 
-<div class="property-group">
+<div class="border-b border-[#21262d] last:border-b-0">
   <button 
-    class="group-header"
-    class:collapsible
+    class="flex items-center gap-1.5 w-full px-2.5 py-1.5 bg-transparent border-none text-[#c9d1d9] text-[11px] font-semibold uppercase tracking-wide text-left {collapsible ? 'cursor-pointer hover:bg-[#161b22]' : 'cursor-default'}"
     onclick={toggle}
     type="button"
   >
@@ -37,58 +36,12 @@
         <ChevronRight size={12} />
       {/if}
     {/if}
-    <span class="group-title">{title}</span>
+    <span class="flex-1">{title}</span>
   </button>
   
   {#if open || !collapsible}
-    <div class="group-content">
+    <div class="flex flex-col gap-1.5 px-2.5 pb-2">
       {@render children()}
     </div>
   {/if}
 </div>
-
-<style>
-  .property-group {
-    border-bottom: 1px solid #21262d;
-  }
-
-  .property-group:last-child {
-    border-bottom: none;
-  }
-
-  .group-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    width: 100%;
-    padding: 10px 12px;
-    background: transparent;
-    border: none;
-    color: #c9d1d9;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    text-align: left;
-    cursor: default;
-  }
-
-  .group-header.collapsible {
-    cursor: pointer;
-  }
-
-  .group-header.collapsible:hover {
-    background: #161b22;
-  }
-
-  .group-title {
-    flex: 1;
-  }
-
-  .group-content {
-    padding: 0 12px 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-</style>

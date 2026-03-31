@@ -127,14 +127,14 @@
   );
 </script>
 
-<div class="color-input-wrapper" class:size-sm={size === 'sm'} class:size-md={size === 'md'}>
+<div class="flex items-center gap-2">
   {#if label}
-    <span class="color-label">{label}</span>
+    <span class="text-[11px] text-[#8b949e] min-w-15">{label}</span>
   {/if}
   
   <button 
     type="button"
-    class="color-button" 
+    class="relative {size === 'md' ? 'size-8' : 'size-6'} min-w-6 min-h-6 rounded border border-[#30363d] cursor-pointer p-0 transition-[border-color] duration-150 ease-in-out hover:border-[#58a6ff] color-swatch-btn"
     style="--color: {displayColor}"
     bind:this={buttonRef}
     title="Click to pick color"
@@ -142,7 +142,7 @@
 </div>
 
 <!-- Hidden picker content for tippy -->
-<div bind:this={pickerRef} class="picker-content" style="display: none;">
+<div bind:this={pickerRef} class="block!" style="display: none;">
   <ColorPicker
     bind:hex
     bind:rgb
@@ -153,29 +153,8 @@
 </div>
 
 <style>
-  .color-input-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .color-label {
-    font-size: 11px;
-    color: var(--text-muted, #8b949e);
-    min-width: 60px;
-  }
-
-  .color-button {
-    width: 24px;
-    height: 24px;
-    min-width: 24px;
-    min-height: 24px;
-    border-radius: 4px;
-    border: 1px solid #30363d;
-    cursor: pointer;
-    padding: 0;
-    transition: border-color 0.15s ease;
-    /* Checkerboard background for transparency */
+  /* Checkerboard background for transparency indication */
+  .color-swatch-btn {
     background-image: 
       linear-gradient(45deg, #ccc 25%, transparent 25%), 
       linear-gradient(-45deg, #ccc 25%, transparent 25%), 
@@ -183,33 +162,14 @@
       linear-gradient(-45deg, transparent 75%, #ccc 75%);
     background-size: 8px 8px;
     background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
-    position: relative;
   }
 
-  .color-button::after {
+  .color-swatch-btn::after {
     content: '';
     position: absolute;
     inset: 0;
-    background: var(--color);
     border-radius: 3px;
-  }
-
-  .color-button:hover {
-    border-color: #58a6ff;
-  }
-
-  .size-sm .color-button {
-    width: 24px;
-    height: 24px;
-  }
-
-  .size-md .color-button {
-    width: 32px;
-    height: 32px;
-  }
-
-  .picker-content {
-    display: block !important;
+    background: var(--color);
   }
 </style>
 

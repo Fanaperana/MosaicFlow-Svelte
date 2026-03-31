@@ -16,45 +16,11 @@
   }: Props = $props();
 </script>
 
-<div class="property-row" class:inline>
+<div class="flex {inline ? 'flex-row items-center gap-2' : 'flex-col gap-1'}">
   {#if label}
-    <span class="row-label" class:muted>{label}</span>
+    <span class="text-[11px] min-w-17.5 {muted ? 'text-[#6e7681]' : 'text-[#8b949e]'}">{label}</span>
   {/if}
-  <div class="row-content">
+  <div class="flex-1 flex gap-1.5 {inline ? 'justify-end' : ''}">
     {@render children()}
   </div>
 </div>
-
-<style>
-  .property-row {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .property-row.inline {
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .row-label {
-    font-size: 11px;
-    color: #8b949e;
-    min-width: 70px;
-  }
-
-  .row-label.muted {
-    color: #6e7681;
-  }
-
-  .row-content {
-    flex: 1;
-    display: flex;
-    gap: 6px;
-  }
-
-  .property-row.inline .row-content {
-    justify-content: flex-end;
-  }
-</style>

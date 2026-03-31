@@ -159,6 +159,7 @@ export interface VaultEvent {
   vault_id: string;
   vault_path: string;
   vault_name: string;
+  timestamp: string;
 }
 
 export interface CanvasEvent {
@@ -166,6 +167,7 @@ export interface CanvasEvent {
   canvas_path: string;
   canvas_name: string;
   vault_id: string;
+  timestamp: string;
 }
 
 export interface WorkspaceEvent {
@@ -173,6 +175,7 @@ export interface WorkspaceEvent {
   change_type: WorkspaceChangeType;
   node_ids?: string[];
   edge_ids?: string[];
+  timestamp: string;
 }
 
 export type WorkspaceChangeType = 
@@ -189,11 +192,13 @@ export type WorkspaceChangeType =
 export interface StateEvent {
   last_vault_id: string | null;
   last_canvas_id: string | null;
+  timestamp: string;
 }
 
 export interface HistoryEvent {
   vault_count: number;
   canvas_count: number;
+  timestamp: string;
 }
 
 // ============================================================================

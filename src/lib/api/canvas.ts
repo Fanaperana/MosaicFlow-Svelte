@@ -28,6 +28,15 @@ export async function open(canvasPath: string): Promise<CanvasInfo> {
   );
 }
 
+export async function close(
+  canvasId: string,
+  canvasPath: string,
+  canvasName: string,
+  vaultId: string,
+): Promise<void> {
+  return safeInvoke('close_canvas', { canvasId, canvasPath, canvasName, vaultId }, () => {});
+}
+
 export async function list(vaultPath: string): Promise<CanvasInfo[]> {
   return safeInvoke('list_canvases', { vaultPath }, () =>
     devStorage.listCanvases(vaultPath)

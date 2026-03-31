@@ -50,7 +50,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div 
-	class="tooltip-wrapper"
+	class="relative inline-flex"
 	onmouseenter={handleMouseEnter}
 	onmouseleave={handleMouseLeave}
 >
@@ -58,57 +58,20 @@
 	
 	{#if showTooltip}
 		<div 
-			class="tooltip tooltip-{position}"
+			class="absolute z-9999 px-2 py-1 text-xs font-medium leading-snug text-[#fafafa] bg-[#1a1a24] border border-[#2a2a3a] rounded-md whitespace-nowrap pointer-events-none shadow-[0_4px_12px_rgba(0,0,0,0.4)] opacity-0 scale-95 transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] tooltip-{position}"
 			class:visible
 			role="tooltip"
 		>
-			<div class="tooltip-arrow tooltip-arrow-{position}"></div>
+			<div class="absolute size-2 bg-[#1a1a24] border border-[#2a2a3a] rotate-45 -z-10 tooltip-arrow-{position}"></div>
 			{text}
 		</div>
 	{/if}
 </div>
 
 <style>
-	.tooltip-wrapper {
-		position: relative;
-		display: inline-flex;
-	}
-
-	.tooltip {
-		position: absolute;
-		z-index: 9999;
-		padding: 6px 12px;
-		font-size: 12px;
-		font-weight: 500;
-		line-height: 1.4;
-		color: #fafafa;
-		background: #1a1a24;
-		border: 1px solid #2a2a3a;
-		border-radius: 6px;
-		white-space: nowrap;
-		pointer-events: none;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-		
-		/* Initial state - hidden */
-		opacity: 0;
-		transform: scale(0.95);
-		transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1), transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-	}
-
-	.tooltip.visible {
+	.visible {
 		opacity: 1;
 		transform: scale(1);
-	}
-
-	/* Arrow/Diamond indicator */
-	.tooltip-arrow {
-		position: absolute;
-		width: 8px;
-		height: 8px;
-		background: #1a1a24;
-		border: 1px solid #2a2a3a;
-		transform: rotate(45deg);
-		z-index: -1;
 	}
 
 	/* Position: Bottom (default) */
