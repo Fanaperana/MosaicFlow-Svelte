@@ -86,6 +86,9 @@ export default defineConfig(async () => ({
           port: 1421,
         }
       : undefined,
+    fs: {
+      allow: ['src', 'packages', '.svelte-kit', 'node_modules'],
+    },
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],

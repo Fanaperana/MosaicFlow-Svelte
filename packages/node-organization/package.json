@@ -1,0 +1,29 @@
+{
+  "name": "@mosaicflow/node-organization",
+  "version": "0.1.0",
+  "description": "Companies and groups",
+  "type": "module",
+  "svelte": "./src/index.ts",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "svelte": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./types": {
+      "svelte": "./src/types.ts",
+      "default": "./src/types.ts"
+    },
+    "./plugin": {
+      "svelte": "./src/plugin.ts",
+      "default": "./src/plugin.ts"
+    }
+  },
+  "peerDependencies": {
+    "@mosaicflow/node-sdk": "workspace:*",
+    "@xyflow/svelte": "^1.5.0",
+    "lucide-svelte": ">=0.400.0",
+    "svelte": "^5.0.0"
+  }
+}

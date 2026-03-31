@@ -35,6 +35,69 @@ importers:
       '@markdoc/markdoc':
         specifier: ^0.5.4
         version: 0.5.4
+      '@mosaicflow/node-action':
+        specifier: workspace:*
+        version: link:packages/node-action
+      '@mosaicflow/node-annotation':
+        specifier: workspace:*
+        version: link:packages/node-annotation
+      '@mosaicflow/node-code':
+        specifier: workspace:*
+        version: link:packages/node-code
+      '@mosaicflow/node-credential':
+        specifier: workspace:*
+        version: link:packages/node-credential
+      '@mosaicflow/node-domain':
+        specifier: workspace:*
+        version: link:packages/node-domain
+      '@mosaicflow/node-group':
+        specifier: workspace:*
+        version: link:packages/node-group
+      '@mosaicflow/node-hash':
+        specifier: workspace:*
+        version: link:packages/node-hash
+      '@mosaicflow/node-iframe':
+        specifier: workspace:*
+        version: link:packages/node-iframe
+      '@mosaicflow/node-image':
+        specifier: workspace:*
+        version: link:packages/node-image
+      '@mosaicflow/node-link':
+        specifier: workspace:*
+        version: link:packages/node-link
+      '@mosaicflow/node-link-list':
+        specifier: workspace:*
+        version: link:packages/node-link-list
+      '@mosaicflow/node-map':
+        specifier: workspace:*
+        version: link:packages/node-map
+      '@mosaicflow/node-note':
+        specifier: workspace:*
+        version: link:packages/node-note
+      '@mosaicflow/node-organization':
+        specifier: workspace:*
+        version: link:packages/node-organization
+      '@mosaicflow/node-person':
+        specifier: workspace:*
+        version: link:packages/node-person
+      '@mosaicflow/node-router':
+        specifier: workspace:*
+        version: link:packages/node-router
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:packages/node-sdk
+      '@mosaicflow/node-simple-text':
+        specifier: workspace:*
+        version: link:packages/node-simple-text
+      '@mosaicflow/node-snapshot':
+        specifier: workspace:*
+        version: link:packages/node-snapshot
+      '@mosaicflow/node-social-post':
+        specifier: workspace:*
+        version: link:packages/node-social-post
+      '@mosaicflow/node-timestamp':
+        specifier: workspace:*
+        version: link:packages/node-timestamp
       '@tauri-apps/api':
         specifier: ^2
         version: 2.9.1
@@ -141,6 +204,318 @@ importers:
       vite:
         specifier: ^6.0.3
         version: 6.4.1(jiti@2.6.1)(lightningcss@1.30.2)
+
+  packages/node-action:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-annotation:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-code:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-credential:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-domain:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-group:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-hash:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-iframe:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-image:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-link:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-link-list:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-map:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-note:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-organization:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-person:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-router:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-sdk:
+    dependencies:
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-simple-text:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-snapshot:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-social-post:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-timestamp:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
 
 packages:
 

@@ -1,0 +1,25 @@
+{
+  "name": "@mosaicflow/node-sdk",
+  "version": "0.1.0",
+  "description": "Shared SDK for building MosaicFlow node packages",
+  "type": "module",
+  "svelte": "./src/index.ts",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "svelte": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./types": {
+      "svelte": "./src/types.ts",
+      "default": "./src/types.ts"
+    },
+    "./styles": "./src/styles.css"
+  },
+  "peerDependencies": {
+    "@xyflow/svelte": "^1.5.0",
+    "lucide-svelte": ">=0.400.0",
+    "svelte": "^5.0.0"
+  }
+}

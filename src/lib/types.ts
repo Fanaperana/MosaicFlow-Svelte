@@ -5,250 +5,49 @@ import type { Node, Edge } from '@xyflow/svelte';
 // Node Types - open to allow plugin-defined types
 export type NodeType = string;
 
-// Base node data interface with index signature for xyflow compatibility
-export interface BaseNodeData {
-  title: string;
-  color?: string;
-  borderColor?: string;
-  borderWidth?: number;
-  borderStyle?: 'solid' | 'dashed' | 'dotted' | 'none';
-  borderRadius?: number;
-  bgOpacity?: number;
-  textColor?: string;
-  notes?: string;
-  showHeader?: boolean;
-  locked?: boolean;
-  sizeLocked?: boolean;
-  [key: string]: unknown;
-}
+// Re-export base and node-specific data types from packages
+export type { BaseNodeData } from '@mosaicflow/node-sdk/types';
+export type { NoteNodeData } from '@mosaicflow/node-note/types';
+export type { SimpleTextNodeData } from '@mosaicflow/node-simple-text/types';
+export type { ImageNodeData } from '@mosaicflow/node-image/types';
+export type { LinkNodeData } from '@mosaicflow/node-link/types';
+export type { CodeNodeData } from '@mosaicflow/node-code/types';
+export type { IframeNodeData } from '@mosaicflow/node-iframe/types';
+export type { PersonNodeData } from '@mosaicflow/node-person/types';
+export type { OrganizationNodeData } from '@mosaicflow/node-organization/types';
+export type { TimestampNodeData } from '@mosaicflow/node-timestamp/types';
+export type { DomainNodeData } from '@mosaicflow/node-domain/types';
+export type { HashNodeData } from '@mosaicflow/node-hash/types';
+export type { CredentialNodeData } from '@mosaicflow/node-credential/types';
+export type { SocialPostNodeData } from '@mosaicflow/node-social-post/types';
+export type { RouterNodeData } from '@mosaicflow/node-router/types';
+export type { SnapshotNodeData } from '@mosaicflow/node-snapshot/types';
+export type { GroupNodeData } from '@mosaicflow/node-group/types';
+export type { MapNodeData } from '@mosaicflow/node-map/types';
+export type { LinkListNodeData, LinkItem } from '@mosaicflow/node-link-list/types';
+export type { ActionNodeData } from '@mosaicflow/node-action/types';
+export type { AnnotationNodeData } from '@mosaicflow/node-annotation/types';
 
-// Specific node data types
-export interface NoteNodeData extends BaseNodeData {
-  content: string;
-  isEditing?: boolean;
-  viewMode?: 'edit' | 'view';
-}
-
-export interface SimpleTextNodeData extends BaseNodeData {
-  content: string;
-}
-
-export interface ImageNodeData extends BaseNodeData {
-  imageUrl?: string;
-  imagePath?: string;
-  caption?: string;
-}
-
-export interface LinkNodeData extends BaseNodeData {
-  url: string;
-  description?: string;
-  favicon?: string;
-}
-
-export interface CodeNodeData extends BaseNodeData {
-  code: string;
-  language: string;
-}
-
-export interface TimestampNodeData extends BaseNodeData {
-  datetime: string;
-  format?: 'date' | 'time' | 'datetime' | 'relative';
-  timezone?: string;
-  textColor?: string;
-  showMonth?: boolean;
-  showYear?: boolean;
-  showDayOfWeek?: boolean;
-  showDay?: boolean;
-  showHour?: boolean;
-  showMinute?: boolean;
-  showSecond?: boolean;
-  showMillisecond?: boolean;
-  useCurrentTime?: boolean;
-  multiLine?: boolean;
-  use24HourFormat?: boolean; // Military time (24h) vs 12h with AM/PM
-  customTimestamp?: string; // ISO date string for custom datetime
-  // Component compatibility
-  date?: string;
-  time?: string;
-  label?: string;
-}
-
-export interface PersonNodeData extends BaseNodeData {
-  name: string;
-  email?: string;
-  phone?: string;
-  aliases?: string[];
-  avatar?: string;
-  organization?: string;
-  role?: string;
-}
-
-export interface OrganizationNodeData extends BaseNodeData {
-  name: string;
-  type?: string;
-  website?: string;
-  description?: string;
-  logo?: string;
-  // Component compatibility
-  industry?: string;
-  location?: string;
-  size?: string;
-}
-
-export interface DomainNodeData extends BaseNodeData {
-  domain: string;
-  registrar?: string;
-  createdDate?: string;
-  expiryDate?: string;
-  nameservers?: string[];
-  ipAddresses?: string[];
-  // Additional domain properties
-  protocol?: 'http' | 'https';
-  ip?: string;
-  created?: string;
-  expires?: string;
-}
-
-export interface HashNodeData extends BaseNodeData {
-  hash: string;
-  algorithm: 'md5' | 'sha1' | 'sha256' | 'sha512' | 'other';
-  filename?: string;
-  threatLevel?: 'unknown' | 'safe' | 'suspicious' | 'malicious';
-  virusTotalUrl?: string;
-  // Alternative properties for component compatibility
-  type?: string;
-  value?: string;
-  status?: 'clean' | 'malicious' | 'unknown';
-  source?: string;
-}
-
-export interface CredentialNodeData extends BaseNodeData {
-  username?: string;
-  email?: string;
-  platform?: string;
-  source?: string;
-  breached?: boolean;
-  // Additional properties
-  service?: string;
-  password?: string;
-  compromised?: boolean;
-}
-
-export interface SocialPostNodeData extends BaseNodeData {
-  platform: string;
-  author?: string;
-  content: string;
-  postUrl?: string;
-  timestamp?: string;
-  engagement?: {
-    likes?: number;
-    shares?: number;
-    comments?: number;
-  };
-  // Additional properties
-  url?: string;
-  avatar?: string;
-  handle?: string;
-  likes?: number;
-  reposts?: number;
-  replies?: number;
-}
-
-export interface GroupNodeData extends BaseNodeData {
-  label?: string;
-  childNodeIds?: string[];
-  // Font customization
-  fontSize?: number;
-  fontFamily?: string;
-  fontWeight?: 'normal' | 'medium' | 'semibold' | 'bold';
-  fontStyle?: 'normal' | 'italic';
-  labelColor?: string;
-  // Collapsed state
-  collapsed?: boolean;
-  // Group styling
-  groupColor?: string;
-  groupBgColor?: string;
-  groupBgOpacity?: number;
-  description?: string;
-}
-
-export interface MapNodeData extends BaseNodeData {
-  latitude?: number;
-  longitude?: number;
-  zoom?: number;
-  address?: string;
-  label?: string;
-}
-
-export interface RouterNodeData extends BaseNodeData {
-  name: string;
-  ipAddress?: string;
-  macAddress?: string;
-  manufacturer?: string;
-  model?: string;
-  // Additional properties
-  ip?: string;
-  mac?: string;
-  vendor?: string;
-  status?: 'online' | 'offline' | 'unknown';
-  ports?: number[];
-}
-
-// Link item for LinkListNode
-export interface LinkItem {
-  id: string;
-  url: string;
-  label: string;
-  description?: string;
-}
-
-export interface LinkListNodeData extends BaseNodeData {
-  links: LinkItem[];
-}
-
-export interface SnapshotNodeData extends BaseNodeData {
-  url: string;
-  screenshotPath?: string;
-  capturedAt?: string;
-  htmlPath?: string;
-  // Additional properties
-  imageUrl?: string;
-  sourceUrl?: string;
-  timestamp?: string;
-  hash?: string;
-}
-
-export interface ActionNodeData extends BaseNodeData {
-  action: string;
-  status: 'pending' | 'in-progress' | 'completed' | 'cancelled';
-  dueDate?: string;
-  priority?: 'low' | 'medium' | 'high';
-  assignee?: string;
-}
-
-export interface IframeNodeData extends BaseNodeData {
-  url: string;
-  allowFullscreen?: boolean;
-  sandbox?: string;
-}
-
-export interface AnnotationNodeData extends BaseNodeData {
-  label: string;
-  arrow?: string;
-  arrowStyle?: string;
-  arrowPosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'left' | 'right' | 'none';
-  arrowRotation?: number; // 0, 45, 90, 135, 180, 225, 270, 315
-  arrowFlipX?: boolean;
-  arrowFlipY?: boolean;
-  fontSize?: number;
-  fontWeight?: string;
-  fontStyle?: 'normal' | 'italic';
-  textAlign?: 'left' | 'center' | 'right';
-  // Component compatibility
-  content?: string;
-  annotationType?: 'note' | 'info' | 'warning' | 'error' | 'success';
-  author?: string;
-}
+// Import types for union
+import type { NoteNodeData } from '@mosaicflow/node-note/types';
+import type { ImageNodeData } from '@mosaicflow/node-image/types';
+import type { LinkNodeData } from '@mosaicflow/node-link/types';
+import type { CodeNodeData } from '@mosaicflow/node-code/types';
+import type { TimestampNodeData } from '@mosaicflow/node-timestamp/types';
+import type { PersonNodeData } from '@mosaicflow/node-person/types';
+import type { OrganizationNodeData } from '@mosaicflow/node-organization/types';
+import type { DomainNodeData } from '@mosaicflow/node-domain/types';
+import type { HashNodeData } from '@mosaicflow/node-hash/types';
+import type { CredentialNodeData } from '@mosaicflow/node-credential/types';
+import type { SocialPostNodeData } from '@mosaicflow/node-social-post/types';
+import type { GroupNodeData } from '@mosaicflow/node-group/types';
+import type { MapNodeData } from '@mosaicflow/node-map/types';
+import type { RouterNodeData } from '@mosaicflow/node-router/types';
+import type { LinkListNodeData } from '@mosaicflow/node-link-list/types';
+import type { SnapshotNodeData } from '@mosaicflow/node-snapshot/types';
+import type { ActionNodeData } from '@mosaicflow/node-action/types';
+import type { IframeNodeData } from '@mosaicflow/node-iframe/types';
+import type { AnnotationNodeData } from '@mosaicflow/node-annotation/types';
 
 // Union type for all node data
 export type MosaicNodeData =  
