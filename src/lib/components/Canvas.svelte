@@ -13,16 +13,9 @@
   import '@xyflow/svelte/dist/style.css';
 
   import { workspace } from '$lib/stores/workspace.svelte';
-  import { nodeTypes } from '$lib/components/nodes';
+  import { nodeRegistry, NODE_CATEGORIES, getIconComponent } from '$lib/kernel/registries/node-registry';
   import { GlowEdge } from '$lib/components/edges';
   import type { NodeType, MosaicNode, MosaicEdge } from '$lib/types';
-  import { 
-    NODE_TYPE_INFO, 
-    NODE_CATEGORIES, 
-    getNodesGroupedByCategory,
-    getIconComponent,
-    getNodeDimensions,
-  } from '$lib/types';
   import { resolveCollisions, findNonOverlappingPosition } from '$lib/utils/resolve-collisions';
   import { calculateSnapGuides, calculateSelectionSnapGuides, type SnapGuide } from '$lib/utils/snap-guides';
   import { SpatialIndex } from '$lib/utils/spatial-index';
@@ -61,6 +54,17 @@
     smoothstep: GlowEdge,
     bezier: GlowEdge,
   };
+
+  // Reactive node types from the plugin registry
+  let registryVersion = $state(0);
+  $effect(() => {
+    return nodeRegistry.subscribe(() => { registryVersion++; });
+  });
+  const nodeTypes = $derived.by(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    registryVersion; // trigger reactivity
+    return nodeRegistry.getNodeTypes();
+  });
 
   // Two-way binding with workspace state - using $state.raw for better performance
   let nodes = $state.raw(workspace.nodes as Node[]);
@@ -639,9 +643,9 @@
     }, 50);
   }
 
-  // Get node size from centralized registry
+  // Get node size from plugin registry
   function getNodeSizeForType(type: NodeType): { width: number; height: number } {
-    const dims = getNodeDimensions(type);
+    const dims = nodeRegistry.getDimensions(type);
     return { width: dims.defaultWidth, height: dims.defaultHeight };
   }
 
@@ -882,7 +886,7 @@
           {#each NODE_CATEGORIES as category, i}
             <ContextMenu.Group>
               <ContextMenu.GroupHeading class="context-menu-heading">{category.label}</ContextMenu.GroupHeading>
-              {#each getNodesGroupedByCategory()[category.id] as nodeDef}
+              {#each nodeRegistry.getByCategory(category.id) as nodeDef}
                 {@const IconComponent = getIconComponent(nodeDef.type)}
                 <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu(nodeDef.type)}>
                   <IconComponent size={14} />
@@ -936,7 +940,7 @@
     {#each NODE_CATEGORIES as category}
       <div class="edge-drop-section">
         <div class="edge-drop-section-title">{category.label}</div>
-        {#each getNodesGroupedByCategory()[category.id] as nodeDef}
+        {#each nodeRegistry.getByCategory(category.id) as nodeDef}
           {@const IconComponent = getIconComponent(nodeDef.type)}
           <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop(nodeDef.type)}>
             <IconComponent size={14} /> {nodeDef.label}
@@ -1043,16 +1047,25 @@
   }
 
   /*
-   * Promote each node to its own compositing layer with backface-visibility.
-   * This means the browser rasterizes each node independently at the *current*
-   * scale, producing sharper text and images when zoomed in.
+   * DO NOT add backface-visibility:hidden here.
+   *
+   * On macOS WKWebView (and WebKitGTK on Linux), backface-visibility:hidden
+   * promotes each node into its own compositing layer. WebKit rasterizes
+   * those layers at base DPR only — it does NOT include the ancestor's CSS
+   * scale() in the tile resolution. The GPU compositor then applies the
+   * xyflow viewport scale on top of an under-rasterized bitmap → blurry text.
+   *
+   * Without it, nodes are rasterized as part of the viewport layer at full
+   * quality: DPR × viewport scale → crisp at any zoom level.
+   *
+   * Chromium/WebView2 (Windows) is unaffected because Blink uses an
+   * "ideal contents scale" that includes ancestor transforms when tiling
+   * composited layers, so it stays crisp either way.
    */
   :global(.svelte-flow__node) {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
   }
 
   /* Sharper images inside nodes when zoomed */

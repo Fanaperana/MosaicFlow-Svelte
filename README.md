@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="src-tauri/icons/icon.png" alt="MosaicFlow Logo" width="128" height="128">
+  <img src="static/MosaicFlow-Word.png" alt="MosaicFlow" width="400">
 </p>
-
-<h1 align="center">MosaicFlow</h1>
 
 <p align="center">
   <strong>A powerful node-based canvas for visual information mapping and research</strong>

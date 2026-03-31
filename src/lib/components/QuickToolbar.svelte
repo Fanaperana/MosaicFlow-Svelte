@@ -1,12 +1,9 @@
 <script lang="ts">
   import { 
-    NODE_TYPE_INFO, 
+    nodeRegistry,
     NODE_CATEGORIES, 
-    getNodesGroupedByCategory, 
-    getQuickAccessNodes,
     getIconByName,
-    type NodeType 
-  } from '$lib/types';
+  } from '$lib/kernel/registries/node-registry';
   import { workspace } from '$lib/stores/workspace.svelte';
   import SimpleTooltip from '$lib/components/ui/SimpleTooltip.svelte';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
@@ -19,16 +16,16 @@
   // Icon size for toolbar
   const ICON_SIZE = 16;
 
-  // Group nodes by category - using centralized registry
-  const groupedNodes = $derived(() => getNodesGroupedByCategory());
+  // Group nodes by category - using plugin registry
+  const groupedNodes = $derived(() => nodeRegistry.getGroupedByCategory());
 
-  // Category labels from centralized registry
+  // Category labels from registry
   const categoryLabels = Object.fromEntries(
     NODE_CATEGORIES.map(c => [c.id, c.label])
   );
 
-  // Quick access nodes from centralized registry (nodes with quickAccess: true)
-  const quickNodes = $derived(getQuickAccessNodes());
+  // Quick access nodes from plugin registry (nodes with quickAccess: true)
+  const quickNodes = $derived(nodeRegistry.getQuickAccess());
 
   function setSelectMode() {
     workspace.setCanvasMode('select');
@@ -38,7 +35,7 @@
     workspace.setCanvasMode('drag');
   }
 
-  function handleAddNode(type: NodeType) {
+  function handleAddNode(type: string) {
     // Add node at center of viewport
     const centerX = (window.innerWidth / 2 - workspace.viewport.x) / workspace.viewport.zoom;
     const centerY = (window.innerHeight / 2 - workspace.viewport.y) / workspace.viewport.zoom;

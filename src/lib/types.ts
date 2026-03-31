@@ -2,28 +2,8 @@
 
 import type { Node, Edge } from '@xyflow/svelte';
 
-// Node Types
-export type NodeType = 
-  | 'note'
-  | 'simpleText'
-  | 'image'
-  | 'link'
-  | 'code'
-  | 'timestamp'
-  | 'person'
-  | 'organization'
-  | 'domain'
-  | 'hash'
-  | 'credential'
-  | 'socialPost'
-  | 'group'
-  | 'map'
-  | 'router'
-  | 'linkList'
-  | 'snapshot'
-  | 'action'
-  | 'iframe'
-  | 'annotation';
+// Node Types - open to allow plugin-defined types
+export type NodeType = string;
 
 // Base node data interface with index signature for xyflow compatibility
 export interface BaseNodeData {
@@ -403,25 +383,15 @@ export const DEFAULT_VIEWPORT: Viewport = {
   zoom: 1,
 };
 
-// Re-export node registry types and data for backwards compatibility
-// All node metadata is now centralized in node-registry.ts
+// Re-export node registry types from the plugin-based registry
 export { 
-  NODE_DEFINITIONS as NODE_TYPE_INFO,
-  type NodeDefinition as NodeTypeInfo,
-  type NodeCategory,
+  nodeRegistry,
   NODE_CATEGORIES,
-  getNodeDefinition,
-  getNodesByCategory,
-  getNodesGroupedByCategory,
-  getQuickAccessNodes,
-  getDefaultNodeData,
-  getDefaultTitle,
-  getNodeDimensions,
-  getNodeColors,
-  getIconName,
-  getNodeLabel,
+  ICON_COMPONENTS,
   getIconComponent,
   getIconByName,
-  ICON_COMPONENTS,
-  nodeTypes,
-} from '$lib/components/nodes/node-registry';
+  type NodeCategory,
+  type NodeDimensions,
+  type NodeColors,
+  type NodeTypeRegistration,
+} from '$lib/kernel/registries/node-registry';

@@ -2,10 +2,34 @@
  * Node Type Registry
  * 
  * Registry for node types provided by plugins.
- * This is the new plugin-based registry that replaces the hardcoded node definitions.
+ * This is the SINGLE SOURCE OF TRUTH for all node type metadata.
  */
 
 import type { MosaicNodeData } from '$lib/types';
+import {
+  StickyNote,
+  Type,
+  Image,
+  Link,
+  Code,
+  LayoutGrid,
+  User,
+  Building2,
+  Clock,
+  Globe,
+  FileDigit,
+  KeyRound,
+  MessageSquare,
+  Router,
+  Camera,
+  FolderOpen,
+  MapPin,
+  List,
+  CheckSquare,
+  Box,
+  AppWindow,
+  MessageCircle,
+} from 'lucide-svelte';
 
 // =============================================================================
 // TYPES
@@ -165,15 +189,15 @@ class NodeRegistry {
   }
 
   /**
-   * Get registrations grouped by category
+   * Get registrations grouped by category (as plain object)
    */
-  getGroupedByCategory(): Map<NodeCategory, NodeTypeRegistration[]> {
-    const groups = new Map<NodeCategory, NodeTypeRegistration[]>();
+  getGroupedByCategory(): Record<string, NodeTypeRegistration[]> {
+    const groups: Record<string, NodeTypeRegistration[]> = {};
     
     for (const reg of this.registrations.values()) {
-      const list = groups.get(reg.category) || [];
+      const list = groups[reg.category] || [];
       list.push(reg);
-      groups.set(reg.category, list);
+      groups[reg.category] = list;
     }
     
     return groups;
@@ -231,6 +255,22 @@ class NodeRegistry {
   }
 
   /**
+   * Get default title for a node type
+   */
+  getDefaultTitle(type: string): string {
+    const reg = this.registrations.get(type);
+    return (reg?.defaultData?.title as string) ?? 'Node';
+  }
+
+  /**
+   * Get display label for a node type
+   */
+  getLabel(type: string): string {
+    const reg = this.registrations.get(type);
+    return reg?.label ?? type;
+  }
+
+  /**
    * Subscribe to registry changes
    */
   subscribe(listener: () => void): () => void {
@@ -258,3 +298,61 @@ class NodeRegistry {
 
 // Singleton instance
 export const nodeRegistry = new NodeRegistry();
+
+// =============================================================================
+// CATEGORY METADATA
+// =============================================================================
+
+/** Node categories with display labels and icons */
+export const NODE_CATEGORIES: { id: NodeCategory; label: string; icon: string }[] = [
+  { id: 'content', label: 'Content', icon: '📝' },
+  { id: 'entity', label: 'Entities', icon: '👤' },
+  { id: 'data', label: 'Data', icon: '🔗' },
+  { id: 'utility', label: 'Utility', icon: '🔧' },
+];
+
+// =============================================================================
+// ICON COMPONENT MAPPING
+// =============================================================================
+
+/** Map of icon names to Lucide components */
+export const ICON_COMPONENTS: Record<string, typeof StickyNote> = {
+  StickyNote,
+  Type,
+  Image,
+  Link,
+  Code,
+  LayoutGrid,
+  User,
+  Building2,
+  Clock,
+  Globe,
+  FileDigit,
+  KeyRound,
+  MessageSquare,
+  Router,
+  Camera,
+  FolderOpen,
+  MapPin,
+  List,
+  CheckSquare,
+  Box,
+  AppWindow,
+  MessageCircle,
+};
+
+/**
+ * Get Lucide icon component for a node type
+ */
+export function getIconComponent(type: string): typeof StickyNote {
+  const reg = nodeRegistry.get(type);
+  const iconName = reg?.iconName ?? 'Box';
+  return ICON_COMPONENTS[iconName] ?? Box;
+}
+
+/**
+ * Get Lucide icon component by name
+ */
+export function getIconByName(iconName: string): typeof StickyNote {
+  return ICON_COMPONENTS[iconName] ?? Box;
+}

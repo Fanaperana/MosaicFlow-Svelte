@@ -1,7 +1,7 @@
 <script lang="ts">
   import { workspace } from '$lib/stores/workspace.svelte';
   import type { NodeType, MosaicEdge, MarkerShape, EdgeStrokeStyle } from '$lib/types';
-  import { NODE_TYPE_INFO, getNodeDefinition, getIconByName } from '$lib/types';
+  import { nodeRegistry, getIconByName } from '$lib/kernel/registries/node-registry';
   import { MarkerType } from '@xyflow/svelte';
   import { X, Copy, Trash2, StickyNote, Link2 as Link, ExternalLink, ChevronDown, ChevronRight, Lock, Unlock, Eye, Pencil, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Type, Palette, Settings2, Move, Maximize2, Square, Minus, Circle, SquareRoundCorner } from 'lucide-svelte';
   import { ColorInput } from '$lib/components/ui/color-picker';
@@ -68,7 +68,7 @@
   }
 
   function getNodeTypeInfo(type: string) {
-    return getNodeDefinition(type as NodeType);
+    return nodeRegistry.get(type);
   }
 
   function updateNodeData(key: string, value: unknown) {

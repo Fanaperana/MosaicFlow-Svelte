@@ -2,10 +2,8 @@
  * Node Components Index
  * 
  * This module re-exports all node components organized by category.
- * Use the registry for full node metadata and type definitions.
- * 
- * @see ./node-registry.ts for the centralized node registry (SINGLE SOURCE OF TRUTH)
- * @see ./README.md for documentation on creating new nodes
+ * Node metadata and type definitions live in the plugin registry:
+ * @see $lib/kernel/registries/node-registry.ts (SINGLE SOURCE OF TRUTH)
  */
 
 // =============================================================================
@@ -26,79 +24,3 @@ export * from './utility';
 
 // Shared Components & Utilities
 export * from './_shared';
-
-// =============================================================================
-// CENTRALIZED NODE REGISTRY EXPORTS
-// =============================================================================
-
-// Re-export everything from the centralized node registry
-export {
-  // Types
-  type NodeCategory,
-  type NodeDimensions,
-  type NodeColors,
-  type NodeDefinition,
-  
-  // Main exports
-  NODE_DEFINITIONS,
-  NODE_DEFINITIONS as NODE_REGISTRY, // Backwards compatibility alias
-  NODE_DEFINITION_MAP,
-  nodeTypes,
-  NODE_CATEGORIES,
-  
-  // Helper functions
-  getNodeDefinition,
-  getNodesByCategory,
-  getNodesGroupedByCategory,
-  getQuickAccessNodes,
-  getDefaultNodeData,
-  getDefaultTitle,
-  getNodeDimensions,
-  getNodeColors,
-  getIconName,
-  getNodeLabel,
-  getIconComponent,
-  getIconByName,
-  ICON_COMPONENTS,
-} from './node-registry';
-
-// =============================================================================
-// LEGACY EXPORTS (deprecated - use category imports instead)
-// =============================================================================
-
-// Content
-import { NoteNode, SimpleTextNode, ImageNode, LinkNode, CodeNode, IframeNode } from './content';
-// Entity
-import { PersonNode, OrganizationNode, TimestampNode } from './entity';
-// Data
-import { DomainNode, HashNode, CredentialNode, SocialPostNode, RouterNode, SnapshotNode } from './data';
-// Utility
-import { GroupNode, MapNode, LinkListNode, ActionNode, AnnotationNode } from './utility';
-
-// Individual named exports (for backwards compatibility)
-export {
-  // Content
-  NoteNode,
-  SimpleTextNode,
-  ImageNode,
-  LinkNode,
-  CodeNode,
-  IframeNode,
-  // Entity
-  PersonNode,
-  OrganizationNode,
-  TimestampNode,
-  // Data
-  DomainNode,
-  HashNode,
-  CredentialNode,
-  SocialPostNode,
-  RouterNode,
-  SnapshotNode,
-  // Utility
-  GroupNode,
-  MapNode,
-  LinkListNode,
-  ActionNode,
-  AnnotationNode,
-};

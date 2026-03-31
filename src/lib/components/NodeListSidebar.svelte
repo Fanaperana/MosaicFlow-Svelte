@@ -2,7 +2,7 @@
   import { workspace } from '$lib/stores/workspace.svelte';
   import { ChevronRight, ChevronDown, Search, FolderOpen, GripVertical } from 'lucide-svelte';
   import type { MosaicNode, NodeType } from '$lib/types';
-  import { getIconComponent } from '$lib/types';
+  import { getIconComponent } from '$lib/kernel/registries/node-registry';
   import { useSvelteFlow } from '@xyflow/svelte';
 
   interface Props {

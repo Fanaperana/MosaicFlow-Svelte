@@ -109,8 +109,7 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    max-height: 200px;
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   .empty-state {

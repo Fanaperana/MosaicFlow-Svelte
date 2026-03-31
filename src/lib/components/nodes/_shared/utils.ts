@@ -104,11 +104,15 @@ export function nodeStyleToString(styles: NodeStyleProps): string {
 }
 
 // ============================================================================
-// NODE SIZE DEFAULTS - Re-exported from centralized registry
+// NODE SIZE DEFAULTS - Re-exported from plugin registry
 // ============================================================================
 
-// Re-export from centralized registry for backwards compatibility
 export { 
   type NodeDimensions,
-  getNodeDimensions,
-} from '../node-registry';
+} from '$lib/kernel/registries/node-registry';
+
+import { nodeRegistry, type NodeDimensions } from '$lib/kernel/registries/node-registry';
+
+export function getNodeDimensions(type: string): NodeDimensions {
+  return nodeRegistry.getDimensions(type);
+}

@@ -10,11 +10,11 @@
 
 import type { Node, Edge } from '@xyflow/svelte';
 import type { MosaicNodeData, NodeType } from '$lib/types';
-import { getNodeColors } from '$lib/components/nodes/node-registry';
+import { nodeRegistry } from '$lib/kernel/registries/node-registry';
 
-// Get node colors from centralized registry
+// Get node colors from plugin registry
 function getColors(type: NodeType): { bg: string; border: string; icon: string } {
-  return getNodeColors(type);
+  return nodeRegistry.getColors(type);
 }
 
 // Default node dimensions

@@ -25,11 +25,7 @@ import {
   deleteNodeFolder,
   resetNodeFileService,
 } from '$lib/services/nodeFileService';
-import { 
-  getNodeDimensions, 
-  getDefaultNodeData, 
-  getDefaultTitle 
-} from '$lib/components/nodes/node-registry';
+import { nodeRegistry } from '$lib/kernel/registries/node-registry';
 import {
   initEdgeFileService,
   saveEdge,
@@ -319,29 +315,29 @@ class WorkspaceStore {
     return newNodes;
   }
 
-  // Get default data for a node type - uses centralized registry
+  // Get default data for a node type - uses plugin registry
   private getDefaultDataForType(type: NodeType): MosaicNodeData {
     const baseData = {
-      title: getDefaultTitle(type),
+      title: nodeRegistry.getDefaultTitle(type),
       color: this.settings.defaultNodeColor,
     };
     
-    // Get default data from centralized registry
-    const defaultData = getDefaultNodeData(type);
+    // Get default data from plugin registry
+    const defaultData = nodeRegistry.getDefaultData(type);
     
     return { ...baseData, ...defaultData } as MosaicNodeData;
   }
 
   private getDefaultTitleForType(type: NodeType): string {
-    return getDefaultTitle(type);
+    return nodeRegistry.getDefaultTitle(type);
   }
 
   private getDefaultWidthForType(type: NodeType): number {
-    return getNodeDimensions(type).defaultWidth;
+    return nodeRegistry.getDimensions(type).defaultWidth;
   }
 
   private getDefaultHeightForType(type: NodeType): number {
-    return getNodeDimensions(type).defaultHeight;
+    return nodeRegistry.getDimensions(type).defaultHeight;
   }
 
   // Update a node

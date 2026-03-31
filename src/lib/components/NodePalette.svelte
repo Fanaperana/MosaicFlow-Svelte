@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { NODE_TYPE_INFO, NODE_CATEGORIES, getIconByName, type NodeType } from '$lib/types';
+  import { nodeRegistry, NODE_CATEGORIES, getIconByName } from '$lib/kernel/registries/node-registry';
   import { workspace } from '$lib/stores/workspace.svelte';
 
   let isCollapsed = $state(false);
@@ -10,7 +10,7 @@
   const categories = NODE_CATEGORIES;
 
   const filteredNodes = $derived(() => {
-    let nodes = NODE_TYPE_INFO;
+    let nodes = nodeRegistry.getAll();
     
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -27,7 +27,7 @@
     return nodes;
   });
 
-  function handleDragStart(e: DragEvent, type: NodeType) {
+  function handleDragStart(e: DragEvent, type: string) {
     if (e.dataTransfer) {
       e.dataTransfer.setData('application/mosaicflow-node', type);
       e.dataTransfer.effectAllowed = 'move';
@@ -101,7 +101,7 @@
     </div>
   {:else}
     <div class="collapsed-nodes">
-      {#each NODE_TYPE_INFO as nodeInfo}
+      {#each nodeRegistry.getAll() as nodeInfo}
         {@const IconComponent = getIconByName(nodeInfo.iconName)}
         <div 
           class="collapsed-node-item"
