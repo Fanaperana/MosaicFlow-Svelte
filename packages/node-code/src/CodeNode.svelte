@@ -6,10 +6,10 @@
 <script lang="ts">
   import { type NodeProps, type Node } from '@xyflow/svelte';
   import type { CodeNodeData } from './types';
-  import { workspace } from '$lib/stores/workspace.svelte';
+  import { workspace } from '@mosaicflow/node-sdk/store';
   import { Code, Copy, Check } from 'lucide-svelte';
   import { NodeWrapper } from '@mosaicflow/node-sdk';
-  import { CodeEditor } from '$lib/components/editor';
+  import { CodeEditor } from '@mosaicflow/node-sdk/editor';
 
   type CodeNodeType = Node<CodeNodeData, 'code'>;
 

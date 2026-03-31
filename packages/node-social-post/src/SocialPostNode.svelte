@@ -6,7 +6,7 @@
 <script lang="ts">
   import { type NodeProps, type Node } from '@xyflow/svelte';
   import type { SocialPostNodeData } from './types';
-  import { workspace } from '$lib/stores/workspace.svelte';
+  import { workspace } from '@mosaicflow/node-sdk/store';
   import { MessageCircle, Heart, Repeat2, ExternalLink, Calendar } from 'lucide-svelte';
   import { NodeWrapper, NodeField } from '@mosaicflow/node-sdk';
 

@@ -6,7 +6,7 @@
 <script lang="ts">
   import { type NodeProps, type Node } from '@xyflow/svelte';
   import type { ImageNodeData } from './types';
-  import { workspace } from '$lib/stores/workspace.svelte';
+  import { workspace } from '@mosaicflow/node-sdk/store';
   import { Image, Camera, Upload, Link } from 'lucide-svelte';
   import { open } from '@tauri-apps/plugin-dialog';
   import { convertFileSrc } from '@tauri-apps/api/core';

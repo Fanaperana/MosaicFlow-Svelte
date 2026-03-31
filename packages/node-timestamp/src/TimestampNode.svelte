@@ -10,7 +10,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { hexToRgba } from '@mosaicflow/node-sdk';
   import { NodeFloatingToolbar } from '@mosaicflow/node-sdk';
-  import { workspace } from '$lib/stores/workspace.svelte';
+  import { workspace } from '@mosaicflow/node-sdk/store';
 
   type TimestampNodeType = Node<TimestampNodeData, 'timestamp'>;
 

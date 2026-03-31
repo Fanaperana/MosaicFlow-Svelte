@@ -11,7 +11,7 @@
 <script lang="ts">
   import { type NodeProps, type Node, NodeResizer } from '@xyflow/svelte';
   import type { AnnotationNodeData } from './types';
-  import { workspace } from '$lib/stores/workspace.svelte';
+  import { workspace } from '@mosaicflow/node-sdk/store';
   import { RotateCw } from 'lucide-svelte';
   import { NodeFloatingToolbar } from '@mosaicflow/node-sdk';
 

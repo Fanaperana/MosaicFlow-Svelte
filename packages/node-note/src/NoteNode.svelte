@@ -6,9 +6,9 @@
 <script lang="ts">
   import { Handle, Position, NodeResizer, type NodeProps, type Node } from '@xyflow/svelte';
   import type { NoteNodeData } from './types';
-  import { workspace } from '$lib/stores/workspace.svelte';
+  import { workspace } from '@mosaicflow/node-sdk/store';
   import { StickyNote, Check, Pencil } from 'lucide-svelte';
-  import { RichMarkdownEditor } from '$lib/components/editor';
+  import { RichMarkdownEditor } from '@mosaicflow/node-sdk/editor';
   import { marked } from 'marked';
   import { hexToRgba } from '@mosaicflow/node-sdk';
   import { NodeFloatingToolbar } from '@mosaicflow/node-sdk';

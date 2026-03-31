@@ -8,7 +8,7 @@
   import { type NodeProps, type Node, NodeResizer } from '@xyflow/svelte';
   import type { GroupNodeData } from './types';
   import { NodeFloatingToolbar } from '@mosaicflow/node-sdk';
-  import { workspace } from '$lib/stores/workspace.svelte';
+  import { workspace } from '@mosaicflow/node-sdk/store';
 
   type GroupNodeType = Node<GroupNodeData, 'group'>;
 

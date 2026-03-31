@@ -1,4 +1,4 @@
-import type { NodeTypeRegistration } from "$lib/kernel/registries/node-registry";
+import type { NodeTypeRegistration } from "@mosaicflow/node-sdk/registry";
 import TimestampNode from "./TimestampNode.svelte";
 export const metadata: Omit<NodeTypeRegistration, "pluginId"> = {
   type: "timestamp",

@@ -15,6 +15,18 @@
       "svelte": "./src/types.ts",
       "default": "./src/types.ts"
     },
+    "./store": {
+      "svelte": "./src/store.ts",
+      "default": "./src/store.ts"
+    },
+    "./registry": {
+      "svelte": "./src/registry.ts",
+      "default": "./src/registry.ts"
+    },
+    "./editor": {
+      "svelte": "./src/editor.ts",
+      "default": "./src/editor.ts"
+    },
     "./styles": "./src/styles.css"
   },
   "peerDependencies": {

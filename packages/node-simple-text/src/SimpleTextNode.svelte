@@ -6,7 +6,7 @@
 <script lang="ts">
   import { Handle, Position, NodeResizer, type NodeProps, type Node } from '@xyflow/svelte';
   import type { SimpleTextNodeData } from './types';
-  import { workspace } from '$lib/stores/workspace.svelte';
+  import { workspace } from '@mosaicflow/node-sdk/store';
   import { Type } from 'lucide-svelte';
   import { hexToRgba } from '@mosaicflow/node-sdk';
   import { NodeFloatingToolbar } from '@mosaicflow/node-sdk';

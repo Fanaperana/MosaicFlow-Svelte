@@ -9,7 +9,7 @@
 <script lang="ts">
   import { type NodeProps, type Node } from '@xyflow/svelte';
   import type { MapNodeData } from './types';
-  import { workspace } from '$lib/stores/workspace.svelte';
+  import { workspace } from '@mosaicflow/node-sdk/store';
   import { MapPin, Navigation, ExternalLink, ZoomIn, ZoomOut, Loader2, Search } from 'lucide-svelte';
   import { NodeWrapper, NodeField } from '@mosaicflow/node-sdk';
   import { MapLibre, Marker, NavigationControl } from 'svelte-maplibre-gl';

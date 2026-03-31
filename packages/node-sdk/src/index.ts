@@ -2,15 +2,15 @@
  * @mosaicflow/node-sdk
  *
  * Shared SDK for building MosaicFlow node packages.
- * Provides base components, utilities, types, and styles.
+ * Re-exports components and utilities from the canonical _shared source.
  */
 
 // Components
-export { default as NodeWrapper } from './NodeWrapper.svelte';
-export { default as NodeHeader } from './NodeHeader.svelte';
-export { default as NodeField } from './NodeField.svelte';
-export { default as NodeHandles } from './NodeHandles.svelte';
-export { default as NodeFloatingToolbar } from './NodeFloatingToolbar.svelte';
+export { default as NodeWrapper } from '$lib/components/nodes/_shared/NodeWrapper.svelte';
+export { default as NodeHeader } from '$lib/components/nodes/_shared/NodeHeader.svelte';
+export { default as NodeField } from '$lib/components/nodes/_shared/NodeField.svelte';
+export { default as NodeHandles } from '$lib/components/nodes/_shared/NodeHandles.svelte';
+export { default as NodeFloatingToolbar } from '$lib/components/nodes/_shared/NodeFloatingToolbar.svelte';
 
 // Utilities
 export {
@@ -22,7 +22,7 @@ export {
   getNodeDimensions,
   type NodeStyleProps,
   type NodeDimensions,
-} from './utils';
+} from '$lib/components/nodes/_shared/utils';
 
 // Types
-export type { BaseNodeData } from './types';
+export type { BaseNodeData, NodeType } from './types';

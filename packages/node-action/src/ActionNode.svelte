@@ -6,7 +6,7 @@
 <script lang="ts">
   import { type NodeProps, type Node } from '@xyflow/svelte';
   import type { ActionNodeData } from './types';
-  import { workspace } from '$lib/stores/workspace.svelte';
+  import { workspace } from '@mosaicflow/node-sdk/store';
   import { Zap, CheckCircle, Circle, Clock, XCircle } from 'lucide-svelte';
   import { NodeWrapper, NodeField } from '@mosaicflow/node-sdk';
 
