@@ -36,6 +36,12 @@ import {
 } from '$lib/services/edgeFileService';
 
 // Reactive state using Svelte 5 runes
+// History snapshots keep whatever was selected at the time; restoring must not resurrect it,
+// otherwise the next Delete removes nodes the user can't see are selected.
+function deselect<T extends { selected?: boolean }>(item: T): T {
+  return item.selected ? { ...item, selected: false } : item;
+}
+
 class WorkspaceStore {
   // Core data
   nodes = $state.raw<MosaicNode[]>([]);
@@ -139,8 +145,9 @@ class WorkspaceStore {
       
       // Restore previous state
       const previousState = this.undoStack.pop()!;
-      this.nodes = previousState.nodes;
-      this.edges = previousState.edges;
+      this.nodes = previousState.nodes.map(deselect);
+      this.edges = previousState.edges.map(deselect);
+      this.selectedEdgeIds = [];
       
       // Update reactive state
       this.canUndo = this.undoStack.length > 0;
@@ -169,8 +176,9 @@ class WorkspaceStore {
       
       // Restore next state
       const nextState = this.redoStack.pop()!;
-      this.nodes = nextState.nodes;
-      this.edges = nextState.edges;
+      this.nodes = nextState.nodes.map(deselect);
+      this.edges = nextState.edges.map(deselect);
+      this.selectedEdgeIds = [];
       
       // Update reactive state
       this.canUndo = this.undoStack.length > 0;
@@ -561,6 +569,19 @@ class WorkspaceStore {
     if (this.workspacePath) {
       deleteEdgeFolder(id);
     }
+  }
+
+  // Delete nodes and edges as one undoable action
+  deleteSelection(nodeIds: string[], edgeIds: string[]) {
+    if (nodeIds.length === 0 && edgeIds.length === 0) return;
+    this.saveToHistory();
+    if (nodeIds.length > 0) this.removeNodes(nodeIds);
+    const remaining = edgeIds.filter(id => this.edges.some(e => e.id === id));
+    if (remaining.length > 0) {
+      this.edges = this.edges.filter(edge => !remaining.includes(edge.id));
+      if (this.workspacePath) remaining.forEach(id => deleteEdgeFolder(id));
+    }
+    this.selectedEdgeIds = [];
   }
 
   // Set canvas mode

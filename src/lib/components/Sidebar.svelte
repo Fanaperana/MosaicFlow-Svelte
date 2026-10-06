@@ -159,12 +159,7 @@
     <SimpleTooltip text="Delete Selected" position="right">
       <button 
         class="sidebar-btn danger" 
-        onclick={() => {
-          if (workspace.selectedNodeIds.length > 0) {
-            workspace.deleteNodes(workspace.selectedNodeIds);
-          }
-          workspace.selectedEdgeIds.forEach(id => workspace.deleteEdge(id));
-        }}
+        onclick={() => workspace.deleteSelection([...workspace.selectedNodeIds], [...workspace.selectedEdgeIds])}
         disabled={workspace.selectedNodeIds.length === 0 && workspace.selectedEdgeIds.length === 0}
       >
         <Trash2 size={17} strokeWidth={1.6} />

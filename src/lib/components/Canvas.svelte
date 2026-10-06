@@ -673,12 +673,7 @@
 
   // Delete selected nodes/edges
   function handleDeleteSelected() {
-    if (workspace.selectedNodeIds.length > 0) {
-      workspace.deleteNodes(workspace.selectedNodeIds);
-    }
-    if (workspace.selectedEdgeIds.length > 0) {
-      workspace.selectedEdgeIds.forEach(id => workspace.deleteEdge(id));
-    }
+    workspace.deleteSelection([...workspace.selectedNodeIds], [...workspace.selectedEdgeIds]);
   }
 
   // Check if we can group (2+ top-level nodes selected)
