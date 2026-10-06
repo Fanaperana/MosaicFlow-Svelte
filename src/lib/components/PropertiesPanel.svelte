@@ -10,6 +10,7 @@
   import { PropertyRow } from '$lib/components/ui/property-row';
   import { NumberInput } from '$lib/components/ui/number-input';
   import FixedTooltip from '$lib/components/ui/FixedTooltip.svelte';
+  import { openExternal } from '$lib/utils';
 
   // Helper: Convert hex + opacity to RGBA string
   function hexToRgba(hex: string, opacity: number): string {
@@ -49,6 +50,7 @@
   let appearanceOpen = $state(true);
   let optionsOpen = $state(true);
   let actionsOpen = $state(true);
+  let fieldsOpen = $state(true);
 
   let selectedNode = $derived(
     workspace.selectedNodeIds.length === 1
@@ -61,6 +63,21 @@
       ? workspace.edges.find(e => e.id === workspace.selectedEdgeIds[0])
       : null
   );
+
+  // Object-valued fields have bespoke editors inside the node itself.
+  let schemaFields = $derived(
+    selectedNode
+      ? Object.entries(nodeRegistry.get(selectedNode.type)?.knowledge?.fields ?? {})
+          .filter(([, f]) => f.type !== 'object' && f.type !== 'object[]')
+      : []
+  );
+
+  let bodyField = $derived(selectedNode ? nodeRegistry.getBodyMapping(selectedNode.type).field : '');
+
+  function fieldLabel(key: string): string {
+    const words = key.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+    return words.charAt(0).toUpperCase() + words.slice(1);
+  }
 
   // Use centralized icon registry
   function getIconComponent(iconName: string) {
@@ -188,11 +205,8 @@
 
   function duplicateNode() {
     if (selectedNode) {
-      const newPosition = {
-        x: selectedNode.position.x + 50,
-        y: selectedNode.position.y + 50,
-      };
-      workspace.createNode(selectedNode.type as NodeType, newPosition, { ...selectedNode.data });
+      const [copy] = workspace.duplicateNodes([selectedNode.id]);
+      if (copy) workspace.setSelectedNodes([copy.id]);
     }
   }
 
@@ -270,10 +284,18 @@
   onpointerdown={handlePanelEvent}
 >
   <div class="panel-header">
-    <h3>Properties</h3>
+    {#if selectedEdge}
+      <span class="header-title"><span class="header-icon edge"><Link size={13} /></span>Edge</span>
+    {:else if selectedNode}
+      {@const info = getNodeTypeInfo(selectedNode.type)}
+      {@const HeaderIcon = info ? getIconComponent(info.iconName) : StickyNote}
+      <span class="header-title"><span class="header-icon"><HeaderIcon size={13} /></span>{info?.label || selectedNode.type}</span>
+    {:else}
+      <span class="header-title">Properties</span>
+    {/if}
     <FixedTooltip text="Close" position="left">
       <button class="close-btn" onclick={onClose}>
-        <X size={16} />
+        <X size={14} />
       </button>
     </FixedTooltip>
   </div>
@@ -281,11 +303,6 @@
   {#if selectedEdge}
     <!-- Edge Properties -->
     <div class="panel-content">
-      <div class="node-badge edge-badge">
-        <Link size={16} />
-        <span>Edge</span>
-      </div>
-
       <div class="section">
         <div class="section-header">General</div>
         
@@ -469,16 +486,7 @@
     </div>
 
   {:else if selectedNode}
-    {@const typeInfo = getNodeTypeInfo(selectedNode.type)}
-    {@const IconComponent = typeInfo ? getIconComponent(typeInfo.iconName) : StickyNote}
-    
     <div class="panel-content">
-      <!-- Node Type Badge -->
-      <div class="node-badge">
-        <IconComponent size={16} />
-        <span>{typeInfo?.label || selectedNode.type}</span>
-      </div>
-
       <!-- General Section -->
       <PropertyGroup title="General" bind:open={generalOpen}>
         <div class="field">
@@ -500,6 +508,68 @@
           />
         </div>
       </PropertyGroup>
+
+      <!-- Type-specific fields, generated from the node plugin's schema -->
+      {#if schemaFields.length > 0}
+        <PropertyGroup title="Properties" bind:open={fieldsOpen}>
+          {#each schemaFields as [key, field] (key)}
+            {@const value = selectedNode.data[key]}
+            {#if field.type === 'boolean'}
+              <label class="checkbox-row" title={field.description}>
+                <input type="checkbox" checked={!!value} onchange={(e) => updateNodeData(key, (e.target as HTMLInputElement).checked)} />
+                <span>{fieldLabel(key)}</span>
+              </label>
+            {:else if field.type === 'markdown' || key === bodyField}
+              <div class="field field-block" title={field.description}>
+                <span>{fieldLabel(key)}</span>
+                <textarea
+                  rows="3"
+                  value={typeof value === 'string' ? value : ''}
+                  placeholder={field.description}
+                  oninput={(e) => updateNodeData(key, (e.target as HTMLTextAreaElement).value)}
+                ></textarea>
+              </div>
+            {:else}
+              <div class="field" title={field.description}>
+                <span>{fieldLabel(key)}</span>
+                {#if field.type === 'enum'}
+                  <select value={typeof value === 'string' ? value : ''} onchange={(e) => updateNodeData(key, (e.target as HTMLSelectElement).value)}>
+                    <option value="">—</option>
+                    {#each field.values ?? [] as option}
+                      <option value={option}>{option}</option>
+                    {/each}
+                  </select>
+                {:else if field.type === 'number'}
+                  <input
+                    type="number"
+                    step="any"
+                    value={typeof value === 'number' ? value : ''}
+                    placeholder="Empty"
+                    oninput={(e) => {
+                      const n = parseFloat((e.target as HTMLInputElement).value);
+                      updateNodeData(key, Number.isFinite(n) ? n : undefined);
+                    }}
+                  />
+                {:else if field.type === 'string[]'}
+                  <input
+                    type="text"
+                    value={Array.isArray(value) ? value.join(', ') : ''}
+                    placeholder="a, b, c"
+                    oninput={(e) => updateNodeData(key, (e.target as HTMLInputElement).value.split(',').map(s => s.trim()).filter(Boolean))}
+                  />
+                {:else}
+                  <input
+                    type="text"
+                    value={typeof value === 'string' || typeof value === 'number' ? String(value) : ''}
+                    placeholder={field.type === 'date' ? 'YYYY-MM-DD' : field.type === 'url' ? 'https://' : 'Empty'}
+                    oninput={(e) => updateNodeData(key, (e.target as HTMLInputElement).value)}
+                  />
+                {/if}
+              </div>
+            {/if}
+          {/each}
+        </PropertyGroup>
+      {/if}
 
       <!-- Appearance Section -->
       <PropertyGroup title="Appearance" bind:open={appearanceOpen}>
@@ -723,7 +793,7 @@
         <div class="field-with-lock">
           <div class="field-row">
             <div class="field">
-              <span class="muted">Width</span>
+              <span class="muted">W</span>
               <input 
                 type="number" 
                 value={selectedNode.width || 200}
@@ -733,7 +803,7 @@
               />
             </div>
             <div class="field">
-              <span class="muted">Height</span>
+              <span class="muted">H</span>
               <input 
                 type="number" 
                 value={selectedNode.height || 100}
@@ -1168,7 +1238,7 @@
                 class="quick-action-btn"
                 onclick={() => {
                   const hash = (selectedNode.data as any).hash;
-                  if (hash) window.open(`https://www.virustotal.com/gui/search/${hash}`, '_blank');
+                  if (hash) openExternal(`https://www.virustotal.com/gui/search/${encodeURIComponent(hash)}`);
                 }}
               >
                 <ExternalLink size={14} /> VirusTotal Lookup
@@ -1179,7 +1249,7 @@
                 class="quick-action-btn"
                 onclick={() => {
                   const email = (selectedNode.data as any).email;
-                  if (email) window.open(`https://haveibeenpwned.com/account/${email}`, '_blank');
+                  if (email) openExternal(`https://haveibeenpwned.com/account/${encodeURIComponent(email)}`);
                 }}
               >
                 <ExternalLink size={14} /> HIBP Check
@@ -1190,7 +1260,7 @@
                 class="quick-action-btn"
                 onclick={() => {
                   const domain = (selectedNode.data as any).domain;
-                  if (domain) window.open(`https://who.is/whois/${domain}`, '_blank');
+                  if (domain) openExternal(`https://who.is/whois/${encodeURIComponent(domain)}`);
                 }}
               >
                 <ExternalLink size={14} /> WHOIS Lookup
@@ -1225,150 +1295,231 @@
 
 <style>
   .properties-panel {
-    width: 280px;
+    width: 264px;
     height: 100vh;
-    background: #0d1117;
-    border-left: 1px solid #21262d;
+    background: var(--mf-surface);
+    border-left: 1px solid var(--mf-border);
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
-    color: #c9d1d9;
-    font-family: 'Space Mono', monospace;
-    font-size: 12px;
+    color: var(--mf-text);
+    font-family: var(--mf-font-ui);
+    font-size: 12.5px;
   }
 
   .panel-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 16px;
     height: 36px;
-    border-bottom: 1px solid #21262d;
-    background: #0d1117;
+    padding: 0 8px 0 12px;
+    border-bottom: 1px solid var(--mf-border);
   }
 
-  .panel-header h3 {
-    margin: 0;
-    font-size: 12px;
+  .header-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
     font-weight: 600;
-    color: #f0f6fc;
+    color: var(--mf-text);
+  }
+
+  .header-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    background: var(--mf-accent-soft);
+    color: var(--mf-accent);
+  }
+
+  .header-icon.edge {
+    background: rgba(163, 113, 247, 0.16);
+    color: #b48cf7;
   }
 
   .close-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
+    padding: 0;
     background: transparent;
     border: none;
-    border-radius: 4px;
-    color: #8b949e;
+    border-radius: var(--mf-radius);
+    color: var(--mf-text-3);
     cursor: pointer;
   }
 
   .close-btn:hover {
-    background: #21262d;
-    color: #f0f6fc;
+    background: var(--mf-hover);
+    color: var(--mf-text);
   }
 
   .panel-content {
     flex: 1;
     overflow-y: auto;
-    padding: 12px 16px;
+    padding: 4px 6px 12px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-  }
-
-  .node-badge {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background: rgba(56, 139, 253, 0.15);
-    border: 1px solid rgba(56, 139, 253, 0.4);
-    border-radius: 4px;
-    color: #58a6ff;
-    font-weight: 500;
-  }
-
-  .edge-badge {
-    background: rgba(163, 113, 247, 0.15);
-    border-color: rgba(163, 113, 247, 0.4);
-    color: #a371f7;
   }
 
   .section {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 2px;
+    padding: 6px 0;
+    border-top: 1px solid var(--mf-border);
+  }
+
+  .section:first-child {
+    border-top: none;
   }
 
   .section-header {
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #8b949e;
-    padding-bottom: 6px;
-    border-bottom: 1px solid #21262d;
-  }
-
-  .field {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    align-items: center;
+    height: 24px;
+    padding: 0 6px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--mf-text-3);
   }
 
-  .field > span {
-    font-size: 11px;
-    color: #c9d1d9;
+  /* Notion-style property rows: label left, value right */
+  .field,
+  .input-group {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    align-items: center;
+    column-gap: 6px;
+    min-height: var(--mf-row);
+    padding: 0 6px;
+    border-radius: 4px;
+  }
+
+  .input-group > :nth-child(n + 3) {
+    grid-column: 1 / -1;
+  }
+
+  .field:hover,
+  .input-group:hover {
+    background: var(--mf-hover);
+  }
+
+  .field > span,
+  .input-label {
+    font-size: 12px;
+    color: var(--mf-text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .field > span.muted {
-    color: #8b949e;
+    color: var(--mf-text-3);
   }
 
   .field input[type="text"],
-  .field input[type="number"] {
+  .field input[type="number"],
+  .field select,
+  .select-input,
+  .text-input,
+  .datetime-input {
     width: 100%;
-    padding: 6px 10px;
-    background: #161b22;
-    border: 1px solid #30363d;
+    height: 24px;
+    padding: 0 6px;
+    background: transparent;
+    border: 1px solid transparent;
     border-radius: 4px;
-    color: #c9d1d9;
-    font-size: 11px;
-    font-family: 'Space Mono', monospace;
+    color: var(--mf-text);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
     outline: none;
     box-sizing: border-box;
   }
 
-  .field input:focus {
-    border-color: #58a6ff;
+  .field select,
+  .select-input {
+    cursor: pointer;
   }
 
-  .field input.readonly,
+  .field input:hover,
+  .field select:hover,
+  .select-input:hover,
+  .text-input:hover,
+  .datetime-input:hover {
+    background: var(--mf-surface-2);
+  }
+
+  .field input:focus,
+  .field select:focus,
+  .select-input:focus,
+  .text-input:focus,
+  .datetime-input:focus {
+    background: var(--mf-surface-2);
+    border-color: var(--mf-accent);
+  }
+
+  .field input.readonly {
+    font-family: var(--mf-font-mono);
+    font-size: 10.5px;
+    color: var(--mf-text-3);
+    cursor: text;
+  }
+
   .field input:disabled {
-    background: #0d1117;
-    color: #8b949e;
+    color: var(--mf-text-3);
     cursor: not-allowed;
   }
 
+  .field-block {
+    grid-template-columns: 1fr;
+    row-gap: 2px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  .field-block textarea {
+    width: 100%;
+    min-height: 56px;
+    padding: 4px 6px;
+    background: transparent;
+    border: 1px solid var(--mf-border);
+    border-radius: 4px;
+    color: var(--mf-text);
+    font-family: inherit;
+    font-size: 12.5px;
+    line-height: 1.45;
+    resize: vertical;
+    outline: none;
+  }
+
+  .field-block textarea:focus {
+    background: var(--mf-surface-2);
+    border-color: var(--mf-accent);
+  }
+
   .field-row {
-    display: flex;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
   }
 
   .field-row .field {
-    flex: 1;
-    min-width: 0;
+    grid-template-columns: 14px minmax(0, 1fr);
+    padding: 0 2px 0 6px;
   }
 
   .field-with-lock {
     display: flex;
-    gap: 8px;
-    align-items: flex-end;
+    align-items: center;
+    gap: 2px;
   }
 
   .field-with-lock .field-row {
@@ -1379,45 +1530,94 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
-    background: #161b22;
-    border: 1px solid #30363d;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: transparent;
+    border: none;
     border-radius: 4px;
-    color: #8b949e;
+    color: var(--mf-text-3);
     cursor: pointer;
     flex-shrink: 0;
   }
 
   .lock-btn:hover {
-    background: #21262d;
-    color: #c9d1d9;
+    background: var(--mf-hover);
+    color: var(--mf-text);
   }
 
+  /* Toggle rows: label left, switch right */
   .checkbox-row {
     display: flex;
+    flex-direction: row-reverse;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
+    min-height: var(--mf-row);
+    padding: 0 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--mf-text-2);
     cursor: pointer;
-    font-size: 11px;
   }
 
-  .checkbox-row input[type="checkbox"] {
-    width: 14px;
-    height: 14px;
-    accent-color: #58a6ff;
+  .checkbox-row:hover {
+    background: var(--mf-hover);
+    color: var(--mf-text);
+  }
+
+  .checkbox-row input[type="checkbox"],
+  .child-node-checkbox input[type="checkbox"] {
+    appearance: none;
+    position: relative;
+    width: 26px;
+    height: 15px;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background: var(--mf-active);
     cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s;
+  }
+
+  .checkbox-row input[type="checkbox"]::before,
+  .child-node-checkbox input[type="checkbox"]::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #cfcfd4;
+    transition: transform 0.15s;
+  }
+
+  .checkbox-row input[type="checkbox"]:checked,
+  .child-node-checkbox input[type="checkbox"]:checked {
+    background: var(--mf-accent);
+  }
+
+  .checkbox-row input[type="checkbox"]:checked::before,
+  .child-node-checkbox input[type="checkbox"]:checked::before {
+    transform: translateX(11px);
+    background: #fff;
   }
 
   .checkbox-group {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    gap: 0 2px;
   }
 
   .mode-toggle {
     display: flex;
-    gap: 4px;
+    gap: 2px;
+    padding: 2px;
+    background: var(--mf-surface-2);
+    border-radius: var(--mf-radius);
   }
 
   .mode-btn {
@@ -1425,92 +1625,68 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 8px;
-    background: #161b22;
-    border: 1px solid #30363d;
+    gap: 4px;
+    height: 22px;
+    padding: 0 6px;
+    background: transparent;
+    border: none;
     border-radius: 4px;
-    color: #8b949e;
-    font-size: 11px;
+    color: var(--mf-text-3);
+    font-size: 11.5px;
     cursor: pointer;
   }
 
   .mode-btn:hover {
-    background: #21262d;
-    color: #c9d1d9;
+    color: var(--mf-text);
   }
 
   .mode-btn.active {
-    background: rgba(56, 139, 253, 0.15);
-    border-color: #58a6ff;
-    color: #58a6ff;
+    background: var(--mf-active);
+    color: var(--mf-text);
   }
 
-  .quick-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .quick-action-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 4px;
-    color: #c9d1d9;
-    font-size: 11px;
-    cursor: pointer;
-    text-align: left;
-  }
-
-  .quick-action-btn:hover {
-    background: #21262d;
-    border-color: #8b949e;
-  }
-
+  .quick-actions,
   .action-buttons {
     display: flex;
-    gap: 8px;
+    flex-direction: column;
+    gap: 1px;
   }
 
+  .quick-action-btn,
   .action-btn {
-    flex: 1;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 8px 12px;
+    gap: 8px;
+    width: 100%;
+    height: var(--mf-row);
+    padding: 0 6px;
+    background: transparent;
     border: none;
     border-radius: 4px;
-    font-size: 11px;
-    font-weight: 500;
+    color: var(--mf-text-2);
+    font-size: 12.5px;
+    text-align: left;
     cursor: pointer;
   }
 
-  .action-btn.secondary {
-    background: #21262d;
-    color: #c9d1d9;
+  .quick-action-btn :global(svg),
+  .action-btn :global(svg) {
+    color: var(--mf-text-3);
   }
 
-  .action-btn.secondary:hover {
-    background: #30363d;
+  .quick-action-btn:hover,
+  .action-btn:hover {
+    background: var(--mf-hover);
+    color: var(--mf-text);
   }
 
-  .action-btn.danger {
-    background: rgba(248, 81, 73, 0.15);
-    color: #f85149;
+  .action-btn.danger,
+  .action-btn.danger :global(svg) {
+    color: var(--mf-danger);
   }
 
   .action-btn.danger:hover {
-    background: rgba(248, 81, 73, 0.25);
-  }
-
-  .action-btn.full-width {
-    flex: none;
-    width: 100%;
+    background: var(--mf-danger-soft);
   }
 
   .empty-state {
@@ -1519,126 +1695,80 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: #484f58;
+    color: var(--mf-text-3);
     text-align: center;
     padding: 32px;
-    gap: 12px;
+    gap: 10px;
   }
 
   .empty-state p {
     margin: 0;
-    font-size: 12px;
-  }
-
-  .field select {
-    width: 100%;
-    padding: 6px 10px;
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 4px;
-    color: #c9d1d9;
-    font-size: 11px;
-    font-family: 'Space Mono', monospace;
-    outline: none;
-    cursor: pointer;
-  }
-
-  .field select:focus {
-    border-color: #58a6ff;
+    font-size: 12.5px;
   }
 
   .section-divider {
     height: 1px;
-    background: #21262d;
-    margin: 6px 0;
-  }
-
-  .datetime-input {
-    width: 100%;
-    padding: 6px 10px;
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 4px;
-    color: #c9d1d9;
-    font-size: 11px;
-    font-family: 'Space Mono', monospace;
-    outline: none;
-    margin-bottom: 4px;
-  }
-
-  .datetime-input:focus {
-    border-color: #58a6ff;
+    background: var(--mf-border);
+    margin: 4px 6px;
   }
 
   .datetime-input::-webkit-calendar-picker-indicator {
-    filter: invert(1);
+    filter: invert(0.8);
     cursor: pointer;
   }
 
-  .input-hint {
-    font-size: 10px;
-    color: #6e7681;
-    display: block;
-    margin-bottom: 6px;
+  .input-hint,
+  .hint {
+    font-size: 11px;
+    color: var(--mf-text-3);
+    padding: 0 6px;
   }
 
   .clear-btn {
-    background: rgba(56, 139, 253, 0.15);
+    justify-self: start;
+    height: 22px;
+    padding: 0 8px;
+    background: var(--mf-accent-soft);
     border: none;
     border-radius: 4px;
-    padding: 4px 10px;
-    color: #58a6ff;
-    font-size: 11px;
+    color: var(--mf-accent);
+    font-size: 11.5px;
     cursor: pointer;
-    margin-top: 4px;
   }
 
   .clear-btn:hover {
-    background: rgba(56, 139, 253, 0.25);
+    filter: brightness(1.15);
   }
 
   .subsection-header {
-    font-size: 10px;
-    font-weight: 600;
-    color: #8b949e;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 8px;
-    margin-top: 4px;
+    padding: 6px 6px 2px;
+    font-size: 11px;
+    color: var(--mf-text-3);
   }
 
   .child-nodes-list {
-    max-height: 150px;
+    grid-column: 1 / -1;
+    max-height: 140px;
     overflow-y: auto;
-    border: 1px solid #30363d;
-    border-radius: 4px;
-    background: #0d1117;
-  }
-
-  .child-node-item {
-    padding: 4px 8px;
-    border-bottom: 1px solid #21262d;
-  }
-
-  .child-node-item:last-child {
-    border-bottom: none;
+    display: flex;
+    flex-direction: column;
   }
 
   .child-node-checkbox {
     display: flex;
     align-items: center;
     gap: 8px;
+    min-height: 26px;
+    padding: 0 4px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--mf-text-2);
     cursor: pointer;
-    font-size: 11px;
-    color: #c9d1d9;
   }
 
-  .child-node-checkbox input[type="checkbox"] {
-    width: 14px;
-    height: 14px;
-    accent-color: #58a6ff;
-    cursor: pointer;
-    flex-shrink: 0;
+  .child-node-checkbox:hover {
+    background: var(--mf-hover);
+    color: var(--mf-text);
   }
 
   .child-node-label {
@@ -1649,85 +1779,71 @@
   }
 
   .info-text {
-    font-size: 12px;
-    color: #8b949e;
-    padding: 6px 0;
-  }
-
-  .select-input {
-    width: 100%;
-    padding: 6px 10px;
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 4px;
-    color: #c9d1d9;
-    font-size: 11px;
-    font-family: 'Space Mono', monospace;
-    outline: none;
-    cursor: pointer;
-  }
-
-  .select-input:focus {
-    border-color: #58a6ff;
+    grid-column: 1 / -1;
+    font-size: 11.5px;
+    color: var(--mf-text-3);
+    padding: 2px 6px;
   }
 
   /* Notion-like Toolbar Styles */
   .notion-toolbar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 2px;
-    padding: 6px 8px;
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 6px;
+    min-height: var(--mf-row);
+    padding: 0 6px;
+    border-radius: 4px;
+  }
+
+  .notion-toolbar:hover {
+    background: var(--mf-hover);
   }
 
   .toolbar-group {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
   }
 
   .toolbar-group.compact {
-    gap: 4px;
+    gap: 3px;
   }
 
   .toolbar-label {
-    font-size: 10px;
-    font-weight: 500;
-    color: #8b949e;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    min-width: 16px;
+    font-size: 11px;
+    color: var(--mf-text-3);
+    min-width: 14px;
   }
 
   .toolbar-group :global(svg) {
-    color: #8b949e;
+    color: var(--mf-text-3);
     flex-shrink: 0;
   }
 
   .toolbar-divider {
     width: 1px;
-    height: 20px;
-    background: #30363d;
-    margin: 0 6px;
+    height: 14px;
+    background: var(--mf-border-strong);
+    margin: 0 5px;
   }
 
   .toolbar-input {
-    width: 40px;
-    padding: 4px 6px;
-    background: #0d1117;
-    border: 1px solid #30363d;
+    width: 34px;
+    height: 22px;
+    padding: 0 4px;
+    background: transparent;
+    border: 1px solid var(--mf-border);
     border-radius: 4px;
-    color: #c9d1d9;
-    font-size: 11px;
-    font-family: 'Space Mono', monospace;
+    color: var(--mf-text);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
     text-align: center;
     outline: none;
   }
 
   .toolbar-input:focus {
-    border-color: #58a6ff;
+    border-color: var(--mf-accent);
   }
 
   .toolbar-input::-webkit-inner-spin-button,
@@ -1742,19 +1858,24 @@
   }
 
   .toolbar-select {
-    padding: 4px 8px;
-    background: #0d1117;
-    border: 1px solid #30363d;
+    height: 22px;
+    padding: 0 4px;
+    background: transparent;
+    border: 1px solid var(--mf-border);
     border-radius: 4px;
-    color: #c9d1d9;
+    color: var(--mf-text);
     font-size: 12px;
-    font-family: 'Space Mono', monospace;
     outline: none;
     cursor: pointer;
-    min-width: 36px;
+    min-width: 34px;
   }
 
   .toolbar-select:focus {
-    border-color: #58a6ff;
+    border-color: var(--mf-accent);
+  }
+
+  .properties-panel :global(option) {
+    background: var(--mf-surface-2);
+    color: var(--mf-text);
   }
 </style>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ChevronDown, ChevronRight } from 'lucide-svelte';
+  import { ChevronRight } from 'lucide-svelte';
   import type { Snippet } from 'svelte';
 
   interface Props {
@@ -23,25 +23,80 @@
   }
 </script>
 
-<div class="border-b border-[#21262d] last:border-b-0">
-  <button 
-    class="flex items-center gap-1.5 w-full px-2.5 py-1.5 bg-transparent border-none text-[#c9d1d9] text-[11px] font-semibold uppercase tracking-wide text-left {collapsible ? 'cursor-pointer hover:bg-[#161b22]' : 'cursor-default'}"
-    onclick={toggle}
-    type="button"
-  >
+<section class="group">
+  <button class="group-header" class:collapsible onclick={toggle} type="button" aria-expanded={open}>
+    <span class="title">{title}</span>
     {#if collapsible}
-      {#if open}
-        <ChevronDown size={12} />
-      {:else}
-        <ChevronRight size={12} />
-      {/if}
+      <span class="chevron" class:open><ChevronRight size={12} /></span>
     {/if}
-    <span class="flex-1">{title}</span>
   </button>
   
   {#if open || !collapsible}
-    <div class="flex flex-col gap-1.5 px-2.5 pb-2">
+    <div class="group-body">
       {@render children()}
     </div>
   {/if}
-</div>
+</section>
+
+<style>
+  .group {
+    padding: 6px 0;
+    border-top: 1px solid var(--mf-border);
+  }
+
+  .group:first-of-type {
+    border-top: none;
+  }
+
+  .group-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    height: 24px;
+    padding: 0 6px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--mf-text-3);
+    font-size: 11.5px;
+    font-weight: 500;
+    text-align: left;
+    cursor: default;
+  }
+
+  .group-header.collapsible {
+    cursor: pointer;
+  }
+
+  .group-header.collapsible:hover {
+    background: var(--mf-hover);
+    color: var(--mf-text-2);
+  }
+
+  .title {
+    flex: 1;
+  }
+
+  .chevron {
+    display: flex;
+    opacity: 0;
+    transition: transform 0.12s, opacity 0.12s;
+  }
+
+  .chevron.open {
+    transform: rotate(90deg);
+  }
+
+  .group-header:hover .chevron,
+  .chevron:not(.open) {
+    opacity: 1;
+  }
+
+  .group-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-top: 2px;
+  }
+</style>

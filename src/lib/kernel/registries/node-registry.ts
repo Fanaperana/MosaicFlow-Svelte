@@ -323,6 +323,27 @@ class NodeRegistry {
   }
 
   /**
+   * Human-readable name: a custom title, else the first meaningful content field
+   */
+  getDisplayName(node: { id: string; type?: string; data: Record<string, unknown> }): string {
+    const type = node.type ?? '';
+    const reg = this.registrations.get(type);
+    const title = typeof node.data.title === 'string' ? node.data.title.trim() : '';
+    if (title && title !== reg?.defaultData?.title) return title;
+
+    const required = Object.entries(reg?.knowledge?.fields ?? {})
+      .filter(([, f]) => f.required)
+      .map(([key]) => key);
+    for (const key of [...required, 'name', 'label', this.getBodyMapping(type).field, 'url']) {
+      const value = node.data[key];
+      if (typeof value === 'string' && value.trim()) {
+        return value.trim().split('\n')[0].replace(/^#+\s*/, '').slice(0, 80);
+      }
+    }
+    return title || reg?.label || type || node.id;
+  }
+
+  /**
    * Subscribe to registry changes
    */
   subscribe(listener: () => void): () => void {

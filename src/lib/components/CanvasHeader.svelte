@@ -1,6 +1,8 @@
 <script lang="ts">
   import { vaultStore } from '$lib/stores/vault.svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
+  import { flushPendingSaves as flushNodeSaves } from '$lib/services/nodeFileService';
+  import { flushPendingSaves as flushEdgeSaves } from '$lib/services/edgeFileService';
   import { Pencil, Check, X, ChevronRight, Loader2, List } from 'lucide-svelte';
 
   interface Props {
@@ -26,10 +28,12 @@
 
     isSaving = true;
     try {
+      // The canvas folder is renamed on disk, so pending writes must land first.
+      await Promise.all([flushNodeSaves(), flushEdgeSaves()]);
       const success = await vaultStore.renameCurrentCanvas(editName.trim());
       if (success) {
-        // Also update the workspace name
         workspace.name = editName.trim();
+        if (vaultStore.currentCanvas) workspace.initFileServices(vaultStore.currentCanvas.path);
       }
     } catch (error) {
       console.error('Failed to rename canvas:', error);
@@ -104,15 +108,16 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    background: rgba(10, 10, 15, 0.9);
-    border-bottom: 1px solid #2a2a3a;
+    background: color-mix(in srgb, var(--mf-surface) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--mf-border);
     z-index: 100;
-    padding: 0 16px;
+    padding: 0 12px;
   }
 
   .right-actions {
     position: absolute;
-    right: 16px;
+    right: 10px;
     display: flex;
     align-items: center;
   }
@@ -120,9 +125,10 @@
   .icon-btn {
     background: transparent;
     border: none;
-    color: #8b949e;
-    padding: 4px;
-    border-radius: 4px;
+    color: var(--mf-text-3);
+    width: 26px;
+    height: 26px;
+    border-radius: var(--mf-radius);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -130,48 +136,50 @@
   }
 
   .icon-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #c9d1d9;
+    background: var(--mf-hover);
+    color: var(--mf-text);
   }
 
   .breadcrumb {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    font-size: 0.875rem;
+    gap: 4px;
+    font-size: 13px;
     pointer-events: auto;
   }
 
   .vault-name {
-    color: #666;
+    color: var(--mf-text-3);
+    padding: 2px 4px;
   }
 
   .breadcrumb :global(.separator) {
-    color: #444;
+    color: var(--mf-text-3);
+    opacity: 0.6;
   }
 
   .canvas-name-btn {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.25rem 0.5rem;
+    gap: 6px;
+    height: 24px;
+    padding: 0 6px;
     background: transparent;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    color: #fafafa;
+    border: none;
+    border-radius: var(--mf-radius);
+    color: var(--mf-text);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background 0.12s;
   }
 
   .canvas-name-btn:hover {
-    background: #1a1a2e;
-    border-color: #2a2a3a;
+    background: var(--mf-hover);
   }
 
   .canvas-name-btn :global(.edit-icon) {
     opacity: 0;
-    color: #666;
-    transition: opacity 0.2s;
+    color: var(--mf-text-3);
+    transition: opacity 0.12s;
   }
 
   .canvas-name-btn:hover :global(.edit-icon) {
@@ -185,16 +193,17 @@
   .edit-container {
     display: flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 2px;
   }
 
   .edit-input {
-    padding: 0.25rem 0.5rem;
-    background: #111118;
-    border: 1px solid #3b82f6;
-    border-radius: 4px;
-    color: #fafafa;
-    font-size: 0.875rem;
+    height: 24px;
+    padding: 0 6px;
+    background: var(--mf-surface-2);
+    border: 1px solid var(--mf-accent);
+    border-radius: var(--mf-radius);
+    color: var(--mf-text);
+    font-size: 13px;
     font-weight: 500;
     width: 200px;
   }

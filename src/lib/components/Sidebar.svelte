@@ -48,12 +48,12 @@
   <div class="sidebar-section">
     <SimpleTooltip text="Home" position="right">
       <button class="sidebar-btn" onclick={(e) => { e.stopPropagation(); onHome(); }}>
-        <Home size={20} strokeWidth={1.5} />
+        <Home size={17} strokeWidth={1.6} />
       </button>
     </SimpleTooltip>
     <SimpleTooltip text="Search (Ctrl+K)" position="right">
       <button class="sidebar-btn" onclick={(e) => { e.stopPropagation(); onSearch(); }}>
-        <Search size={20} strokeWidth={1.5} />
+        <Search size={17} strokeWidth={1.6} />
       </button>
     </SimpleTooltip>
   </div>
@@ -65,13 +65,13 @@
         class="sidebar-btn" 
         onclick={(e) => { e.stopPropagation(); onNewCanvas(); }}
       >
-        <Plus size={20} strokeWidth={1.5} />
+        <Plus size={17} strokeWidth={1.6} />
       </button>
     </SimpleTooltip>
     
     <SimpleTooltip text="Open" position="right">
       <button class="sidebar-btn" onclick={(e) => { e.stopPropagation(); onOpen(); }}>
-        <FolderOpen size={20} strokeWidth={1.5} />
+        <FolderOpen size={17} strokeWidth={1.6} />
       </button>
     </SimpleTooltip>
 
@@ -81,7 +81,7 @@
           class="sidebar-btn"
           onclick={(e) => { e.stopPropagation(); exportMenuOpen = !exportMenuOpen; }}
         >
-          <Download size={20} strokeWidth={1.5} />
+          <Download size={17} strokeWidth={1.6} />
         </button>
       </SimpleTooltip>
       
@@ -112,7 +112,7 @@
         disabled={!workspace.canUndo}
         onclick={() => workspace.undo()}
       >
-        <Undo2 size={20} strokeWidth={1.5} />
+        <Undo2 size={17} strokeWidth={1.6} />
       </button>
     </SimpleTooltip>
     <SimpleTooltip text="Redo (Ctrl+Y)" position="right">
@@ -121,7 +121,7 @@
         disabled={!workspace.canRedo}
         onclick={() => workspace.redo()}
       >
-        <Redo2 size={20} strokeWidth={1.5} />
+        <Redo2 size={17} strokeWidth={1.6} />
       </button>
     </SimpleTooltip>
   </div>
@@ -133,7 +133,7 @@
         class="sidebar-btn" 
         onclick={() => window.dispatchEvent(new CustomEvent('mosaicflow:zoomIn'))}
       >
-        <ZoomIn size={20} strokeWidth={1.5} />
+        <ZoomIn size={17} strokeWidth={1.6} />
       </button>
     </SimpleTooltip>
     <SimpleTooltip text="Zoom Out" position="right">
@@ -141,7 +141,7 @@
         class="sidebar-btn"
         onclick={() => window.dispatchEvent(new CustomEvent('mosaicflow:zoomOut'))}
       >
-        <ZoomOut size={20} strokeWidth={1.5} />
+        <ZoomOut size={17} strokeWidth={1.6} />
       </button>
     </SimpleTooltip>
     <SimpleTooltip text="Fit View" position="right">
@@ -149,7 +149,7 @@
         class="sidebar-btn"
         onclick={() => window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.1 } }))}
       >
-        <Maximize2 size={20} strokeWidth={1.5} />
+        <Maximize2 size={17} strokeWidth={1.6} />
       </button>
     </SimpleTooltip>
   </div>
@@ -163,10 +163,11 @@
           if (workspace.selectedNodeIds.length > 0) {
             workspace.deleteNodes(workspace.selectedNodeIds);
           }
+          workspace.selectedEdgeIds.forEach(id => workspace.deleteEdge(id));
         }}
-        disabled={workspace.selectedNodeIds.length === 0}
+        disabled={workspace.selectedNodeIds.length === 0 && workspace.selectedEdgeIds.length === 0}
       >
-        <Trash2 size={20} strokeWidth={1.5} />
+        <Trash2 size={17} strokeWidth={1.6} />
       </button>
     </SimpleTooltip>
   </div>
@@ -178,7 +179,7 @@
   <div class="sidebar-section">
     <SimpleTooltip text="Settings" position="right">
       <button class="sidebar-btn" onclick={(e) => { e.stopPropagation(); onSettings(); }}>
-        <Settings size={20} strokeWidth={1.5} />
+        <Settings size={17} strokeWidth={1.6} />
       </button>
     </SimpleTooltip>
   </div>
@@ -190,28 +191,31 @@
     left: 0;
     top: 0;
     bottom: 0;
-    width: 52px;
-    background: #0a0a0f;
-    border-right: 1px solid #1e1e2e;
+    width: 44px;
+    background: var(--mf-surface);
+    border-right: 1px solid var(--mf-border);
     display: flex;
     flex-direction: column;
-    padding: 8px;
-    gap: 4px;
+    align-items: center;
+    padding: 6px 0;
+    gap: 2px;
     z-index: 100;
   }
 
   .sidebar-section {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    padding: 4px 0;
+    align-items: center;
+    gap: 2px;
+    padding: 3px 0;
   }
 
   .sidebar-section:not(:last-child)::after {
     content: '';
     display: block;
+    width: 18px;
     height: 1px;
-    background: #1e1e2e;
+    background: var(--mf-border);
     margin-top: 4px;
   }
 
@@ -223,20 +227,20 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 30px;
+    height: 30px;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--mf-radius);
     background: transparent;
-    color: #888;
+    color: var(--mf-text-3);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background 0.12s, color 0.12s;
     position: relative;
   }
 
   .sidebar-btn:hover:not(:disabled) {
-    background: #1e1e2e;
-    color: #fafafa;
+    background: var(--mf-hover);
+    color: var(--mf-text);
   }
 
   .sidebar-btn:disabled {
@@ -245,8 +249,8 @@
   }
 
   .sidebar-btn.danger:hover:not(:disabled) {
-    background: rgba(239, 68, 68, 0.1);
-    color: #ef4444;
+    background: var(--mf-danger-soft);
+    color: var(--mf-danger);
   }
 
   /* Tooltip */
@@ -283,12 +287,12 @@
     position: absolute;
     left: calc(100% + 8px);
     top: 0;
-    min-width: 180px;
-    background: #111118;
-    border: 1px solid #2a2a3a;
+    min-width: 168px;
+    background: var(--mf-surface-2);
+    border: 1px solid var(--mf-border-strong);
     border-radius: 8px;
     padding: 4px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
     z-index: 1000;
   }
 
@@ -297,18 +301,22 @@
     align-items: center;
     gap: 8px;
     width: 100%;
-    padding: 8px;
+    height: var(--mf-row);
+    padding: 0 8px;
     border: none;
     border-radius: 4px;
     background: transparent;
-    color: #fafafa;
-    font-size: 13px;
+    color: var(--mf-text);
+    font-size: 12.5px;
     cursor: pointer;
     text-align: left;
-    transition: all 0.15s;
+  }
+
+  .menu-item :global(svg) {
+    color: var(--mf-text-2);
   }
 
   .menu-item:hover {
-    background: #1e1e2e;
+    background: var(--mf-hover);
   }
 </style>

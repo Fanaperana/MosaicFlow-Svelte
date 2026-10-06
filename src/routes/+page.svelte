@@ -10,7 +10,7 @@
   import WorkflowSearch from '$lib/components/WorkflowSearch.svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
-  import { loadWorkspace, exportAsPng, exportAsSvg } from '$lib/services/fileOperations';
+  import { loadWorkspace, exportAsPng, exportAsSvg, exportAsJson } from '$lib/services/fileOperations';
   import { message } from '@tauri-apps/plugin-dialog';
   import type { CanvasInfo } from '$lib/services/vaultService';
   
@@ -72,8 +72,7 @@
   }
 
   async function handleExport() {
-    // TODO: Implement export
-    await message('Export feature coming soon!', { title: 'Info', kind: 'info' });
+    await exportAsJson();
   }
 
   async function handleExportPng() {
@@ -189,9 +188,8 @@
   }
   
   :global(body) {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background-color: #0a0a0f;
-    color: #fafafa;
+    background-color: var(--mf-bg);
+    color: var(--mf-text);
     overflow: hidden;
   }
   
@@ -232,7 +230,7 @@
   .main-content {
     display: flex;
     flex: 1;
-    margin-left: 52px;
+    margin-left: 44px;
     overflow: hidden;
   }
   
@@ -244,21 +242,21 @@
   
   /* Global scrollbar styles */
   :global(::-webkit-scrollbar) {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
   
   :global(::-webkit-scrollbar-track) {
-    background: #0a0a0f;
+    background: transparent;
   }
   
   :global(::-webkit-scrollbar-thumb) {
-    background: #2a2a3a;
-    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
   }
   
   :global(::-webkit-scrollbar-thumb:hover) {
-    background: #3a3a4a;
+    background: rgba(255, 255, 255, 0.18);
   }
   
   /* Global button styles */

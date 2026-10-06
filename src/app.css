@@ -2,6 +2,9 @@
 
 @import "tw-animate-css";
 
+/* Bundled UI font (local-first: shipped with the app, no network) */
+@import "@fontsource-variable/space-grotesk/wght.css";
+
 @custom-variant dark (&:is(.dark *));
 
 /* Safelist: ensure all spacing/sizing utilities are generated so
@@ -53,6 +56,26 @@
 }
 
 :root {
+  /* MosaicFlow UI tokens (dark, Notion-like compact chrome) */
+  --mf-font-ui: 'Space Grotesk Variable', 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mf-font-mono: 'Space Mono', ui-monospace, 'Consolas', monospace;
+  --mf-bg: #0d1117;
+  --mf-surface: #111318;
+  --mf-surface-2: #171a20;
+  --mf-border: rgba(255, 255, 255, 0.07);
+  --mf-border-strong: rgba(255, 255, 255, 0.12);
+  --mf-hover: rgba(255, 255, 255, 0.055);
+  --mf-active: rgba(255, 255, 255, 0.09);
+  --mf-text: #e8e8ea;
+  --mf-text-2: #a6a6ad;
+  --mf-text-3: #6e6e76;
+  --mf-accent: #5b8def;
+  --mf-accent-soft: rgba(91, 141, 239, 0.16);
+  --mf-danger: #ef6461;
+  --mf-danger-soft: rgba(239, 100, 97, 0.14);
+  --mf-radius: 6px;
+  --mf-row: 28px;
+
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.147 0.004 49.25);
@@ -165,11 +188,21 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Space Mono', 'Monaco', 'Consolas', monospace !important;
+    font-family: var(--mf-font-ui);
+    font-size: 13px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     -webkit-text-size-adjust: 100%;
+  }
+
+  /* Canvas content keeps the Space Mono look */
+  .svelte-flow__node,
+  .svelte-flow__edge-label,
+  .svelte-flow__edge-text,
+  code,
+  kbd {
+    font-family: var(--mf-font-mono);
   }
 }
 

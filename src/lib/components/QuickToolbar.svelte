@@ -130,72 +130,76 @@
 <style>
   .quick-toolbar {
     position: absolute;
-    top: 44px; /* Below the canvas header */
+    top: 46px; /* Below the canvas header */
     left: 50%;
     transform: translateX(-50%);
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 6px 10px;
-    background: rgba(17, 17, 24, 0.95);
-    border: 1px solid #2a2a3a;
-    border-radius: 8px;
-    backdrop-filter: blur(8px);
+    gap: 2px;
+    padding: 3px;
+    background: color-mix(in srgb, var(--mf-surface-2) 92%, transparent);
+    border: 1px solid var(--mf-border-strong);
+    border-radius: 10px;
+    backdrop-filter: blur(10px);
     z-index: 100;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
   }
 
   .toolbar-group {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
   }
 
-  .toolbar-btn {
+  .quick-toolbar :global(.toolbar-btn) {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
     background: transparent;
     border: none;
-    border-radius: 6px;
-    color: #888;
+    border-radius: 7px;
+    color: var(--mf-text-2);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background 0.12s, color 0.12s;
   }
 
-  .toolbar-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fafafa;
+  .quick-toolbar :global(.toolbar-btn:hover) {
+    background: var(--mf-hover);
+    color: var(--mf-text);
   }
 
-  .toolbar-btn.active {
-    background: rgba(59, 130, 246, 0.15);
-    color: #3b82f6;
+  .quick-toolbar :global(.toolbar-btn.active) {
+    background: var(--mf-accent-soft);
+    color: var(--mf-accent);
   }
 
   .toolbar-divider {
     width: 1px;
-    height: 18px;
-    background: #2a2a3a;
-    margin: 0 4px;
+    height: 16px;
+    background: var(--mf-border-strong);
+    margin: 0 3px;
   }
 
   /* Dropdown menu overrides */
   :global(.node-dropdown) {
-    min-width: 160px !important;
+    min-width: 180px !important;
+    max-height: 70vh;
+    overflow-y: auto;
     padding: 4px !important;
-    background: #111118 !important;
-    border: 1px solid #2a2a3a !important;
+    background: var(--mf-surface-2) !important;
+    border: 1px solid var(--mf-border-strong) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45) !important;
+    font-family: var(--mf-font-ui);
   }
 
   :global(.node-dropdown .category-label) {
-    font-size: 10px !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
-    color: #666 !important;
-    padding: 6px 8px 4px !important;
+    font-size: 11px !important;
+    color: var(--mf-text-3) !important;
+    padding: 6px 8px 2px !important;
     font-weight: 500 !important;
   }
 
@@ -203,21 +207,26 @@
     display: flex !important;
     align-items: center !important;
     gap: 8px !important;
-    padding: 6px 8px !important;
-    font-size: 12px !important;
+    height: var(--mf-row);
+    padding: 0 8px !important;
+    font-size: 12.5px !important;
     border-radius: 4px !important;
     cursor: pointer !important;
-    color: #ccc !important;
+    color: var(--mf-text) !important;
   }
 
-  :global(.node-dropdown .node-item:hover) {
-    background: rgba(59, 130, 246, 0.15) !important;
-    color: #fafafa !important;
+  :global(.node-dropdown .node-item svg) {
+    color: var(--mf-text-2);
+  }
+
+  :global(.node-dropdown .node-item:hover),
+  :global(.node-dropdown .node-item[data-highlighted]) {
+    background: var(--mf-hover) !important;
   }
 
   :global(.node-dropdown [data-dropdown-menu-separator]) {
     height: 1px !important;
-    background: #2a2a3a !important;
+    background: var(--mf-border) !important;
     margin: 4px 0 !important;
   }
 </style>
