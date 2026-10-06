@@ -10,4 +10,11 @@ export const metadata: Omit<NodeTypeRegistration, "pluginId"> = {
   defaultData: { title: "Embed", url: "" },
   dimensions: { minWidth: 300, minHeight: 250, defaultWidth: 500, defaultHeight: 400 },
   colors: { bg: "#2e1a1a", border: "#6a4a4a", icon: "🖥️" },
+  knowledge: {
+    purpose: "Live embed of an external web page.",
+    fields: {
+      url: { type: "url", description: "Page to embed", required: true },
+      notes: { type: "markdown", description: "Notes about the page" },
+    },
+  },
 };

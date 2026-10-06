@@ -7,6 +7,13 @@
 
 import type { MosaicNodeData } from '$lib/types';
 import {
+  bodyMappingFor,
+  type BodyMapping,
+  type NodeCapabilities,
+  type NodeKnowledgeSchema,
+  type NodeTypeSchema,
+} from '@mosaicflow/vault-core';
+import {
   StickyNote,
   Type,
   Image,
@@ -79,6 +86,12 @@ export interface NodeTypeRegistration {
   quickAccess?: boolean;
   /** Keyboard shortcut */
   shortcut?: string;
+  /** Semantics, body mapping and field docs used for storage, search and AI agents */
+  knowledge?: NodeKnowledgeSchema;
+  /** Behavioural flags the core uses instead of checking specific node types */
+  capabilities?: NodeCapabilities;
+  /** Normalise data after it is read from disk */
+  onLoad?: (data: Record<string, unknown>) => Record<string, unknown>;
   /** Plugin that provides this node */
   pluginId: string;
 }
@@ -268,6 +281,38 @@ class NodeRegistry {
   getLabel(type: string): string {
     const reg = this.registrations.get(type);
     return reg?.label ?? type;
+  }
+
+  /**
+   * Which data field is stored as the markdown body of the node file
+   */
+  getBodyMapping(type: string): BodyMapping {
+    return bodyMappingFor(this.registrations.get(type)?.knowledge);
+  }
+
+  /**
+   * Whether nodes of this type can contain child nodes
+   */
+  isContainer(type: string | undefined): boolean {
+    return !!type && !!this.registrations.get(type)?.capabilities?.container;
+  }
+
+  /**
+   * Serializable schemas of all node types (for the vault's node-types.json)
+   */
+  getSchemas(): NodeTypeSchema[] {
+    return this.getAll().map(reg => ({
+      type: reg.type,
+      label: reg.label,
+      description: reg.description,
+      category: reg.category,
+      pluginId: reg.pluginId,
+      knowledge: reg.knowledge ?? { purpose: reg.description, fields: {} },
+      capabilities: reg.capabilities ?? {},
+      defaultSize: { width: reg.dimensions.defaultWidth, height: reg.dimensions.defaultHeight },
+      minSize: { width: reg.dimensions.minWidth, height: reg.dimensions.minHeight },
+      defaultData: reg.defaultData as Record<string, unknown>,
+    }));
   }
 
   /**
