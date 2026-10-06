@@ -14,6 +14,7 @@
     Search,
     Image,
     FileCode,
+    Package,
   } from 'lucide-svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { cn } from '$lib/utils';
@@ -23,6 +24,7 @@
     onHome: () => void;
     onOpen: () => void;
     onExport: () => void;
+    onExportPackage: () => void;
     onExportPng: () => void;
     onExportSvg: () => void;
     onSettings: () => void;
@@ -32,7 +34,7 @@
     vaultName?: string;
   }
 
-  let { onHome, onOpen, onExport, onExportPng, onExportSvg, onSettings, onNewCanvas, onSearch, canvasName, vaultName }: Props = $props();
+  let { onHome, onOpen, onExport, onExportPackage, onExportPng, onExportSvg, onSettings, onNewCanvas, onSearch, canvasName, vaultName }: Props = $props();
 
   let exportMenuOpen = $state(false);
 
@@ -87,6 +89,10 @@
       
       {#if exportMenuOpen}
         <div class="dropdown-menu" role="menu" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+          <button class="menu-item" onclick={() => { onExportPackage(); exportMenuOpen = false; }}>
+            <Package size={16} strokeWidth={1.5} />
+            <span>Export as .mosaic</span>
+          </button>
           <button class="menu-item" onclick={() => { onExport(); exportMenuOpen = false; }}>
             <Download size={16} strokeWidth={1.5} />
             <span>Export as JSON</span>

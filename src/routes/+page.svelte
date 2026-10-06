@@ -11,6 +11,7 @@
   import { workspace } from '$lib/stores/workspace.svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
   import { loadWorkspace, exportAsPng, exportAsSvg, exportAsJson } from '$lib/services/fileOperations';
+  import { exportCanvasPackage } from '$lib/services/packageService';
   import { message } from '@tauri-apps/plugin-dialog';
   import type { CanvasInfo } from '$lib/services/vaultService';
   
@@ -147,6 +148,7 @@
       onHome={handleHome}
       onOpen={handleOpen}
       onExport={handleExport}
+      onExportPackage={exportCanvasPackage}
       onExportPng={handleExportPng}
       onExportSvg={handleExportSvg}
       onSettings={handleSettings}

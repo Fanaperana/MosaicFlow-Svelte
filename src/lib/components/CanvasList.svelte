@@ -10,9 +10,22 @@
     Loader2,
     Pencil,
     Check,
-    X
+    X,
+    PackageOpen
   } from 'lucide-svelte';
   import { Button } from '$lib/components/ui/button';
+  import { importCanvasPackage } from '$lib/services/packageService';
+
+  let isImporting = $state(false);
+
+  async function handleImport() {
+    isImporting = true;
+    try {
+      await importCanvasPackage();
+    } finally {
+      isImporting = false;
+    }
+  }
 
   let isCreating = $state(false);
   let newCanvasName = $state('');
@@ -91,6 +104,14 @@
         <h1>{vaultStore.currentVault?.name || 'Vault'}</h1>
         <p class="canvas-count">{vaultStore.canvases.length} canvas{vaultStore.canvases.length !== 1 ? 'es' : ''}</p>
       </div>
+      <Button onclick={handleImport} disabled={isImporting} variant="ghost" size="sm" class="px-3" title="Import a .mosaic package or zipped canvas folder">
+        {#if isImporting}
+          <Loader2 size={14} class="mr-1 animate-spin" />
+        {:else}
+          <PackageOpen size={14} class="mr-1" />
+        {/if}
+        Import
+      </Button>
       <Button onclick={() => showCreateInput = true} size="sm" class="px-4">
         <Plus size={14} class="mr-1" />
         New Canvas
