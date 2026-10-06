@@ -20,16 +20,29 @@ pub mod services;
 
 // Re-export commands for Tauri registration
 use commands::*;
+use commands::open_files::{accept_paths, paths_from_args, queue_open_files, PendingOpenFiles};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let mut builder = tauri::Builder::default()
+        // A second launch (e.g. double-clicking a .mosaic file) hands its files to the running app.
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            let files = accept_paths(app, paths_from_args(&argv));
+            queue_open_files(app, files);
+        }))
         // Plugins
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_persisted_scope::init())
-        .plugin(tauri_plugin_dialog::init());
+        .plugin(tauri_plugin_dialog::init())
+        .manage(PendingOpenFiles::default())
+        .setup(|app| {
+            let args: Vec<String> = std::env::args().collect();
+            let files = accept_paths(app.handle(), paths_from_args(&args));
+            queue_open_files(app.handle(), files);
+            Ok(())
+        });
 
     #[cfg(debug_assertions)]
     {
@@ -100,7 +113,18 @@ pub fn run() {
             get_plugins_dir,
             discover_plugins,
             read_plugin_module,
+            // Files opened from the OS
+            take_pending_open_files,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, _event| {
+            // macOS delivers "Open with" files as an event instead of command-line arguments.
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            if let tauri::RunEvent::Opened { urls } = _event {
+                let paths = urls.into_iter().filter_map(|u| u.to_file_path().ok());
+                let files = accept_paths(_app, paths);
+                queue_open_files(_app, files);
+            }
+        });
 }

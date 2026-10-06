@@ -78,7 +78,12 @@ export async function importPath(path: string): Promise<string | null> {
 
   if (ext === 'mosaic' || ext === 'zip') {
     const { names, warnings } = await importPackageFile(path);
-    await finish(names[0], warnings);
+    if (names.length === 1) {
+      await finish(names[0], warnings);
+    } else {
+      await vaultStore.refreshCanvases();
+      toast.success(`Imported ${names.length} canvases`, { description: names.join(', ') });
+    }
     return names[0];
   }
 

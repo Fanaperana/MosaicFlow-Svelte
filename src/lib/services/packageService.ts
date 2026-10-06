@@ -1,7 +1,7 @@
 // Export/import canvases as `.mosaic` packages (see @mosaicflow/vault-core/package).
 
 import { toast } from 'svelte-sonner';
-import { PACKAGE_EXTENSION, packCanvas, sanitizeFolderName, unpackPackage } from '@mosaicflow/vault-core';
+import { PACKAGE_EXTENSION, packCanvas, packVault, sanitizeFolderName, unpackPackage } from '@mosaicflow/vault-core';
 import { vaultStore } from '$lib/stores/vault.svelte';
 import { flushPendingSaves as flushNodeSaves } from './nodeFileService';
 import { flushPendingSaves as flushEdgeSaves } from './edgeFileService';
@@ -51,6 +51,38 @@ export async function exportCanvasPackageTo(filePath: string): Promise<void> {
   await Promise.all([flushNodeSaves(), flushEdgeSaves()]);
   const files = await collectFiles(canvas.path);
   await writeFile(filePath, await packCanvas({ name: canvas.name, files }));
+}
+
+/** Exports every canvas in the open vault into one `.mosaic` package. */
+export async function exportVaultPackage(): Promise<boolean> {
+  const vault = vaultStore.currentVault;
+  if (!vault) return false;
+  try {
+    const { save } = await import('@tauri-apps/plugin-dialog');
+    const filePath = await save({
+      title: 'Export Vault Package',
+      defaultPath: `${sanitizeFolderName(vault.name)}.${PACKAGE_EXTENSION}`,
+      filters: PACKAGE_FILTERS.slice(0, 1),
+    });
+    if (!filePath) return false;
+    await exportVaultPackageTo(filePath);
+    toast.success(`Exported ${vaultStore.canvases.length} canvases`, { description: filePath });
+    return true;
+  } catch (error) {
+    console.error('Error exporting vault package:', error);
+    toast.error('Failed to export vault', { description: error instanceof Error ? error.message : String(error) });
+    return false;
+  }
+}
+
+export async function exportVaultPackageTo(filePath: string): Promise<void> {
+  const vault = vaultStore.currentVault;
+  if (!vault) throw new Error('No vault is open');
+  const { writeFile } = await import('@tauri-apps/plugin-fs');
+  await Promise.all([flushNodeSaves(), flushEdgeSaves()]);
+  const canvases = [];
+  for (const c of vaultStore.canvases) canvases.push({ name: c.name, files: await collectFiles(c.path) });
+  await writeFile(filePath, await packVault(canvases));
 }
 
 /** Asks for a `.mosaic` (or plain zip) file and imports every canvas in it into the open vault. */

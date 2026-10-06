@@ -13,10 +13,12 @@
     X,
     PackageOpen,
     FolderInput,
+    Archive,
   } from 'lucide-svelte';
   import { onMount } from 'svelte';
   import { Button } from '$lib/components/ui/button';
   import { importDropped, importFileDialog, importMarkdownFolderDialog } from '$lib/services/interopService';
+  import { exportVaultPackage } from '$lib/services/packageService';
 
   let isImporting = $state(false);
   let dropActive = $state(false);
@@ -137,6 +139,10 @@
         <h1>{vaultStore.currentVault?.name || 'Vault'}</h1>
         <p class="canvas-count">{vaultStore.canvases.length} canvas{vaultStore.canvases.length !== 1 ? 'es' : ''}</p>
       </div>
+      <Button onclick={() => runImport(exportVaultPackage)} disabled={isImporting || vaultStore.canvases.length === 0} variant="ghost" size="sm" class="px-3" title="Export every canvas in this vault as one .mosaic package">
+        <Archive size={14} class="mr-1" />
+        Export vault
+      </Button>
       <Button onclick={() => runImport(importMarkdownFolderDialog)} disabled={isImporting} variant="ghost" size="sm" class="px-3" title="Import a folder of markdown notes (e.g. an Obsidian vault); [[wikilinks]] become edges">
         <FolderInput size={14} class="mr-1" />
         Notes folder

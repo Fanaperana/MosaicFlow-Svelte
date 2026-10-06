@@ -14,6 +14,7 @@
   import { exportCanvasPackage } from '$lib/services/packageService';
   import { knowledge } from '$lib/stores/knowledge.svelte';
   import { consumePendingFocus, openWikilink } from '$lib/services/navigation';
+  import { initOpenFiles, processOpenFiles } from '$lib/services/openFiles';
   import { openExternal } from '$lib/utils';
   import { message } from '@tauri-apps/plugin-dialog';
   import type { CanvasInfo } from '$lib/services/vaultService';
@@ -36,6 +37,17 @@
   onMount(async () => {
     // Initialize vault store on mount
     await vaultStore.initialize();
+  });
+
+  // Files opened from the OS (double-clicked .mosaic etc.) are imported once a vault is open.
+  onMount(() => {
+    let stop: (() => void) | undefined;
+    initOpenFiles().then((s) => (stop = s));
+    return () => stop?.();
+  });
+
+  $effect(() => {
+    if (vaultStore.isInitialized && vaultStore.currentVault) processOpenFiles();
   });
 
   // Vault-wide index for search, wikilinks, backlinks and tags

@@ -86,10 +86,27 @@ async function sha256Hex(data: Uint8Array): Promise<string | null> {
 }
 
 export async function packCanvas(input: PackCanvasInput): Promise<Uint8Array> {
-  const folder = sanitizeFolderName(input.name);
+  return packCanvases([input], 'canvas', input.app);
+}
+
+/** Packs every canvas of a vault (kind "vault"); importing it adds all of them. */
+export async function packVault(canvases: PackCanvasInput[], app?: string): Promise<Uint8Array> {
+  if (canvases.length === 0) throw new Error('The vault has no canvases to export');
+  return packCanvases(canvases, 'vault', app);
+}
+
+async function packCanvases(inputs: PackCanvasInput[], kind: PackageManifest['kind'], app?: string): Promise<Uint8Array> {
   const entries: Record<string, Uint8Array> = {};
-  for (const [rel, data] of Object.entries(input.files)) {
-    entries[`${folder}/${safeEntryPath(rel)}`] = data;
+  const listed: PackageManifest['canvases'] = [];
+  const usedFolders = new Set<string>();
+  for (const input of inputs) {
+    let folder = sanitizeFolderName(input.name);
+    for (let i = 2; usedFolders.has(folder.toLowerCase()); i++) folder = `${sanitizeFolderName(input.name)} ${i}`;
+    usedFolders.add(folder.toLowerCase());
+    listed.push({ name: input.name, folder });
+    for (const [rel, data] of Object.entries(input.files)) {
+      entries[`${folder}/${safeEntryPath(rel)}`] = data;
+    }
   }
 
   const hashes: Record<string, string> = {};
@@ -101,10 +118,10 @@ export async function packCanvas(input: PackCanvasInput): Promise<Uint8Array> {
   const manifest: PackageManifest = {
     format: PACKAGE_FORMAT,
     formatVersion: PACKAGE_FORMAT_VERSION,
-    kind: 'canvas',
-    app: input.app ?? 'MosaicFlow',
+    kind,
+    app: app ?? 'MosaicFlow',
     createdAt: new Date().toISOString(),
-    canvases: [{ name: input.name, folder }],
+    canvases: listed,
     ...(Object.keys(hashes).length ? { files: hashes } : {}),
   };
 
