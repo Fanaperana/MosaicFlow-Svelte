@@ -354,11 +354,11 @@
       if (hasRootNodes && hasChildNodes) {
         // Mixed selection - this could be intentional (box selection) or not (click overlap)
         // If a group is selected along with its children, that's likely intentional
-        const selectedGroupIds = new Set(selectedNodes.filter(n => n.type === 'group').map(n => n.id));
+        const selectedGroupIds = new Set(selectedNodes.filter(n => nodeRegistry.isContainer(n.type)).map(n => n.id));
         const childrenOfSelectedGroups = selectedNodes.filter(n => n.parentId && selectedGroupIds.has(n.parentId));
         const orphanChildren = selectedNodes.filter(n => n.parentId && !selectedGroupIds.has(n.parentId));
         
-        if (orphanChildren.length > 0 && !selectedNodes.some(n => n.type === 'group')) {
+        if (orphanChildren.length > 0 && !selectedNodes.some(n => nodeRegistry.isContainer(n.type))) {
           // We have child nodes selected but their parent group is NOT selected
           // This is likely unintended (click on root node accidentally selecting children)
           // Keep only root nodes
@@ -462,13 +462,13 @@
     // Handle subflow: check if nodes are dragged into/out of groups
     for (const draggedNode of event.nodes) {
       // Skip group nodes themselves
-      if (draggedNode.type === 'group') continue;
+      if (nodeRegistry.isContainer(draggedNode.type)) continue;
       
       const currentNode = nodes.find(n => n.id === draggedNode.id);
       if (!currentNode) continue;
       
       // Find all group nodes
-      const groups = nodes.filter(n => n.type === 'group' && n.id !== draggedNode.id);
+      const groups = nodes.filter(n => nodeRegistry.isContainer(n.type) && n.id !== draggedNode.id);
       
       // Check if node is inside any group
       let foundGroup: Node | null = null;
@@ -658,7 +658,7 @@
   function handleUngroupNodes() {
     if (workspace.selectedNodeIds.length === 1) {
       const node = workspace.getNode(workspace.selectedNodeIds[0]);
-      if (node?.type === 'group') {
+      if (node && nodeRegistry.isContainer(node.type)) {
         workspace.ungroupNode(node.id);
       }
     }
@@ -693,7 +693,7 @@
     // Check if any selected node is a child of a group
     for (const nodeId of workspace.selectedNodeIds) {
       const parentGroup = workspace.nodes.find(
-        n => n.type === 'group' && (n.data as any).childNodeIds?.includes(nodeId)
+        n => nodeRegistry.isContainer(n.type) && (n.data as any).childNodeIds?.includes(nodeId)
       );
       if (parentGroup) return false;
     }
@@ -703,7 +703,7 @@
   // Check if we can ungroup
   const canUngroup = $derived(
     workspace.selectedNodeIds.length === 1 && 
-    workspace.getNode(workspace.selectedNodeIds[0])?.type === 'group'
+    nodeRegistry.isContainer(workspace.getNode(workspace.selectedNodeIds[0])?.type)
   );
   
   // Check if selected nodes are inside a group

@@ -1,4 +1,5 @@
 import type { Node } from '@xyflow/svelte';
+import { nodeRegistry } from '$lib/kernel/registries/node-registry';
 
 interface ResolveCollisionOptions {
   margin?: number;
@@ -70,7 +71,7 @@ export function resolveCollisions<T extends Node>(
         const nodeB = bounds.get(nodeIds[j])!;
 
         // Skip collision detection if either node is a group
-        if (nodeA.type === 'group' || nodeB.type === 'group') continue;
+        if (nodeRegistry.isContainer(nodeA.type) || nodeRegistry.isContainer(nodeB.type)) continue;
         
         // Skip collision detection if either node has a parent (is inside a subflow)
         if (nodeA.parentId || nodeB.parentId) continue;
@@ -175,7 +176,7 @@ export function findNonOverlappingPosition<T extends Node>(
     
     for (const node of existingNodes) {
       // Skip collision check for group nodes
-      if (node.type === 'group') continue;
+      if (nodeRegistry.isContainer(node.type)) continue;
       
       // Skip collision check for child nodes (nodes inside a subflow)
       if (node.parentId) continue;

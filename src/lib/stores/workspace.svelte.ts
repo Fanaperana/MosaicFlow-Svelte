@@ -202,9 +202,9 @@ class WorkspaceStore {
    */
   private reorderNodesForSubflows(nodes: MosaicNode[]): MosaicNode[] {
     // Separate parent nodes (groups) and other nodes
-    const parentNodes = nodes.filter(n => n.type === 'group');
+    const parentNodes = nodes.filter(n => nodeRegistry.isContainer(n.type));
     const childNodes = nodes.filter(n => n.parentId);
-    const regularNodes = nodes.filter(n => n.type !== 'group' && !n.parentId);
+    const regularNodes = nodes.filter(n => !nodeRegistry.isContainer(n.type) && !n.parentId);
     
     // Order: parent nodes first, then regular nodes, then child nodes
     // Child nodes should come after their parent
@@ -257,7 +257,7 @@ class WorkspaceStore {
       data: { ...baseData, ...data } as MosaicNodeData,
       width: this.getDefaultWidthForType(type),
       height: this.getDefaultHeightForType(type),
-      zIndex: type === 'group' ? -1 : 1,
+      zIndex: nodeRegistry.isContainer(type) ? -1 : 1,
     });
     
     this.nodes = [...this.nodes, node];
@@ -624,7 +624,7 @@ class WorkspaceStore {
 
   // Ungroup a group node
   ungroupNode(groupId: string) {
-    const groupNode = this.nodes.find(n => n.id === groupId && n.type === 'group');
+    const groupNode = this.nodes.find(n => n.id === groupId && nodeRegistry.isContainer(n.type));
     if (!groupNode) return;
 
     // Save state before mutation
@@ -784,7 +784,7 @@ class WorkspaceStore {
     const processedNodes = nodes.map(node =>
       this.applyLockState({
         ...node,
-        zIndex: node.type === 'group' ? -1 : 1,
+        zIndex: nodeRegistry.isContainer(node.type) ? -1 : 1,
       })
     );
     
@@ -929,7 +929,7 @@ class WorkspaceStore {
       this.applyLockState({
         ...(node as MosaicNode),
         data: ((node as MosaicNode).data ?? {}) as MosaicNodeData,
-        zIndex: node.type === 'group' ? -1 : 1,
+        zIndex: nodeRegistry.isContainer(node.type) ? -1 : 1,
       })
     );
     

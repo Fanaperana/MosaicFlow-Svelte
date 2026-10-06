@@ -2,7 +2,7 @@
   import { workspace } from '$lib/stores/workspace.svelte';
   import { ChevronRight, ChevronDown, Search, FolderOpen, GripVertical } from 'lucide-svelte';
   import type { MosaicNode, NodeType } from '$lib/types';
-  import { getIconComponent } from '$lib/kernel/registries/node-registry';
+  import { getIconComponent, nodeRegistry } from '$lib/kernel/registries/node-registry';
   import { useSvelteFlow } from '@xyflow/svelte';
 
   interface Props {
@@ -64,11 +64,11 @@
     });
 
     const groups = applyCustomOrder(
-      filtered.filter(n => n.type === 'group'),
+      filtered.filter(n => nodeRegistry.isContainer(n.type)),
       groupSortOrder
     );
     const rootNodes = applyCustomOrder(
-      filtered.filter(n => !n.parentId && n.type !== 'group'),
+      filtered.filter(n => !n.parentId && !nodeRegistry.isContainer(n.type)),
       rootSortOrder
     );
     

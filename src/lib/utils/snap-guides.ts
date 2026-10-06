@@ -2,6 +2,7 @@
 // Calculates alignment guides when dragging nodes to show visual indicators
 
 import type { Node } from '@xyflow/svelte';
+import { nodeRegistry } from '$lib/kernel/registries/node-registry';
 
 export interface SnapGuide {
   type: 'vertical' | 'horizontal';
@@ -75,7 +76,7 @@ export function calculateSnapGuides(
     // If dragging a child node, only snap to other children of the same parent
     // If dragging a top-level node, only snap to other top-level nodes (exclude children)
     if (node.parentId !== draggingParentId) continue;
-    if (node.type === 'group') continue;
+    if (nodeRegistry.isContainer(node.type)) continue;
     
     const bounds = getNodeBounds(node);
     
@@ -196,7 +197,7 @@ export function calculateSelectionSnapGuides(
   // Filter to only sibling nodes
   const otherNodes = allNodes.filter(n => {
     if (draggingIds.has(n.id)) return false;
-    if (n.type === 'group') return false;
+    if (nodeRegistry.isContainer(n.type)) return false;
     // Only include nodes with the same parent
     return n.parentId === commonParentId;
   });
