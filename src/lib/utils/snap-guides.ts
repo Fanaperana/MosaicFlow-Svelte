@@ -221,6 +221,46 @@ export function calculateSelectionSnapGuides(
 }
 
 /**
+ * Offset that moves the dragged nodes onto the nearest sibling alignment (edges or centers) on each axis.
+ */
+export function calculateSnapOffset(
+  draggingNodes: Node[],
+  allNodes: Node[],
+  threshold: number
+): { dx: number; dy: number } {
+  if (draggingNodes.length === 0) return { dx: 0, dy: 0 };
+
+  const draggingIds = new Set(draggingNodes.map(n => n.id));
+  const parentId = draggingNodes[0].parentId;
+  if (!draggingNodes.every(n => n.parentId === parentId)) return { dx: 0, dy: 0 };
+
+  const drag = getSelectionBounds(draggingNodes);
+  let dx: number | null = null;
+  let dy: number | null = null;
+
+  for (const node of allNodes) {
+    if (draggingIds.has(node.id) || node.parentId !== parentId) continue;
+    if (nodeRegistry.isContainer(node.type)) continue;
+    const other = getNodeBounds(node);
+
+    for (const from of [drag.left, drag.centerX, drag.right]) {
+      for (const to of [other.left, other.centerX, other.right]) {
+        const d = to - from;
+        if (Math.abs(d) <= threshold && (dx === null || Math.abs(d) < Math.abs(dx))) dx = d;
+      }
+    }
+    for (const from of [drag.top, drag.centerY, drag.bottom]) {
+      for (const to of [other.top, other.centerY, other.bottom]) {
+        const d = to - from;
+        if (Math.abs(d) <= threshold && (dy === null || Math.abs(d) < Math.abs(dy))) dy = d;
+      }
+    }
+  }
+
+  return { dx: dx ?? 0, dy: dy ?? 0 };
+}
+
+/**
  * Get the combined bounds of multiple nodes
  */
 export function getSelectionBounds(nodes: Node[]): NodeBounds {

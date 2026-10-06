@@ -19,7 +19,7 @@
   import { GlowEdge } from '$lib/components/edges';
   import type { NodeType, MosaicNode, MosaicEdge } from '$lib/types';
   import { resolveCollisions, findNonOverlappingPosition } from '$lib/utils/resolve-collisions';
-  import { calculateSnapGuides, calculateSelectionSnapGuides, type SnapGuide } from '$lib/utils/snap-guides';
+  import { calculateSnapGuides, calculateSelectionSnapGuides, calculateSnapOffset, type SnapGuide } from '$lib/utils/snap-guides';
   import { SpatialIndex } from '$lib/utils/spatial-index';
   import SnapGuides from '$lib/components/SnapGuides.svelte';
   import NodeListSidebar from '$lib/components/NodeListSidebar.svelte';
@@ -109,6 +109,7 @@
   // Snap guides state
   let snapGuides = $state<SnapGuide[]>([]);
   const SNAP_THRESHOLD = 8; // Distance in pixels to show guides
+  const SNAP_DISTANCE = 12; // Screen pixels within which Shift-drag snaps to a guide
   
   // Spatial index for efficient node culling at extreme zoom
   let spatialIndex = $state(new SpatialIndex());
@@ -443,12 +444,24 @@
   }
 
   // Handle node drag stop - resolve collisions, save positions, handle subflow, and clear snap guides
-  function handleNodeDragStop(event: { nodes: Node[] }) {
+  function handleNodeDragStop(event: { nodes: Node[]; event: MouseEvent | TouchEvent }) {
     snapGuides = [];
 
     // Work on the store so every step below sees the previous step's result.
     if (nodes !== workspace.nodes) workspace.nodes = nodes as MosaicNode[];
     const draggedIds = new Set(event.nodes.map(n => n.id));
+
+    // xyflow commits its own (unsnapped) positions on release, so snap again here.
+    if (event.event.shiftKey) {
+      const dragged = workspace.nodes.filter(n => draggedIds.has(n.id));
+      const { dx, dy } = calculateSnapOffset(dragged, workspace.nodes, SNAP_DISTANCE / viewport.zoom);
+      if (dx || dy) {
+        workspace.nodes = workspace.nodes.map(n =>
+          draggedIds.has(n.id) ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } } : n
+        );
+      }
+    }
+
     const regrouped = new Set<string>();
     
     for (const draggedNode of event.nodes) {
@@ -512,11 +525,21 @@
     
     // Look up the full node data from our local nodes array to ensure we have correct parentId
     // The event nodes may not have all properties correctly set
-    const draggingNodes = eventDraggingNodes.map(eventNode => {
+    let draggingNodes = eventDraggingNodes.map(eventNode => {
       const fullNode = nodes.find(n => n.id === eventNode.id);
       // Merge event node position (which is current during drag) with full node data
       return fullNode ? { ...fullNode, position: eventNode.position } : eventNode;
     });
+
+    // Shift snaps the dragged nodes onto the nearest alignment guide.
+    if (event.event.shiftKey) {
+      const { dx, dy } = calculateSnapOffset(draggingNodes, nodes, SNAP_DISTANCE / viewport.zoom);
+      if (dx || dy) {
+        draggingNodes = draggingNodes.map(n => ({ ...n, position: { x: n.position.x + dx, y: n.position.y + dy } }));
+        const snapped = new Map(draggingNodes.map(n => [n.id, n.position]));
+        nodes = nodes.map(n => (snapped.has(n.id) ? { ...n, position: snapped.get(n.id)! } : n));
+      }
+    }
     
     // Calculate guides based on single or multiple nodes being dragged
     if (draggingNodes.length === 1) {
