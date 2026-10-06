@@ -7,6 +7,7 @@ use crate::models::VaultInfo;
 use crate::services::{HistoryService, StateService, VaultService};
 use std::path::Path;
 use tauri::AppHandle;
+use tauri_plugin_fs::FsExt;
 
 /// Create a new vault
 #[tauri::command]
@@ -20,6 +21,9 @@ pub async fn create_vault(
 
     let vault = VaultService::create(vault_path, &name, description.as_deref())
         .map_err(|e| e.to_string())?;
+
+    // Frontend reads/writes canvases and .mosaicflow/ directly; vaults may live outside default scopes.
+    let _ = app_handle.fs_scope().allow_directory(vault_path, true);
 
     // Track in history
     HistoryService::track_vault(
@@ -50,6 +54,9 @@ pub async fn open_vault(app_handle: AppHandle, path: String) -> Result<VaultInfo
     let vault_path = Path::new(&path);
 
     let vault = VaultService::open(vault_path).map_err(|e| e.to_string())?;
+
+    // Frontend reads/writes canvases and .mosaicflow/ directly; vaults may live outside default scopes.
+    let _ = app_handle.fs_scope().allow_directory(vault_path, true);
 
     // Track in history
     HistoryService::track_vault(
