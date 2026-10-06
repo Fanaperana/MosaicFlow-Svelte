@@ -26,6 +26,7 @@ function migrateHandleId(handleId: string | undefined | null, handleType: 'sourc
 
 // Debounce timers for edge saves
 const edgeTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const pendingEdges = new Map<string, MosaicEdge>();
 
 // Debounce delay for edge saves (ms)
 const EDGE_SAVE_DELAY = 100;
@@ -90,8 +91,10 @@ export function saveEdge(edge: MosaicEdge) {
   }
   
   // Set new debounced timer
+  pendingEdges.set(edge.id, edge);
   edgeTimers.set(edge.id, setTimeout(async () => {
     edgeTimers.delete(edge.id);
+    pendingEdges.delete(edge.id);
     try {
       await ensureEdgesFolder();
       await ensureEdgeFolder(edge.id);
@@ -306,11 +309,25 @@ export async function loadAllEdges(): Promise<MosaicEdge[]> {
   }
 }
 
-// Flush all pending saves
+// Write all pending saves now (call before closing or moving the canvas)
 export async function flushPendingSaves() {
-  for (const [edgeId, timer] of edgeTimers) {
-    clearTimeout(timer);
-    edgeTimers.delete(edgeId);
+  // Capture the canvas path now: the service may be re-pointed while we write.
+  const base = workspacePath;
+  const edges = [...pendingEdges.values()];
+  for (const timer of edgeTimers.values()) clearTimeout(timer);
+  edgeTimers.clear();
+  pendingEdges.clear();
+  if (!base || edges.length === 0) return;
+
+  const { writeTextFile, mkdir, exists } = await import('@tauri-apps/plugin-fs');
+  for (const edge of edges) {
+    try {
+      const dir = `${base}/edges/${edge.id}`;
+      if (!(await exists(dir))) await mkdir(dir, { recursive: true });
+      await writeTextFile(`${dir}/joined.json`, JSON.stringify(extractEdgeData(edge)));
+    } catch (error) {
+      console.error(`Error flushing edge ${edge.id}:`, error);
+    }
   }
 }
 

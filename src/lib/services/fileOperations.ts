@@ -192,11 +192,19 @@ export async function openWorkspaceDialog(): Promise<string | null> {
   }
 }
 
-// Export workspace as ZIP/JSON
-export async function exportAsZip(): Promise<boolean> {
-  // Export full workspace data including all node content
+// Export the full canvas (nodes, edges, metadata) as a single JSON file
+export async function exportAsJson(): Promise<boolean> {
   try {
-    // Build full export with all node and edge data
+    const { save } = await import('@tauri-apps/plugin-dialog');
+    const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+
+    const filePath = await save({
+      title: 'Export Canvas as JSON',
+      defaultPath: `${workspace.name.replace(/[^a-z0-9-_ ]/gi, '_')}.json`,
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (!filePath) return false;
+
     const exportData = {
       metadata: {
         name: workspace.name,
@@ -209,28 +217,19 @@ export async function exportAsZip(): Promise<boolean> {
         exportedAt: new Date().toISOString(),
       },
       nodes: Object.fromEntries(
-        workspace.nodes.map(node => [node.id, node])
+        workspace.nodes.map(({ selected: _s, measured: _m, dragging: _d, ...node }) => [node.id, node])
       ),
       edges: Object.fromEntries(
-        workspace.edges.map(edge => [edge.id, edge])
+        workspace.edges.map(({ selected: _s, ...edge }) => [edge.id, edge])
       ),
     };
-    
-    const dataStr = JSON.stringify(exportData, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${workspace.name.replace(/[^a-z0-9]/gi, '_')}_workspace.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
+
+    await writeTextFile(filePath, JSON.stringify(exportData, null, 2));
+    toast.success('Canvas exported', { description: filePath });
     return true;
   } catch (error) {
     console.error('Error exporting workspace:', error);
+    toast.error('Failed to export canvas');
     return false;
   }
 }

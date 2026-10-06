@@ -2,7 +2,7 @@
   import { workspace } from '$lib/stores/workspace.svelte';
   import { 
     openWorkspaceDialog, 
-    exportAsZip,
+    exportAsJson,
     exportAsPng,
     exportAsSvg,
   } from '$lib/services/fileOperations';
@@ -22,7 +22,7 @@
   }
 
   async function handleExportZip() {
-    await exportAsZip();
+    await exportAsJson();
     showExportMenu = false;
   }
 
