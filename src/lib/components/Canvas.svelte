@@ -710,6 +710,17 @@
     // With Shift held, event.key is upper-case.
     const key = event.key.toLowerCase();
     const mod = event.ctrlKey || event.metaKey;
+
+    // Ctrl/Cmd + A selects every node; Escape clears the selection
+    if (mod && key === 'a') {
+      event.preventDefault();
+      workspace.setSelectedNodes(workspace.nodes.map(n => n.id));
+    }
+    if (event.key === 'Escape' && (workspace.selectedNodeIds.length > 0 || workspace.selectedEdgeIds.length > 0)) {
+      workspace.setSelectedEdges([]);
+      workspace.edges = workspace.edges.map(e => (e.selected ? { ...e, selected: false } : e));
+      workspace.setSelectedNodes([]);
+    }
     
     // Ctrl/Cmd + G to group
     if (mod && key === 'g' && !event.shiftKey) {
