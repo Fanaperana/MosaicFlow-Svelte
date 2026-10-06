@@ -67,7 +67,7 @@ async function main() {
   const repo = new CanvasRepository(nodeFs, canvasPath.replaceAll('\\', '/'), (type) => bodyMappingFor(knowledge.get(type)));
 
   for (const node of buildNodes().map(applyLayout)) await repo.writeNode(node);
-  for (const edge of buildEdges().map(applyEdgeColor)) await repo.writeEdge(edge);
+  for (const edge of buildEdges()) await repo.writeEdge(edge);
 
   console.log(`Created "${CANVAS_NAME}" with ${buildNodes().length} nodes and ${buildEdges().length} edges at ${canvasPath}`);
 }
@@ -90,28 +90,29 @@ const PALETTE = {
 };
 const card = (p: Record<string, string>, radius = 10) => ({ ...p, borderWidth: 1, borderRadius: radius });
 
-// [x, y, width, height, style] — sizes are large enough that no content is clipped.
+// [x, y, width, height, style] — sizes fit their content; gaps of 120-180px leave room for edges and labels.
+// Pioneers run left-to-right in chronological order so each one connects straight down to its year.
 const LAYOUT: Record<string, [number, number, number, number, Record<string, unknown>]> = {
-  title: [0, -130, 1400, 80, { textColor: '#f5f5f5', fontSize: 34 }],
-  'start-here': [-270, 30, 220, 90, { textColor: '#fb7185' }],
+  title: [0, -170, 2920, 80, { textColor: '#f5f5f5', fontSize: 34 }],
+  'start-here': [-280, 40, 220, 90, { textColor: '#fb7185' }],
   overview: [0, 0, 340, 280, card(PALETTE.overview)],
-  'note-g': [0, 320, 340, 320, card(PALETTE.source)],
-  'wiki-analytical-engine': [0, 680, 340, 190, card(PALETTE.source)],
-  pioneers: [400, 0, 620, 730, { borderColor: '#8b5cf6', color: 'rgba(139, 92, 246, 0.06)', labelColor: '#a78bfa' }],
-  'ada-lovelace': [30, 60, 270, 300, card(PALETTE.people)],
-  'charles-babbage': [320, 60, 270, 300, card(PALETTE.people)],
-  'alan-turing': [30, 400, 270, 300, card(PALETTE.people)],
-  'grace-hopper': [320, 400, 270, 300, card(PALETTE.people)],
-  institutions: [1060, 0, 330, 650, { borderColor: '#14b8a6', color: 'rgba(20, 184, 166, 0.06)', labelColor: '#2dd4bf' }],
+  'wiki-analytical-engine': [0, 400, 340, 190, card(PALETTE.source)],
+  'note-g': [0, 720, 340, 320, card(PALETTE.source)],
+  pioneers: [480, 0, 1530, 390, { borderColor: '#8b5cf6', color: 'rgba(139, 92, 246, 0.06)', labelColor: '#a78bfa' }],
+  'charles-babbage': [30, 60, 270, 300, card(PALETTE.people)],
+  'ada-lovelace': [430, 60, 270, 300, card(PALETTE.people)],
+  'alan-turing': [830, 60, 270, 300, card(PALETTE.people)],
+  'grace-hopper': [1230, 60, 270, 300, card(PALETTE.people)],
+  't-1837': [535, 560, 220, 80, card(PALETTE.time, 8)],
+  't-1843': [935, 560, 220, 80, card(PALETTE.time, 8)],
+  't-1936': [1335, 560, 220, 80, card(PALETTE.time, 8)],
+  't-1944': [1735, 560, 220, 80, card(PALETTE.time, 8)],
+  'todo-turing': [1275, 800, 340, 180, card(PALETTE.todo)],
+  institutions: [2130, 0, 330, 690, { borderColor: '#14b8a6', color: 'rgba(20, 184, 166, 0.06)', labelColor: '#2dd4bf' }],
   'bletchley-park': [30, 60, 270, 260, card(PALETTE.org)],
-  cambridge: [30, 360, 270, 260, card(PALETTE.org)],
-  't-1837': [400, 790, 220, 80, card(PALETTE.time, 8)],
-  't-1843': [650, 790, 220, 80, card(PALETTE.time, 8)],
-  't-1936': [900, 790, 220, 80, card(PALETTE.time, 8)],
-  't-1944': [1150, 790, 220, 80, card(PALETTE.time, 8)],
-  'bletchley-map': [1430, 0, 340, 500, card(PALETTE.place)],
-  'todo-turing': [1430, 540, 340, 180, card(PALETTE.todo)],
-  'further-reading': [1430, 760, 340, 290, card(PALETTE.source)],
+  cambridge: [30, 400, 270, 260, card(PALETTE.org)],
+  'bletchley-map': [2580, 0, 340, 500, card(PALETTE.place)],
+  'further-reading': [2130, 800, 340, 290, card(PALETTE.source)],
 };
 
 function applyLayout(n: StoredNode): StoredNode {
@@ -119,26 +120,6 @@ function applyLayout(n: StoredNode): StoredNode {
   if (!entry) return n;
   const [x, y, width, height, style] = entry;
   return { ...n, position: { x, y }, width, height, data: { ...n.data, ...style } };
-}
-
-const EDGE_COLORS: Record<string, string> = {
-  'e-overview-ada': '#8b5cf6',
-  'e-noteg-ada': '#3b82f6',
-  'e-ada-babbage': '#a78bfa',
-  'e-ada-1843': '#f59e0b',
-  'e-babbage-1837': '#f59e0b',
-  'e-wiki-1837': '#3b82f6',
-  'e-turing-bletchley': '#14b8a6',
-  'e-turing-cambridge': '#14b8a6',
-  'e-turing-1936': '#f59e0b',
-  'e-hopper-1944': '#f59e0b',
-  'e-bletchley-map': '#10b981',
-  'e-todo-1936': '#f43f5e',
-};
-
-function applyEdgeColor(e: StoredEdge): StoredEdge {
-  const color = EDGE_COLORS[e.id];
-  return color ? { ...e, data: { ...e.data, color, labelColor: color, labelBgColor: '#0d1117' } } : e;
 }
 
 function node(id: string, type: string, x: number, y: number, width: number, height: number, data: Record<string, unknown>, parentId?: string): StoredNode {
@@ -188,9 +169,9 @@ function buildNodes(): StoredNode[] {
         'How the idea of a **general-purpose computer** moved from',
         "Babbage's mechanical designs to electronic machines.",
         '',
-        '- Pioneers are grouped on the right',
-        '- The timeline runs along the bottom',
-        '- Sources and to-dos are in the far column',
+        '- Pioneers run along the top, oldest first',
+        '- Each one drops down to their year on the timeline',
+        '- Institutions and places are on the right; sources on the left',
       ].join('\n'),
     }),
     node('note-g', 'code', 0, 300, 340, 280, {
@@ -265,29 +246,63 @@ function buildNodes(): StoredNode[] {
   ];
 }
 
-function edge(id: string, source: string, target: string, label: string, sourceHandle: string, targetHandle: string): StoredEdge {
+type Marker = 'none' | 'arrow' | 'arrowclosed';
+interface EdgeLook {
+  color: string;
+  path?: 'bezier' | 'straight' | 'step' | 'smoothstep';
+  stroke?: 'solid' | 'dashed' | 'dotted';
+  animated?: boolean;
+  start?: Marker;
+  end?: Marker;
+  width?: number;
+}
+
+function edge(id: string, source: string, target: string, label: string, sourceHandle: string, targetHandle: string, look: EdgeLook): StoredEdge {
+  const path = look.path ?? 'bezier';
   return {
     id, source, target, sourceHandle, targetHandle, label,
-    type: 'default',
-    animated: false,
-    data: { color: '#6b7280', strokeWidth: 2, markerEnd: 'arrowclosed' },
+    type: path === 'bezier' ? 'default' : path,
+    animated: !!look.animated,
+    data: {
+      pathType: path,
+      color: look.color,
+      strokeWidth: look.width ?? 2,
+      strokeStyle: look.stroke ?? 'solid',
+      animated: !!look.animated,
+      markerStart: look.start ?? 'none',
+      markerEnd: look.end ?? 'arrowclosed',
+      labelColor: look.color,
+      labelBgColor: '#0d1117',
+    },
   };
 }
 
+const VIOLET = DESIGN_GUIDE.palette.violet.border;
+const AMBER = DESIGN_GUIDE.palette.amber.border;
+const BLUE = DESIGN_GUIDE.palette.blue.border;
+const TEAL = DESIGN_GUIDE.palette.teal.border;
+const EMERALD = DESIGN_GUIDE.palette.emerald.border;
+const ROSE = DESIGN_GUIDE.palette.rose.border;
+
 function buildEdges(): StoredEdge[] {
   return [
-    edge('e-overview-ada', 'overview', 'ada-lovelace', 'starts with', 'right-source', 'left-target'),
-    edge('e-noteg-ada', 'note-g', 'ada-lovelace', 'written by', 'right-source', 'left-target'),
-    edge('e-ada-babbage', 'ada-lovelace', 'charles-babbage', 'collaborated with', 'right-source', 'left-target'),
-    edge('e-ada-1843', 'ada-lovelace', 't-1843', 'published', 'bottom-source', 'top-target'),
-    edge('e-babbage-1837', 'charles-babbage', 't-1837', 'designed', 'bottom-source', 'top-target'),
-    edge('e-wiki-1837', 'wiki-analytical-engine', 't-1837', 'source', 'right-source', 'left-target'),
-    edge('e-turing-bletchley', 'alan-turing', 'bletchley-park', 'worked at', 'right-source', 'left-target'),
-    edge('e-turing-cambridge', 'alan-turing', 'cambridge', 'studied at', 'right-source', 'left-target'),
-    edge('e-turing-1936', 'alan-turing', 't-1936', 'published', 'bottom-source', 'top-target'),
-    edge('e-hopper-1944', 'grace-hopper', 't-1944', 'programmed', 'bottom-source', 'top-target'),
-    edge('e-bletchley-map', 'bletchley-park', 'bletchley-map', 'located at', 'right-source', 'left-target'),
-    edge('e-todo-1936', 'todo-turing', 't-1936', 'about', 'bottom-source', 'bottom-target'),
+    edge('e-overview-babbage', 'overview', 'charles-babbage', 'starts with', 'right-source', 'left-target', { color: VIOLET, path: 'smoothstep' }),
+    edge('e-ada-babbage', 'ada-lovelace', 'charles-babbage', 'collaborated', 'left-source', 'right-target', { color: VIOLET, path: 'straight', start: 'arrowclosed', width: 2.5 }),
+    edge('e-noteg-1843', 'note-g', 't-1843', 'published in', 'right-source', 'bottom-target', { color: BLUE, path: 'smoothstep', stroke: 'dashed', end: 'arrow' }),
+    edge('e-wiki-1837', 'wiki-analytical-engine', 't-1837', 'source', 'right-source', 'left-target', { color: BLUE, stroke: 'dashed', end: 'arrow' }),
+
+    edge('e-babbage-1837', 'charles-babbage', 't-1837', 'designed', 'bottom-source', 'top-target', { color: AMBER, path: 'step' }),
+    edge('e-ada-1843', 'ada-lovelace', 't-1843', 'published', 'bottom-source', 'top-target', { color: AMBER, path: 'step' }),
+    edge('e-turing-1936', 'alan-turing', 't-1936', 'published', 'bottom-source', 'top-target', { color: AMBER, path: 'step' }),
+    edge('e-hopper-1944', 'grace-hopper', 't-1944', 'programmed', 'bottom-source', 'top-target', { color: AMBER, path: 'step' }),
+    edge('e-1837-1843', 't-1837', 't-1843', 'then', 'right-source', 'left-target', { color: AMBER, path: 'straight', stroke: 'dotted', animated: true, end: 'arrow' }),
+    edge('e-1843-1936', 't-1843', 't-1936', 'then', 'right-source', 'left-target', { color: AMBER, path: 'straight', stroke: 'dotted', animated: true, end: 'arrow' }),
+    edge('e-1936-1944', 't-1936', 't-1944', 'then', 'right-source', 'left-target', { color: AMBER, path: 'straight', stroke: 'dotted', animated: true, end: 'arrow' }),
+
+    edge('e-turing-bletchley', 'alan-turing', 'bletchley-park', 'worked at', 'top-source', 'top-target', { color: TEAL, path: 'smoothstep' }),
+    edge('e-turing-cambridge', 'alan-turing', 'cambridge', 'studied at', 'bottom-source', 'left-target', { color: TEAL, path: 'smoothstep', stroke: 'dotted' }),
+    edge('e-bletchley-map', 'bletchley-park', 'bletchley-map', 'located at', 'right-source', 'left-target', { color: EMERALD, path: 'straight' }),
+    edge('e-todo-1936', 'todo-turing', 't-1936', 'read', 'top-source', 'bottom-target', { color: ROSE, path: 'straight', stroke: 'dashed', animated: true }),
   ];
 }
 

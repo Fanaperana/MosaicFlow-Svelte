@@ -24,6 +24,7 @@
     label,
     labelStyle,
     interactionWidth,
+    type,
   }: EdgeProps = $props();
 
   // Extract label styling from data for reactive updates
@@ -31,8 +32,8 @@
   const labelFontSize = $derived((data?.labelFontSize as number) || 12);
   const labelBgColor = $derived((data?.labelBgColor as string) || '#1a1d21');
 
-  // Get the edge path type from data (default to bezier)
-  const pathType = $derived((data?.pathType as string) || 'bezier');
+  // data.pathType wins; otherwise the edge type itself ('default' means bezier)
+  const pathType = $derived((data?.pathType as string) || (type && type !== 'default' ? type : 'bezier'));
 
   // Calculate the path and label position based on type
   const commonParams = $derived({
