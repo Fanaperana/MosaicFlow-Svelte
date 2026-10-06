@@ -1,0 +1,556 @@
+// Canvas operations exposed as MCP tools. Plain async methods so they can be tested without a transport.
+
+import {
+  DESIGN_GUIDE,
+  absoluteRects,
+  boundsOf,
+  buildEdge,
+  facingSides,
+  findFreePosition,
+  isPaletteName,
+  paletteCard,
+  paletteColor,
+  paletteGroup,
+  type CanvasRepository,
+  type EdgeLook,
+  type NodeTypeSchema,
+  type Rect,
+  type Side,
+  type StoredEdge,
+  type StoredNode,
+  type VaultRepository,
+} from '@mosaicflow/vault-core';
+
+const GROUP_PAD = { side: 30, top: 60, bottom: 30 };
+const FALLBACK_SIZE = { width: 300, height: 200 };
+const SAFE_ID = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
+
+export interface EdgeStyleInput {
+  color?: string;
+  palette?: string;
+  path?: EdgeLook['path'];
+  stroke?: EdgeLook['stroke'];
+  animated?: boolean;
+  start?: EdgeLook['start'];
+  end?: EdgeLook['end'];
+  width?: number;
+}
+
+export interface CreateNodeInput {
+  canvas: string;
+  type: string;
+  title: string;
+  data?: Record<string, unknown>;
+  id?: string;
+  palette?: string;
+  parentId?: string;
+  near?: string;
+  position?: { x: number; y: number };
+  size?: { width: number; height: number };
+}
+
+export interface UpdateNodeInput {
+  canvas: string;
+  id: string;
+  title?: string;
+  data?: Record<string, unknown>;
+  palette?: string;
+  position?: { x: number; y: number };
+  size?: { width: number; height: number };
+  parentId?: string | null;
+}
+
+export interface ConnectInput {
+  canvas: string;
+  source: string;
+  target: string;
+  label?: string;
+  id?: string;
+  sourceSide?: Side;
+  targetSide?: Side;
+  style?: EdgeStyleInput;
+}
+
+function slugify(text: string): string {
+  return text.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+}
+
+function uniqueId(base: string, taken: Set<string>): string {
+  const root = slugify(base) || 'node';
+  if (!taken.has(root)) return root;
+  for (let i = 2; ; i++) if (!taken.has(`${root}-${i}`)) return `${root}-${i}`;
+}
+
+function textOf(value: unknown, depth = 0): string {
+  if (value == null || depth > 4) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) return value.map((v) => textOf(v, depth + 1)).join(' ');
+  if (typeof value === 'object') return Object.values(value).map((v) => textOf(v, depth + 1)).join(' ');
+  return '';
+}
+
+/** Style keys are noise for search and summaries. */
+const STYLE_KEYS = new Set([
+  'color', 'borderColor', 'borderWidth', 'borderRadius', 'borderStyle', 'textColor', 'bgOpacity', 'fontSize',
+  'labelColor', 'locked', 'order', 'viewMode', 'labelBgColor', 'strokeWidth', 'strokeStyle',
+]);
+
+function contentText(data: Record<string, unknown>): string {
+  return Object.entries(data)
+    .filter(([k]) => !STYLE_KEYS.has(k))
+    .map(([, v]) => textOf(v))
+    .filter(Boolean)
+    .join(' \n ');
+}
+
+function edgeLook(style: EdgeStyleInput = {}, fallbackColor = '#94a3b8'): EdgeLook {
+  const color = style.color ?? (style.palette && isPaletteName(style.palette) ? paletteColor(style.palette) : fallbackColor);
+  return { color, path: style.path, stroke: style.stroke, animated: style.animated, start: style.start, end: style.end, width: style.width };
+}
+
+export class MosaicOps {
+  constructor(private readonly vault: VaultRepository) {}
+
+  // ---------------------------------------------------------------------------
+  // Discovery
+  // ---------------------------------------------------------------------------
+
+  async nodeTypes(): Promise<NodeTypeSchema[]> {
+    return (await this.vault.readNodeTypes())?.nodeTypes ?? [];
+  }
+
+  async guide() {
+    const doc = await this.vault.readNodeTypes();
+    return {
+      workflow: [
+        'Call list_canvases, then read_canvas (detail "summary") before editing an existing canvas.',
+        'Create nodes with create_node; omit position to auto-place without overlap (use "near" to place beside a related node, "parentId" to put it inside a group).',
+        'Size nodes so content is never clipped (see design.rules); start from the type defaultSize.',
+        'Group related nodes with create_group and give each category one palette name.',
+        'Connect with connect; sides are picked automatically from node positions unless given.',
+        'Finish with set_story_order so the Story view walks the canvas in a sensible order, and auto_layout if the canvas got messy.',
+        'Changes are written to the vault and appear live in the MosaicFlow app.',
+      ],
+      design: doc?.design ?? DESIGN_GUIDE,
+      paletteNames: Object.keys(DESIGN_GUIDE.palette),
+      nodeTypes: (doc?.nodeTypes ?? []).map((t) => ({
+        type: t.type,
+        label: t.label,
+        category: t.category,
+        purpose: t.knowledge?.purpose ?? t.description,
+        bodyField: t.knowledge?.bodyField ?? 'notes',
+        fields: t.knowledge?.fields ?? {},
+        defaultSize: t.defaultSize,
+        capabilities: t.capabilities,
+      })),
+      ...(doc ? {} : { warning: 'node-types.json not found: open this vault once in MosaicFlow to export node type schemas.' }),
+    };
+  }
+
+  async listCanvases() {
+    return (await this.vault.listCanvases()).map((c) => ({
+      id: c.id, name: c.name, description: c.description, tags: c.tags, updatedAt: c.updated_at,
+    }));
+  }
+
+  async createCanvas(spec: { name: string; description?: string; tags?: string[] }) {
+    const { entry } = await this.vault.createCanvas(spec);
+    return { id: entry.id, name: entry.name };
+  }
+
+  async readCanvas(ref: string, detail: 'summary' | 'full' = 'summary') {
+    const { entry, repo } = await this.vault.openCanvas(ref);
+    const nodes = await repo.readAllNodes();
+    const edges = await repo.readAllEdges();
+    const rects = absoluteRects(nodes, FALLBACK_SIZE);
+    return {
+      canvas: { id: entry.id, name: entry.name, description: entry.description, tags: entry.tags },
+      coordinates: 'x/y/width/height are absolute canvas coordinates; "position" is relative to "parent" when set.',
+      nodes: nodes.map((n) => {
+        const r = rects.get(n.id)!;
+        const base = {
+          id: n.id,
+          type: n.type,
+          title: String(n.data.title ?? ''),
+          ...(n.parentId ? { parent: n.parentId, position: n.position } : {}),
+          x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height),
+          ...(typeof n.data.order === 'number' ? { order: n.data.order } : {}),
+        };
+        if (detail === 'full') return { ...base, data: n.data };
+        const text = contentText(n.data).replace(String(n.data.title ?? ''), '').trim();
+        return { ...base, preview: text.length > 160 ? `${text.slice(0, 160)}…` : text };
+      }),
+      edges: edges.map((e) => ({
+        id: e.id, source: e.source, target: e.target,
+        ...(e.label ? { label: e.label } : {}),
+        ...(detail === 'full' ? { sourceHandle: e.sourceHandle, targetHandle: e.targetHandle, type: e.type, data: e.data } : {}),
+      })),
+    };
+  }
+
+  async search(query: string, opts: { canvas?: string; limit?: number } = {}) {
+    const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+    if (terms.length === 0) throw new Error('Query is empty');
+    const canvases = opts.canvas ? [await this.vault.findCanvas(opts.canvas)] : await this.vault.listCanvases();
+    const hits: { canvas: string; nodeId: string; type: string; title: string; snippet: string; score: number }[] = [];
+
+    for (const c of canvases) {
+      const { repo } = await this.vault.openCanvas(c.id);
+      for (const n of await repo.readAllNodes()) {
+        const title = String(n.data.title ?? '');
+        const text = `${title} \n ${contentText(n.data)}`;
+        const lower = text.toLowerCase();
+        if (!terms.every((t) => lower.includes(t))) continue;
+        const score = terms.reduce((s, t) => s + (title.toLowerCase().includes(t) ? 3 : 1), 0);
+        const at = Math.max(0, lower.indexOf(terms[0]) - 60);
+        const snippet = text.slice(at, at + 180).replace(/\s+/g, ' ').trim();
+        hits.push({ canvas: c.name, nodeId: n.id, type: n.type, title, snippet, score });
+      }
+    }
+    return hits.sort((a, b) => b.score - a.score).slice(0, opts.limit ?? 20);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Nodes
+  // ---------------------------------------------------------------------------
+
+  private async open(ref: string) {
+    const { entry, repo } = await this.vault.openCanvas(ref);
+    return { entry, repo, nodes: await repo.readAllNodes() };
+  }
+
+  private async typeSchema(type: string): Promise<NodeTypeSchema | undefined> {
+    const types = await this.nodeTypes();
+    if (types.length === 0) return undefined;
+    const schema = types.find((t) => t.type === type);
+    if (!schema) throw new Error(`Unknown node type "${type}". Available: ${types.map((t) => t.type).join(', ')}`);
+    return schema;
+  }
+
+  private async isContainer(type: string) {
+    return type === 'group' || !!(await this.nodeTypes()).find((t) => t.type === type)?.capabilities?.container;
+  }
+
+  /** Enlarges a container so all its children fit with padding (never shrinks). */
+  private async growToFit(repo: CanvasRepository, nodes: StoredNode[], parentId: string | undefined) {
+    if (!parentId) return;
+    const parent = nodes.find((n) => n.id === parentId);
+    if (!parent) return;
+    const children = nodes.filter((n) => n.parentId === parentId);
+    const bounds = boundsOf(children.map((c) => ({ ...c.position, width: c.width ?? FALLBACK_SIZE.width, height: c.height ?? FALLBACK_SIZE.height })));
+    if (!bounds) return;
+    const width = Math.max(parent.width ?? 0, bounds.x + bounds.width + GROUP_PAD.side);
+    const height = Math.max(parent.height ?? 0, bounds.y + bounds.height + GROUP_PAD.bottom);
+    if (width !== parent.width || height !== parent.height) {
+      parent.width = width;
+      parent.height = height;
+      await repo.writeNode(parent);
+    }
+  }
+
+  async createNode(input: CreateNodeInput) {
+    const { entry, repo, nodes } = await this.open(input.canvas);
+    const schema = await this.typeSchema(input.type);
+    const taken = new Set(nodes.map((n) => n.id));
+    // Placing beside a node that sits in a group puts the new node in that group too.
+    if (input.parentId === undefined && input.near && !input.position) {
+      input = { ...input, parentId: nodes.find((n) => n.id === input.near)?.parentId };
+    }
+
+    const id = input.id ?? uniqueId(input.title || input.type, taken);
+    if (!SAFE_ID.test(id)) throw new Error(`Invalid id "${id}"`);
+    if (taken.has(id)) throw new Error(`A node with id "${id}" already exists`);
+
+    if (input.parentId) {
+      const parent = nodes.find((n) => n.id === input.parentId);
+      if (!parent) throw new Error(`Parent "${input.parentId}" not found`);
+      if (!(await this.isContainer(parent.type))) throw new Error(`"${input.parentId}" (${parent.type}) cannot contain nodes`);
+    }
+    if (input.palette && !isPaletteName(input.palette)) {
+      throw new Error(`Unknown palette "${input.palette}". Use one of: ${Object.keys(DESIGN_GUIDE.palette).join(', ')}`);
+    }
+
+    const size = input.size ?? schema?.defaultSize ?? FALLBACK_SIZE;
+    const container = await this.isContainer(input.type);
+    const style = input.palette && isPaletteName(input.palette)
+      ? (container ? paletteGroup(input.palette) : paletteCard(input.palette, { text: input.palette === 'amber' }))
+      : {};
+    const data: Record<string, unknown> = {
+      ...(schema?.defaultData ?? {}),
+      ...style,
+      ...(input.data ?? {}),
+      title: input.title,
+      ...(container ? { label: input.data?.label ?? input.title } : {}),
+    };
+
+    let position = input.position;
+    if (!position) {
+      const siblings = nodes.filter((n) => n.parentId === input.parentId);
+      const occupied: Rect[] = siblings.map((n) => ({ ...n.position, width: n.width ?? FALLBACK_SIZE.width, height: n.height ?? FALLBACK_SIZE.height }));
+      let near: Rect | undefined;
+      if (input.near) {
+        const rects = absoluteRects(nodes, FALLBACK_SIZE);
+        const nearRect = rects.get(input.near);
+        if (!nearRect) throw new Error(`"near" node "${input.near}" not found`);
+        const origin = input.parentId ? rects.get(input.parentId)! : { x: 0, y: 0 };
+        near = { ...nearRect, x: nearRect.x - origin.x, y: nearRect.y - origin.y };
+      }
+      position = input.parentId && occupied.length === 0
+        ? { x: GROUP_PAD.side, y: GROUP_PAD.top }
+        : findFreePosition(occupied, size, {
+            near,
+            gap: input.parentId ? 30 : 60,
+            ...(input.parentId ? { min: { x: GROUP_PAD.side, y: GROUP_PAD.top } } : {}),
+          });
+    }
+
+    const node: StoredNode = {
+      id,
+      type: input.type,
+      position,
+      width: size.width,
+      height: size.height,
+      zIndex: container ? -1 : 1,
+      ...(input.parentId ? { parentId: input.parentId } : {}),
+      data,
+    };
+    await repo.writeNode(node);
+    nodes.push(node);
+    await this.growToFit(repo, nodes, input.parentId);
+    await this.vault.touchCanvas(entry);
+    const rect = absoluteRects(nodes, FALLBACK_SIZE).get(id)!;
+    return { id, ...rect };
+  }
+
+  async updateNode(input: UpdateNodeInput) {
+    const { entry, repo, nodes } = await this.open(input.canvas);
+    const node = nodes.find((n) => n.id === input.id);
+    if (!node) throw new Error(`Node "${input.id}" not found`);
+    const rects = absoluteRects(nodes, FALLBACK_SIZE);
+    const oldParent = node.parentId;
+
+    if (input.palette) {
+      if (!isPaletteName(input.palette)) throw new Error(`Unknown palette "${input.palette}"`);
+      Object.assign(node.data, (await this.isContainer(node.type)) ? paletteGroup(input.palette) : paletteCard(input.palette, { text: input.palette === 'amber' }));
+    }
+    for (const [key, value] of Object.entries(input.data ?? {})) {
+      if (value === null) delete node.data[key];
+      else node.data[key] = value;
+    }
+    if (input.title !== undefined) node.data.title = input.title;
+    if (input.size) {
+      node.width = input.size.width;
+      node.height = input.size.height;
+    }
+
+    if (input.parentId !== undefined && input.parentId !== (node.parentId ?? null)) {
+      const abs = rects.get(node.id)!;
+      if (input.parentId === null) {
+        delete node.parentId;
+        delete node.extent;
+        node.position = { x: abs.x, y: abs.y };
+      } else {
+        const parent = nodes.find((n) => n.id === input.parentId);
+        if (!parent) throw new Error(`Parent "${input.parentId}" not found`);
+        if (!(await this.isContainer(parent.type))) throw new Error(`"${input.parentId}" cannot contain nodes`);
+        if (parent.id === node.id || this.isDescendant(nodes, parent.id, node.id)) throw new Error('A node cannot be placed inside itself');
+        const origin = rects.get(parent.id)!;
+        node.parentId = parent.id;
+        node.position = { x: abs.x - origin.x, y: abs.y - origin.y };
+      }
+    }
+    if (input.position) node.position = input.position;
+
+    await repo.writeNode(node);
+    await this.growToFit(repo, nodes, node.parentId);
+    if (oldParent !== node.parentId) await this.growToFit(repo, nodes, oldParent);
+    await this.vault.touchCanvas(entry);
+    return { id: node.id, ...absoluteRects(nodes, FALLBACK_SIZE).get(node.id)! };
+  }
+
+  private isDescendant(nodes: StoredNode[], id: string, ancestor: string): boolean {
+    let current = nodes.find((n) => n.id === id);
+    for (let i = 0; current?.parentId && i < nodes.length; i++) {
+      if (current.parentId === ancestor) return true;
+      current = nodes.find((n) => n.id === current!.parentId);
+    }
+    return false;
+  }
+
+  async deleteNode(canvas: string, id: string) {
+    const { entry, repo, nodes } = await this.open(canvas);
+    const node = nodes.find((n) => n.id === id);
+    if (!node) throw new Error(`Node "${id}" not found`);
+    const rects = absoluteRects(nodes, FALLBACK_SIZE);
+
+    // Children of a deleted container stay where they are on the canvas.
+    const children = nodes.filter((n) => n.parentId === id);
+    for (const child of children) {
+      const abs = rects.get(child.id)!;
+      const origin = node.parentId ? rects.get(node.parentId)! : { x: 0, y: 0 };
+      child.position = { x: abs.x - origin.x, y: abs.y - origin.y };
+      if (node.parentId) child.parentId = node.parentId;
+      else delete child.parentId;
+      delete child.extent;
+      await repo.writeNode(child);
+    }
+
+    const edges = (await repo.readAllEdges()).filter((e) => e.source === id || e.target === id);
+    for (const e of edges) await repo.deleteEdge(e.id);
+    await repo.deleteNode(id);
+    await this.vault.touchCanvas(entry);
+    return { deleted: id, removedEdges: edges.map((e) => e.id), detachedChildren: children.map((c) => c.id) };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Edges
+  // ---------------------------------------------------------------------------
+
+  async connect(input: ConnectInput) {
+    const { entry, repo, nodes } = await this.open(input.canvas);
+    const source = nodes.find((n) => n.id === input.source);
+    const target = nodes.find((n) => n.id === input.target);
+    if (!source) throw new Error(`Source node "${input.source}" not found`);
+    if (!target) throw new Error(`Target node "${input.target}" not found`);
+    if (source.id === target.id) throw new Error('Cannot connect a node to itself');
+
+    const types = await this.nodeTypes();
+    for (const n of [source, target]) {
+      if (types.find((t) => t.type === n.type)?.capabilities?.connectable === false) {
+        throw new Error(`"${n.id}" (${n.type}) has no connection handles`);
+      }
+    }
+
+    const edges = await repo.readAllEdges();
+    if (edges.some((e) => e.source === source.id && e.target === target.id)) {
+      throw new Error(`"${source.id}" is already connected to "${target.id}"; use update_edge to change it`);
+    }
+
+    const rects = absoluteRects(nodes, FALLBACK_SIZE);
+    const sides = facingSides(rects.get(source.id)!, rects.get(target.id)!);
+    const taken = new Set(edges.map((e) => e.id));
+    const id = input.id ?? uniqueId(`e-${source.id}-${target.id}`, taken);
+    if (!SAFE_ID.test(id) || taken.has(id)) throw new Error(`Invalid or duplicate edge id "${id}"`);
+
+    const targetBorder = typeof target.data.borderColor === 'string' ? target.data.borderColor : undefined;
+    const edge = buildEdge(
+      id, source.id, target.id, input.label ?? '',
+      `${input.sourceSide ?? sides.source}-source`,
+      `${input.targetSide ?? sides.target}-target`,
+      edgeLook(input.style, targetBorder)
+    );
+    await repo.writeEdge(edge);
+    await this.vault.touchCanvas(entry);
+    return { id, sourceHandle: edge.sourceHandle, targetHandle: edge.targetHandle };
+  }
+
+  async updateEdge(input: { canvas: string; id: string; label?: string; style?: EdgeStyleInput; sourceSide?: Side; targetSide?: Side }) {
+    const { entry, repo } = await this.vault.openCanvas(input.canvas);
+    const edge = await repo.readEdge(input.id);
+    if (!edge) throw new Error(`Edge "${input.id}" not found`);
+    const data = { ...(edge.data ?? {}) };
+    const s = input.style ?? {};
+    if (s.color || s.palette) {
+      const color = edgeLook(s, String(data.color ?? '#94a3b8')).color;
+      data.color = color;
+      data.labelColor = color;
+    }
+    if (s.path) data.pathType = s.path;
+    if (s.stroke) data.strokeStyle = s.stroke;
+    if (s.width) data.strokeWidth = s.width;
+    if (s.start) data.markerStart = s.start;
+    if (s.end) data.markerEnd = s.end;
+    if (s.animated !== undefined) data.animated = s.animated;
+
+    const pathType = String(data.pathType ?? 'bezier');
+    const next: StoredEdge = {
+      ...edge,
+      ...(input.label !== undefined ? { label: input.label } : {}),
+      ...(input.sourceSide ? { sourceHandle: `${input.sourceSide}-source` } : {}),
+      ...(input.targetSide ? { targetHandle: `${input.targetSide}-target` } : {}),
+      type: pathType === 'bezier' ? 'default' : pathType,
+      animated: !!data.animated,
+      data,
+    };
+    await repo.writeEdge(next);
+    await this.vault.touchCanvas(entry);
+    return { id: next.id };
+  }
+
+  async deleteEdge(canvas: string, id: string) {
+    const { entry, repo } = await this.vault.openCanvas(canvas);
+    if (!(await repo.readEdge(id))) throw new Error(`Edge "${id}" not found`);
+    await repo.deleteEdge(id);
+    await this.vault.touchCanvas(entry);
+    return { deleted: id };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Structure
+  // ---------------------------------------------------------------------------
+
+  async createGroup(input: { canvas: string; title: string; nodeIds: string[]; palette?: string; id?: string }) {
+    const { entry, repo, nodes } = await this.open(input.canvas);
+    if (input.nodeIds.length === 0) throw new Error('nodeIds is empty');
+    const members = input.nodeIds.map((id) => {
+      const n = nodes.find((x) => x.id === id);
+      if (!n) throw new Error(`Node "${id}" not found`);
+      return n;
+    });
+    const parentId = members[0].parentId;
+    if (members.some((m) => m.parentId !== parentId)) throw new Error('All nodes must share the same parent to be grouped');
+    if (input.palette && !isPaletteName(input.palette)) throw new Error(`Unknown palette "${input.palette}"`);
+
+    const rects = absoluteRects(nodes, FALLBACK_SIZE);
+    const bounds = boundsOf(members.map((m) => rects.get(m.id)!))!;
+    const groupAbs = { x: bounds.x - GROUP_PAD.side, y: bounds.y - GROUP_PAD.top };
+    const origin = parentId ? rects.get(parentId)! : { x: 0, y: 0 };
+    const schema = await this.typeSchema('group').catch(() => undefined);
+    const id = input.id ?? uniqueId(input.title, new Set(nodes.map((n) => n.id)));
+    if (!SAFE_ID.test(id) || nodes.some((n) => n.id === id)) throw new Error(`Invalid or duplicate group id "${id}"`);
+
+    const group: StoredNode = {
+      id,
+      type: 'group',
+      position: { x: groupAbs.x - origin.x, y: groupAbs.y - origin.y },
+      width: bounds.width + GROUP_PAD.side * 2,
+      height: bounds.height + GROUP_PAD.top + GROUP_PAD.bottom,
+      zIndex: -1,
+      ...(parentId ? { parentId } : {}),
+      data: {
+        ...(schema?.defaultData ?? {}),
+        ...(input.palette && isPaletteName(input.palette) ? paletteGroup(input.palette) : {}),
+        title: input.title,
+        label: input.title,
+      },
+    };
+    await repo.writeNode(group);
+    for (const m of members) {
+      const abs = rects.get(m.id)!;
+      m.parentId = id;
+      m.position = { x: abs.x - groupAbs.x, y: abs.y - groupAbs.y };
+      await repo.writeNode(m);
+    }
+    await this.vault.touchCanvas(entry);
+    return { id, x: groupAbs.x, y: groupAbs.y, width: group.width, height: group.height };
+  }
+
+  async setStoryOrder(canvas: string, nodeIds: string[]) {
+    const { entry, repo, nodes } = await this.open(canvas);
+    const missing = nodeIds.filter((id) => !nodes.some((n) => n.id === id));
+    if (missing.length) throw new Error(`Unknown node ids: ${missing.join(', ')}`);
+    let changed = 0;
+    for (const n of nodes) {
+      const step = nodeIds.indexOf(n.id);
+      const next = step >= 0 ? step + 1 : undefined;
+      if (n.data.order === next) continue;
+      if (next === undefined) delete n.data.order;
+      else n.data.order = next;
+      await repo.writeNode(n);
+      changed++;
+    }
+    await this.vault.touchCanvas(entry);
+    return { ordered: nodeIds.length, changed };
+  }
+}

@@ -1,0 +1,117 @@
+// End-to-end check: start the server over stdio against a throwaway vault and drive it with the MCP client.
+// Usage: pnpm --filter @mosaicflow/mcp-server test [<vault to copy node-types from>]
+
+import { promises as fs } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+
+function assert(cond: unknown, msg: string) {
+  if (!cond) throw new Error(`FAIL: ${msg}`);
+  console.log(`ok - ${msg}`);
+}
+
+async function main() {
+  const vault = await fs.mkdtemp(path.join(os.tmpdir(), 'mosaic-mcp-'));
+  await fs.writeFile(path.join(vault, 'vault.json'), JSON.stringify({ id: 'test-vault', name: 'Test' }));
+  const source = process.argv[2];
+  if (source) {
+    await fs.mkdir(path.join(vault, '.mosaicflow'), { recursive: true });
+    await fs.copyFile(path.join(source, '.mosaicflow', 'node-types.json'), path.join(vault, '.mosaicflow', 'node-types.json'));
+  }
+
+  const client = new Client({ name: 'smoke', version: '1.0.0' });
+  await client.connect(new StdioClientTransport({
+    command: process.execPath,
+    args: ['--import', 'tsx', path.join(here, '..', 'src', 'index.ts'), vault],
+    cwd: path.join(here, '..'),
+    stderr: 'ignore',
+  }));
+
+  const call = async (name: string, args: Record<string, unknown> = {}) => {
+    const res = await client.callTool({ name, arguments: args });
+    const text = (res.content as { text: string }[])[0].text;
+    if (res.isError) throw new Error(`${name}: ${text}`);
+    return JSON.parse(text);
+  };
+  const callError = async (name: string, args: Record<string, unknown>) => {
+    const res = await client.callTool({ name, arguments: args });
+    return res.isError ? (res.content as { text: string }[])[0].text : null;
+  };
+
+  try {
+    const tools = (await client.listTools()).tools.map((t) => t.name);
+    assert(tools.includes('create_node') && tools.includes('search') && tools.length >= 12, `${tools.length} tools listed`);
+
+    const guide = await call('get_guide');
+    assert(guide.design.palette.violet && Array.isArray(guide.nodeTypes), 'guide has design + node types');
+
+    await call('create_canvas', { name: 'MCP Test', tags: ['test'] });
+    assert((await call('list_canvases')).some((c: { name: string }) => c.name === 'MCP Test'), 'canvas created and listed');
+
+    const a = await call('create_node', { canvas: 'MCP Test', type: 'note', title: 'Ownership', palette: 'violet', data: { content: '# Ownership\nEach value has one owner.' } });
+    const b = await call('create_node', { canvas: 'MCP Test', type: 'note', title: 'Borrowing', near: a.id, data: { content: 'References borrow without taking ownership.' } });
+    assert(a.id === 'ownership' && b.id === 'borrowing', 'ids derived from titles');
+    assert(b.x >= a.x + a.width, 'auto-placed beside "near" without overlap');
+
+    const dup = await call('create_node', { canvas: 'MCP Test', type: 'note', title: 'Ownership' });
+    assert(dup.id === 'ownership-2', 'duplicate titles get unique ids');
+
+    const e = await call('connect', { canvas: 'MCP Test', source: a.id, target: b.id, label: 'enables' });
+    assert(e.sourceHandle === 'right-source' && e.targetHandle === 'left-target', 'facing handles picked automatically');
+    assert(await callError('connect', { canvas: 'MCP Test', source: a.id, target: b.id }), 'duplicate edge rejected');
+    assert(await callError('connect', { canvas: 'MCP Test', source: a.id, target: a.id }), 'self-loop rejected');
+
+    const g = await call('create_group', { canvas: 'MCP Test', title: 'Core concepts', nodeIds: [a.id, b.id], palette: 'violet' });
+    const afterGroup = await call('read_canvas', { canvas: 'MCP Test' });
+    const na = afterGroup.nodes.find((n: { id: string }) => n.id === a.id);
+    assert(na.parent === g.id && na.x === a.x && na.y === a.y, 'grouping keeps absolute positions');
+    assert(g.x === a.x - 30 && g.y === a.y - 60, 'group padding 30 / 60');
+
+    const inside = await call('create_node', { canvas: 'MCP Test', type: 'note', title: 'Lifetimes', parentId: g.id });
+    const grown = (await call('read_canvas', { canvas: 'MCP Test' })).nodes.find((n: { id: string }) => n.id === g.id);
+    assert(inside.x + inside.width <= grown.x + grown.width && inside.y + inside.height <= grown.y + grown.height, 'group grows to fit a new child');
+
+    await call('update_node', { canvas: 'MCP Test', id: b.id, parentId: null });
+    const out = (await call('read_canvas', { canvas: 'MCP Test' })).nodes.find((n: { id: string }) => n.id === b.id);
+    assert(!out.parent && out.x === b.x && out.y === b.y, 'moving out of a group keeps the absolute position');
+
+    await call('update_node', { canvas: 'MCP Test', id: a.id, data: { content: 'Changed body', extra: 'x' } });
+    await call('update_node', { canvas: 'MCP Test', id: a.id, data: { extra: null } });
+    const full = (await call('read_canvas', { canvas: 'MCP Test', detail: 'full' })).nodes.find((n: { id: string }) => n.id === a.id);
+    assert(full.data.content === 'Changed body' && !('extra' in full.data), 'data merge and null removal');
+
+    const hits = await call('search', { query: 'borrow references' });
+    assert(hits[0]?.nodeId === 'borrowing', 'search finds content across canvases');
+
+    await call('set_story_order', { canvas: 'MCP Test', nodeIds: [a.id, b.id] });
+    const ordered = (await call('read_canvas', { canvas: 'MCP Test' })).nodes.filter((n: { order?: number }) => n.order);
+    assert(ordered.length === 2, 'story order set');
+
+    const del = await call('delete_node', { canvas: 'MCP Test', id: g.id });
+    assert(del.detachedChildren.includes(a.id), 'deleting a group detaches children');
+    const del2 = await call('delete_node', { canvas: 'MCP Test', id: a.id });
+    assert(del2.removedEdges.length === 1, 'deleting a node removes its edges');
+
+    assert(await callError('read_canvas', { canvas: '../../etc' }), 'unknown canvas rejected');
+    assert(await callError('create_node', { canvas: 'MCP Test', type: 'note', title: 'x', id: '../evil' }), 'unsafe ids rejected');
+
+    const md = await fs.readFile(path.join(vault, 'canvases', 'MCP Test', 'nodes', 'borrowing.md'), 'utf8');
+    assert(md.startsWith('---\nid: borrowing'), 'nodes are written as markdown files');
+    const leftovers = (await fs.readdir(path.join(vault, 'canvases', 'MCP Test', 'nodes'))).filter((f) => f.includes('.tmp-'));
+    assert(leftovers.length === 0, 'no temp files left behind');
+  } finally {
+    await client.close();
+    await fs.rm(vault, { recursive: true, force: true });
+  }
+  console.log('\nAll MCP smoke checks passed');
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

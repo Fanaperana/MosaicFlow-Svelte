@@ -11,6 +11,8 @@ export interface PlacementOptions {
   step?: number;
   /** How many search rings to try before falling back to below all nodes. */
   maxRings?: number;
+  /** Smallest allowed top-left corner (e.g. a group's inner padding). */
+  min?: Point;
 }
 
 /** Stable sort so every node comes after its ancestors (required by subflow renderers). */
@@ -40,6 +42,31 @@ export function rectsOverlap(a: Rect, b: Rect, gap = 0): boolean {
   );
 }
 
+/** Canvas-space rects for every node (positions of children are relative to their parent). */
+export function absoluteRects<T extends { id: string; parentId?: string; position: Point; width?: number; height?: number }>(
+  nodes: T[],
+  fallback: Size = { width: 200, height: 120 }
+): Map<string, Rect> {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const out = new Map<string, Rect>();
+  const resolve = (node: T, depth = 0): Rect => {
+    const cached = out.get(node.id);
+    if (cached) return cached;
+    const parent = node.parentId ? byId.get(node.parentId) : undefined;
+    const origin = parent && depth < nodes.length ? resolve(parent, depth + 1) : { x: 0, y: 0 };
+    const rect = {
+      x: origin.x + node.position.x,
+      y: origin.y + node.position.y,
+      width: node.width ?? fallback.width,
+      height: node.height ?? fallback.height,
+    };
+    out.set(node.id, rect);
+    return rect;
+  };
+  nodes.forEach((n) => resolve(n));
+  return out;
+}
+
 export function boundsOf(rects: Rect[]): Rect | null {
   if (rects.length === 0) return null;
   const minX = Math.min(...rects.map((r) => r.x));
@@ -65,7 +92,9 @@ export function findFreePosition(occupied: Rect[], size: Size, options: Placemen
       ? { x: all.x + all.width + gap, y: all.y }
       : { x: 0, y: 0 };
 
-  const fits = (p: Point) => !occupied.some((r) => rectsOverlap({ ...p, ...size }, r, gap));
+  const min = options.min;
+  const fits = (p: Point) =>
+    (!min || (p.x >= min.x && p.y >= min.y)) && !occupied.some((r) => rectsOverlap({ ...p, ...size }, r, gap));
 
   for (let ring = 0; ring <= maxRings; ring++) {
     const candidates: Point[] = [];

@@ -5,3 +5,5 @@ export * from './repository';
 export * from './layout';
 export * from './schema';
 export * from './package';
+export * from './vault';
+export * from './builders';
