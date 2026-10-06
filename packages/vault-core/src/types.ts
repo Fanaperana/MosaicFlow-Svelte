@@ -59,10 +59,19 @@ export interface NodeTypeSchema {
   defaultData: Record<string, unknown>;
 }
 
+export interface DesignGuide {
+  goal: string;
+  nodeStyleFields: Record<string, string>;
+  edgeStyleFields: Record<string, string>;
+  palette: Record<string, { fill: string; border: string; text: string }>;
+  rules: string[];
+}
+
 export interface NodeTypesDocument {
   schemaVersion: 1;
   generatedAt: string;
   format: Record<string, string>;
+  design: DesignGuide;
   nodeTypes: NodeTypeSchema[];
 }
 

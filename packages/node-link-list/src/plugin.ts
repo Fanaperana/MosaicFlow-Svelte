@@ -8,7 +8,7 @@ export const metadata: Omit<NodeTypeRegistration, "pluginId"> = {
   iconName: "List",
   component: LinkListNode,
   defaultData: { title: "Links", links: [] },
-  dimensions: { minWidth: 200, minHeight: 100, defaultWidth: 280, defaultHeight: 200 },
+  dimensions: { minWidth: 200, minHeight: 100, defaultWidth: 300, defaultHeight: 280 },
   colors: { bg: "#2e1a2e", border: "#6a4a6a", icon: "📋" },
   knowledge: {
     purpose: "A curated list of several related links. Use a Link node for a single source.",

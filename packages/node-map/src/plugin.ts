@@ -8,7 +8,7 @@ export const metadata: Omit<NodeTypeRegistration, "pluginId"> = {
   iconName: "MapPin",
   component: MapNode,
   defaultData: { title: "Map", latitude: 40.7128, longitude: -74.006, zoom: 12 },
-  dimensions: { minWidth: 250, minHeight: 200, defaultWidth: 350, defaultHeight: 300 },
+  dimensions: { minWidth: 250, minHeight: 200, defaultWidth: 340, defaultHeight: 500 },
   colors: { bg: "#1a2e1a", border: "#4a6a4a", icon: "📍" },
   knowledge: {
     purpose: "A geographic location shown on an interactive map.",

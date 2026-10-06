@@ -8,7 +8,7 @@ export const metadata: Omit<NodeTypeRegistration, "pluginId"> = {
   iconName: "User",
   component: PersonNode,
   defaultData: { title: "Person", name: "" },
-  dimensions: { minWidth: 200, minHeight: 150, defaultWidth: 250, defaultHeight: 200 },
+  dimensions: { minWidth: 200, minHeight: 150, defaultWidth: 270, defaultHeight: 300 },
   colors: { bg: "#2e1a2e", border: "#6a4a6a", icon: "👤" },
   knowledge: {
     purpose: "A real individual. Link them to organizations, accounts, posts and events with edges.",

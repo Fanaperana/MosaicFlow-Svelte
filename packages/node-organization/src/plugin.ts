@@ -8,7 +8,7 @@ export const metadata: Omit<NodeTypeRegistration, "pluginId"> = {
   iconName: "Building2",
   component: OrganizationNode,
   defaultData: { title: "Organization", name: "" },
-  dimensions: { minWidth: 200, minHeight: 150, defaultWidth: 250, defaultHeight: 200 },
+  dimensions: { minWidth: 200, minHeight: 150, defaultWidth: 270, defaultHeight: 260 },
   colors: { bg: "#1a2e1a", border: "#4a6a4a", icon: "🏢" },
   knowledge: {
     purpose: "A company, institution or group of people.",

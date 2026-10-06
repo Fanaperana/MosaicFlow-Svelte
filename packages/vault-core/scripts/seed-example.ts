@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import {
   CanvasRepository,
+  DESIGN_GUIDE,
   NODE_TYPES_FILE,
   bodyMappingFor,
   type FsAdapter,
@@ -65,13 +66,80 @@ async function main() {
 
   const repo = new CanvasRepository(nodeFs, canvasPath.replaceAll('\\', '/'), (type) => bodyMappingFor(knowledge.get(type)));
 
-  for (const node of buildNodes()) await repo.writeNode(node);
-  for (const edge of buildEdges()) await repo.writeEdge(edge);
+  for (const node of buildNodes().map(applyLayout)) await repo.writeNode(node);
+  for (const edge of buildEdges().map(applyEdgeColor)) await repo.writeEdge(edge);
 
   console.log(`Created "${CANVAS_NAME}" with ${buildNodes().length} nodes and ${buildEdges().length} edges at ${canvasPath}`);
 }
 
 const base = { color: '#1e1e1e' };
+
+// One tinted fill + matching border per category keeps the mosaic readable at a glance.
+const swatch = (name: keyof typeof DESIGN_GUIDE.palette, withText = false) => {
+  const p = DESIGN_GUIDE.palette[name];
+  return { color: p.fill, borderColor: p.border, ...(withText ? { textColor: p.text } : {}) };
+};
+const PALETTE = {
+  people: swatch('violet'),
+  org: swatch('teal'),
+  time: swatch('amber', true),
+  source: swatch('blue'),
+  todo: swatch('rose'),
+  place: swatch('emerald'),
+  overview: swatch('neutral'),
+};
+const card = (p: Record<string, string>, radius = 10) => ({ ...p, borderWidth: 1, borderRadius: radius });
+
+// [x, y, width, height, style] — sizes are large enough that no content is clipped.
+const LAYOUT: Record<string, [number, number, number, number, Record<string, unknown>]> = {
+  title: [0, -130, 1400, 80, { textColor: '#f5f5f5', fontSize: 34 }],
+  'start-here': [-270, 30, 220, 90, { textColor: '#fb7185' }],
+  overview: [0, 0, 340, 280, card(PALETTE.overview)],
+  'note-g': [0, 320, 340, 320, card(PALETTE.source)],
+  'wiki-analytical-engine': [0, 680, 340, 190, card(PALETTE.source)],
+  pioneers: [400, 0, 620, 730, { borderColor: '#8b5cf6', color: 'rgba(139, 92, 246, 0.06)', labelColor: '#a78bfa' }],
+  'ada-lovelace': [30, 60, 270, 300, card(PALETTE.people)],
+  'charles-babbage': [320, 60, 270, 300, card(PALETTE.people)],
+  'alan-turing': [30, 400, 270, 300, card(PALETTE.people)],
+  'grace-hopper': [320, 400, 270, 300, card(PALETTE.people)],
+  institutions: [1060, 0, 330, 650, { borderColor: '#14b8a6', color: 'rgba(20, 184, 166, 0.06)', labelColor: '#2dd4bf' }],
+  'bletchley-park': [30, 60, 270, 260, card(PALETTE.org)],
+  cambridge: [30, 360, 270, 260, card(PALETTE.org)],
+  't-1837': [400, 790, 220, 80, card(PALETTE.time, 8)],
+  't-1843': [650, 790, 220, 80, card(PALETTE.time, 8)],
+  't-1936': [900, 790, 220, 80, card(PALETTE.time, 8)],
+  't-1944': [1150, 790, 220, 80, card(PALETTE.time, 8)],
+  'bletchley-map': [1430, 0, 340, 500, card(PALETTE.place)],
+  'todo-turing': [1430, 540, 340, 180, card(PALETTE.todo)],
+  'further-reading': [1430, 760, 340, 290, card(PALETTE.source)],
+};
+
+function applyLayout(n: StoredNode): StoredNode {
+  const entry = LAYOUT[n.id];
+  if (!entry) return n;
+  const [x, y, width, height, style] = entry;
+  return { ...n, position: { x, y }, width, height, data: { ...n.data, ...style } };
+}
+
+const EDGE_COLORS: Record<string, string> = {
+  'e-overview-ada': '#8b5cf6',
+  'e-noteg-ada': '#3b82f6',
+  'e-ada-babbage': '#a78bfa',
+  'e-ada-1843': '#f59e0b',
+  'e-babbage-1837': '#f59e0b',
+  'e-wiki-1837': '#3b82f6',
+  'e-turing-bletchley': '#14b8a6',
+  'e-turing-cambridge': '#14b8a6',
+  'e-turing-1936': '#f59e0b',
+  'e-hopper-1944': '#f59e0b',
+  'e-bletchley-map': '#10b981',
+  'e-todo-1936': '#f43f5e',
+};
+
+function applyEdgeColor(e: StoredEdge): StoredEdge {
+  const color = EDGE_COLORS[e.id];
+  return color ? { ...e, data: { ...e.data, color, labelColor: color, labelBgColor: '#0d1117' } } : e;
+}
 
 function node(id: string, type: string, x: number, y: number, width: number, height: number, data: Record<string, unknown>, parentId?: string): StoredNode {
   return { id, type, position: { x, y }, width, height, zIndex: type === 'group' ? -1 : 1, parentId, data: { ...base, ...data } };
@@ -219,7 +287,7 @@ function buildEdges(): StoredEdge[] {
     edge('e-turing-1936', 'alan-turing', 't-1936', 'published', 'bottom-source', 'top-target'),
     edge('e-hopper-1944', 'grace-hopper', 't-1944', 'programmed', 'bottom-source', 'top-target'),
     edge('e-bletchley-map', 'bletchley-park', 'bletchley-map', 'located at', 'right-source', 'left-target'),
-    edge('e-todo-1936', 'todo-turing', 't-1936', 'about', 'left-source', 'right-target'),
+    edge('e-todo-1936', 'todo-turing', 't-1936', 'about', 'bottom-source', 'bottom-target'),
   ];
 }
 

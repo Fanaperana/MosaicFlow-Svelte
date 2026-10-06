@@ -8,7 +8,7 @@ export const metadata: Omit<NodeTypeRegistration, "pluginId"> = {
   iconName: "Link",
   component: LinkNode,
   defaultData: { title: "Link", url: "", description: "" },
-  dimensions: { minWidth: 200, minHeight: 100, defaultWidth: 250, defaultHeight: 140 },
+  dimensions: { minWidth: 200, minHeight: 100, defaultWidth: 300, defaultHeight: 190 },
   colors: { bg: "#2e1a1a", border: "#6a4a4a", icon: "🔗" },
   knowledge: {
     purpose: "Reference to a single web page or online source.",
