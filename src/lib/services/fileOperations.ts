@@ -28,7 +28,7 @@ async function exportNodeTypes(vaultPath: string) {
 
 // Workspace manifest format (v2 - minimal)
 interface WorkspaceManifest {
-  metadata: {
+  metadata?: {
     name: string;
     description: string;
     createdAt: string;
@@ -56,36 +56,36 @@ export async function loadWorkspace(path: string): Promise<boolean> {
     const workspaceContent = await readTextFile(workspacePath);
     const manifest: WorkspaceManifest = JSON.parse(workspaceContent);
     
-    // Check version to determine loading strategy
-    // Handle both v1 (no metadata) and v2 (with metadata) formats
-    const version = manifest.metadata?.version || '1.0.0';
-    const isV2 = version.startsWith('2.');
+    // Legacy v1 manifests embed full node objects; everything else (v2 manifests and the
+    // empty manifest the backend writes for new canvases) keeps nodes as files on disk.
+    const nodeEntries = Array.isArray(manifest.nodes) ? [] : Object.entries(manifest.nodes ?? {});
+    const isLegacyV1 = !manifest.metadata && nodeEntries.some(([, n]) => 'position' in (n as object));
     
     // Initialize file services with workspace path
     workspace.initFileServices(path);
     if (vaultStore.currentVaultPath) exportNodeTypes(vaultStore.currentVaultPath);
     
-    if (isV2) {
-      // V2 format: Load nodes and edges from individual files
+    if (!isLegacyV1) {
       console.log('Loading workspace v2 format...');
       
-      // Load metadata
-      workspace.name = manifest.metadata.name;
-      workspace.description = manifest.metadata.description;
-      workspace.createdAt = manifest.metadata.createdAt;
-      workspace.updatedAt = manifest.metadata.updatedAt;
-      workspace.viewport = manifest.metadata.viewport;
-      if (manifest.metadata.settings) {
-        const settings = manifest.metadata.settings as Record<string, unknown>;
-        workspace.settings = { 
-          ...workspace.settings, 
-          ...(settings as unknown as typeof workspace.settings)
-        };
+      const meta = manifest.metadata;
+      if (meta) {
+        workspace.name = meta.name;
+        workspace.description = meta.description;
+        workspace.createdAt = meta.createdAt;
+        workspace.updatedAt = meta.updatedAt;
+        workspace.viewport = meta.viewport;
+        if (meta.settings) {
+          workspace.settings = { 
+            ...workspace.settings, 
+            ...(meta.settings as unknown as typeof workspace.settings)
+          };
+        }
       }
       
       // Load nodes from individual files
       const nodesManifest: Record<string, { type: NodeType }> = {};
-      for (const [nodeId, nodeInfo] of Object.entries(manifest.nodes)) {
+      for (const [nodeId, nodeInfo] of nodeEntries) {
         nodesManifest[nodeId] = { type: nodeInfo.type as NodeType };
       }
       const nodes = await loadAllNodes(nodesManifest);
