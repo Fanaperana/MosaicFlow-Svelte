@@ -4,6 +4,7 @@
 
 import type { MosaicEdge } from '$lib/types';
 import { MarkerType, type EdgeMarker } from '@xyflow/svelte';
+import { forgetContent, rememberContent } from './diskEcho';
 
 // Migration helper: Convert old handle IDs to new format
 // Old format: "left", "right", "top", "bottom"
@@ -102,9 +103,11 @@ export function saveEdge(edge: MosaicEdge) {
       
       const edgeData = extractEdgeData(edge);
       const joinedPath = `${getEdgeFolderPath(edge.id)}/joined.json`;
+      const json = JSON.stringify(edgeData);
+      rememberContent(joinedPath, json);
       
       // Write as NDJSON (single line JSON for this edge)
-      await writeTextFile(joinedPath, JSON.stringify(edgeData));
+      await writeTextFile(joinedPath, json);
     } catch (error) {
       console.error(`Error saving edge ${edge.id}:`, error);
     }
@@ -121,7 +124,10 @@ export async function saveEdgeImmediate(edge: MosaicEdge) {
     const { writeTextFile } = await import('@tauri-apps/plugin-fs');
     
     const edgeData = extractEdgeData(edge);
-    await writeTextFile(`${getEdgeFolderPath(edge.id)}/joined.json`, JSON.stringify(edgeData));
+    const joinedPath = `${getEdgeFolderPath(edge.id)}/joined.json`;
+    const json = JSON.stringify(edgeData);
+    rememberContent(joinedPath, json);
+    await writeTextFile(joinedPath, json);
   } catch (error) {
     console.error(`Error saving edge ${edge.id}:`, error);
   }
@@ -134,6 +140,7 @@ export async function deleteEdgeFolder(edgeId: string) {
   try {
     const { remove, exists } = await import('@tauri-apps/plugin-fs');
     const edgePath = getEdgeFolderPath(edgeId);
+    forgetContent(edgePath);
     
     if (await exists(edgePath)) {
       await remove(edgePath, { recursive: true });
@@ -240,6 +247,7 @@ export async function loadEdge(edgeId: string): Promise<MosaicEdge | null> {
     }
     
     const content = await readTextFile(joinedPath);
+    rememberContent(joinedPath, content);
     const edgeData = JSON.parse(content);
     
     // Migrate old handle IDs to new format if needed
@@ -324,11 +332,18 @@ export async function flushPendingSaves() {
     try {
       const dir = `${base}/edges/${edge.id}`;
       if (!(await exists(dir))) await mkdir(dir, { recursive: true });
-      await writeTextFile(`${dir}/joined.json`, JSON.stringify(extractEdgeData(edge)));
+      const json = JSON.stringify(extractEdgeData(edge));
+      rememberContent(`${dir}/joined.json`, json);
+      await writeTextFile(`${dir}/joined.json`, json);
     } catch (error) {
       console.error(`Error flushing edge ${edge.id}:`, error);
     }
   }
+}
+
+// True while the app has an unsaved change for this edge (the app's version wins).
+export function hasPendingEdgeSave(edgeId: string): boolean {
+  return pendingEdges.has(edgeId);
 }
 
 // Reset the service

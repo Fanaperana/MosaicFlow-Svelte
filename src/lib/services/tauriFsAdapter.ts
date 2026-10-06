@@ -1,12 +1,16 @@
 import type { FsAdapter } from '@mosaicflow/vault-core';
+import { forgetContent, rememberContent } from './diskEcho';
 
 export const tauriFsAdapter: FsAdapter = {
   async readText(path) {
     const { readTextFile } = await import('@tauri-apps/plugin-fs');
-    return readTextFile(path);
+    const content = await readTextFile(path);
+    rememberContent(path, content);
+    return content;
   },
   async writeText(path, content) {
     const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+    rememberContent(path, content);
     await writeTextFile(path, content);
   },
   async exists(path) {
@@ -19,6 +23,7 @@ export const tauriFsAdapter: FsAdapter = {
   },
   async remove(path) {
     const { remove } = await import('@tauri-apps/plugin-fs');
+    forgetContent(path);
     await remove(path, { recursive: true });
   },
   async list(path) {

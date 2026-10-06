@@ -145,6 +145,19 @@ export async function loadAllNodes(nodesManifest: Record<string, { type: NodeTyp
   return orderParentsFirst(stored.map(fromStored));
 }
 
+// True while the app has an unsaved change for this node (the app's version wins).
+export function hasPendingNodeSave(nodeId: string): boolean {
+  return pending.has(nodeId);
+}
+
+/** Reads one node file; null when it no longer exists. */
+export async function readNodeFromDisk(nodeId: string): Promise<MosaicNode | null> {
+  const repo = repository;
+  if (!repo) return null;
+  const stored = await repo.readNode(nodeId);
+  return stored ? fromStored(stored) : null;
+}
+
 // Write all pending saves now (call before closing or switching canvas)
 export async function flushPendingSaves() {
   const repo = repository;

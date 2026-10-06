@@ -34,6 +34,8 @@ import {
   deleteEdgeFolder,
   resetEdgeFileService,
 } from '$lib/services/edgeFileService';
+import { startLiveSync, stopLiveSync } from '$lib/services/liveSync';
+import { clearKnownContent } from '$lib/services/diskEcho';
 
 // Reactive state using Svelte 5 runes
 // History snapshots keep whatever was selected at the time; restoring must not resurrect it,
@@ -751,6 +753,44 @@ class WorkspaceStore {
     return this.nodes.filter(n => n.parentId === groupId);
   }
 
+  // ---------------------------------------------------------------------------
+  // Changes made on disk by other tools (live sync). These never write back or touch history.
+  // ---------------------------------------------------------------------------
+
+  applyExternalNode(node: MosaicNode) {
+    const existing = this.nodes.find(n => n.id === node.id);
+    const incoming = this.applyLockState({ ...node, selected: existing?.selected ?? false });
+    const next = existing ? this.nodes.map(n => (n.id === node.id ? incoming : n)) : [...this.nodes, incoming];
+    this.nodes = this.reorderNodesForSubflows(next);
+    if (this.selectedNodeForProperties?.id === node.id) this.selectedNodeForProperties = incoming;
+  }
+
+  removeExternalNode(id: string) {
+    if (!this.nodes.some(n => n.id === id)) return;
+    // Children of a removed container keep their absolute position.
+    const parent = this.nodes.find(n => n.id === id)!;
+    this.nodes = this.nodes
+      .filter(n => n.id !== id)
+      .map(n => (n.parentId === id
+        ? { ...n, parentId: undefined, extent: undefined, position: { x: n.position.x + parent.position.x, y: n.position.y + parent.position.y } }
+        : n));
+    this.edges = this.edges.filter(e => e.source !== id && e.target !== id);
+    if (this.selectedNodeForProperties?.id === id) this.syncPropertiesPanel();
+  }
+
+  applyExternalEdge(edge: MosaicEdge) {
+    const existing = this.edges.find(e => e.id === edge.id);
+    const incoming = { ...edge, selected: existing?.selected ?? false };
+    this.edges = existing ? this.edges.map(e => (e.id === edge.id ? incoming : e)) : [...this.edges, incoming];
+    this.edgeVersion++;
+  }
+
+  removeExternalEdge(id: string) {
+    if (!this.edges.some(e => e.id === id)) return;
+    this.edges = this.edges.filter(e => e.id !== id);
+    this.selectedEdgeIds = this.selectedEdgeIds.filter(e => e !== id);
+  }
+
   // Viewport management
   setViewport(viewport: Viewport) {
     this.viewport = viewport;
@@ -873,8 +913,10 @@ class WorkspaceStore {
   // Clear workspace
   clear() {
     // Reset file services
+    stopLiveSync();
     resetNodeFileService();
     resetEdgeFileService();
+    clearKnownContent();
     
     this.nodes = [];
     this.edges = [];
@@ -895,6 +937,7 @@ class WorkspaceStore {
     this.workspacePath = path;
     initNodeFileService(path);
     initEdgeFileService(path);
+    startLiveSync(path);
   }
 
   // Save workspace manifest (minimal workspace.json with just node/edge IDs and types)
