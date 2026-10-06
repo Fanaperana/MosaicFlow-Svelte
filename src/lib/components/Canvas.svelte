@@ -224,6 +224,10 @@
   });
   
   // Handle edge connection
+  // Blocks self-loops and exact duplicates while the user is still dragging.
+  function isValidConnection(c: { source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }) {
+    return c.source !== c.target && !workspace.hasEdge(c.source, c.target, c.sourceHandle, c.targetHandle);
+  }
   function handleConnect(params: { source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }) {
     if (params.source && params.target) {
       workspace.createEdge(params.source, params.target, undefined, params.sourceHandle, params.targetHandle);
@@ -788,6 +792,7 @@
         {nodeTypes}
         {edgeTypes}
         onconnect={handleConnect}
+        {isValidConnection}
         onconnectstart={handleConnectStart}
         onconnectend={handleConnectEnd}
         onselectionchange={handleSelectionChange}

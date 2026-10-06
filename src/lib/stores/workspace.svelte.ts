@@ -441,6 +441,13 @@ class WorkspaceStore {
     }
   }
 
+  // Whether an edge with the same endpoints and handles already exists
+  hasEdge(source: string, target: string, sourceHandle?: string | null, targetHandle?: string | null): boolean {
+    return this.edges.some(e =>
+      (e.source === source && e.target === target && (e.sourceHandle ?? null) === (sourceHandle ?? null) && (e.targetHandle ?? null) === (targetHandle ?? null))
+    );
+  }
+
   // Create an edge
   createEdge(source: string, target: string, label?: string, sourceHandle?: string | null, targetHandle?: string | null): MosaicEdge {
     // Save state before mutation
