@@ -26,6 +26,7 @@ import {
   resetNodeFileService,
 } from '$lib/services/nodeFileService';
 import { nodeRegistry } from '$lib/kernel/registries/node-registry';
+import { orderParentsFirst } from '@mosaicflow/vault-core';
 import {
   initEdgeFileService,
   saveEdge,
@@ -65,7 +66,8 @@ class WorkspaceStore {
   });
   
   // UI State
-  selectedNodeIds = $state<string[]>([]);
+  // Node `selected` flags are the single source of truth; the canvas edits them directly.
+  selectedNodeIds = $derived(this.nodes.filter(n => n.selected).map(n => n.id));
   selectedEdgeIds = $state<string[]>([]);
   isModified = $state(false);
   workspacePath = $state<string | null>(null);
@@ -144,10 +146,7 @@ class WorkspaceStore {
       this.canUndo = this.undoStack.length > 0;
       this.canRedo = this.redoStack.length > 0;
       
-      // Save the restored state to files
-      if (this.workspacePath) {
-        this.saveWorkspaceManifest();
-      }
+      this.persistRestoredState(currentState);
     } finally {
       this.isUndoRedoOperation = false;
     }
@@ -177,13 +176,36 @@ class WorkspaceStore {
       this.canUndo = this.undoStack.length > 0;
       this.canRedo = this.redoStack.length > 0;
       
-      // Save the restored state to files
-      if (this.workspacePath) {
-        this.saveWorkspaceManifest();
-      }
+      this.persistRestoredState(currentState);
     } finally {
       this.isUndoRedoOperation = false;
     }
+  }
+
+  // Write the difference between `before` and the current state to disk
+  private persistRestoredState(before: { nodes: MosaicNode[]; edges: MosaicEdge[] }) {
+    if (!this.workspacePath) return;
+    const strip = (n: MosaicNode) => JSON.stringify({ ...n, selected: undefined, measured: undefined, dragging: undefined });
+
+    const oldNodes = new Map(before.nodes.map(n => [n.id, strip(n)]));
+    const newNodeIds = new Set(this.nodes.map(n => n.id));
+    for (const node of this.nodes) {
+      if (oldNodes.get(node.id) !== strip(node)) saveNodeImmediate(node);
+    }
+    for (const id of oldNodes.keys()) {
+      if (!newNodeIds.has(id)) deleteNodeFolder(id);
+    }
+
+    const oldEdges = new Map(before.edges.map(e => [e.id, JSON.stringify(e)]));
+    const newEdgeIds = new Set(this.edges.map(e => e.id));
+    for (const edge of this.edges) {
+      if (oldEdges.get(edge.id) !== JSON.stringify(edge)) saveEdgeImmediate(edge);
+    }
+    for (const id of oldEdges.keys()) {
+      if (!newEdgeIds.has(id)) deleteEdgeFolder(id);
+    }
+
+    this.saveWorkspaceManifest();
   }
 
   /**
@@ -201,31 +223,7 @@ class WorkspaceStore {
    * This is required for SvelteFlow subflows to work correctly.
    */
   private reorderNodesForSubflows(nodes: MosaicNode[]): MosaicNode[] {
-    // Separate parent nodes (groups) and other nodes
-    const parentNodes = nodes.filter(n => nodeRegistry.isContainer(n.type));
-    const childNodes = nodes.filter(n => n.parentId);
-    const regularNodes = nodes.filter(n => !nodeRegistry.isContainer(n.type) && !n.parentId);
-    
-    // Order: parent nodes first, then regular nodes, then child nodes
-    // Child nodes should come after their parent
-    const orderedNodes: MosaicNode[] = [];
-    
-    // Add parent nodes first
-    for (const parent of parentNodes) {
-      orderedNodes.push(parent);
-      // Add children of this parent immediately after
-      const children = childNodes.filter(n => n.parentId === parent.id);
-      orderedNodes.push(...children);
-    }
-    
-    // Add orphaned child nodes (parent was deleted but child still has parentId)
-    const orphanedChildren = childNodes.filter(n => !parentNodes.some(p => p.id === n.parentId));
-    orderedNodes.push(...orphanedChildren);
-    
-    // Add regular nodes
-    orderedNodes.push(...regularNodes);
-    
-    return orderedNodes;
+    return orderParentsFirst(nodes);
   }
 
   /**
@@ -243,9 +241,13 @@ class WorkspaceStore {
   }
 
   // Create a new node
-  createNode(type: NodeType, position: { x: number; y: number }, data?: Partial<MosaicNodeData>): MosaicNode {
-    // Save state before mutation
-    this.saveToHistory();
+  createNode(
+    type: NodeType,
+    position: { x: number; y: number },
+    data?: Partial<MosaicNodeData>,
+    options: { recordHistory?: boolean; size?: { width: number; height: number } } = {}
+  ): MosaicNode {
+    if (options.recordHistory !== false) this.saveToHistory();
     
     const id = uuidv4();
     const baseData = this.getDefaultDataForType(type);
@@ -255,8 +257,8 @@ class WorkspaceStore {
       type,
       position,
       data: { ...baseData, ...data } as MosaicNodeData,
-      width: this.getDefaultWidthForType(type),
-      height: this.getDefaultHeightForType(type),
+      width: options.size?.width ?? this.getDefaultWidthForType(type),
+      height: options.size?.height ?? this.getDefaultHeightForType(type),
       zIndex: nodeRegistry.isContainer(type) ? -1 : 1,
     });
     
@@ -297,6 +299,7 @@ class WorkspaceStore {
         width: node.width,
         height: node.height,
         zIndex: node.zIndex,
+        parentId: node.parentId,
       };
       const newNodeWithLock = this.applyLockState(newNode);
       
@@ -304,7 +307,7 @@ class WorkspaceStore {
     }
     
     // Add all new nodes at once
-    this.nodes = [...this.nodes, ...newNodes];
+    this.nodes = this.reorderNodesForSubflows([...this.nodes, ...newNodes]);
     
     // Save nodes to files
     if (this.workspacePath) {
@@ -384,38 +387,43 @@ class WorkspaceStore {
 
   // Delete a node
   deleteNode(id: string) {
-    // Save state before mutation
     this.saveToHistory();
-    
-    // Get edges to delete
-    const edgesToDelete = this.edges.filter(edge => edge.source === id || edge.target === id);
-    
-    this.nodes = this.nodes.filter(node => node.id !== id);
-    this.edges = this.edges.filter(edge => edge.source !== id && edge.target !== id);
-    
-    // Delete node and edge files
-    if (this.workspacePath) {
-      deleteNodeFolder(id);
-      edgesToDelete.forEach(edge => deleteEdgeFolder(edge.id));
-      this.saveWorkspaceManifest();
-    }
+    this.removeNodes([id]);
   }
 
   // Delete multiple nodes
   deleteNodes(ids: string[]) {
-    // Save state before mutation
     this.saveToHistory();
-    
-    // Get edges to delete
+    this.removeNodes(ids);
+  }
+
+  private removeNodes(ids: string[]) {
     const edgesToDelete = this.edges.filter(edge => ids.includes(edge.source) || ids.includes(edge.target));
+    const removed = new Map(this.nodes.filter(n => ids.includes(n.id)).map(n => [n.id, n]));
+    const detached: MosaicNode[] = [];
     
-    this.nodes = this.nodes.filter(node => !ids.includes(node.id));
+    this.nodes = this.nodes
+      .filter(node => !removed.has(node.id))
+      .map(node => {
+        const parent = node.parentId ? removed.get(node.parentId) : undefined;
+        if (!parent) return node;
+        // Children of a deleted container stay on the canvas at the same spot.
+        const child: MosaicNode = {
+          ...node,
+          parentId: parent.parentId,
+          position: { x: node.position.x + parent.position.x, y: node.position.y + parent.position.y },
+          extent: undefined,
+          expandParent: undefined,
+        };
+        detached.push(child);
+        return child;
+      });
     this.edges = this.edges.filter(edge => !ids.includes(edge.source) && !ids.includes(edge.target));
     
-    // Delete node and edge files
     if (this.workspacePath) {
       ids.forEach(id => deleteNodeFolder(id));
       edgesToDelete.forEach(edge => deleteEdgeFolder(edge.id));
+      detached.forEach(child => saveNodeProperties(child));
       this.saveWorkspaceManifest();
     }
   }
@@ -555,113 +563,104 @@ class WorkspaceStore {
     this.canvasMode = mode;
   }
 
-  // Group selected nodes
+  // Group selected top-level nodes into a new container
   groupSelectedNodes(): MosaicNode | null {
-    if (this.selectedNodeIds.length < 2) return null;
-
-    // Save state before mutation
-    this.saveToHistory();
-
-    // Get the selected nodes
-    const selectedNodes = this.nodes.filter(n => this.selectedNodeIds.includes(n.id));
+    const selectedNodes = this.nodes.filter(n => this.selectedNodeIds.includes(n.id) && !n.parentId);
     if (selectedNodes.length < 2) return null;
 
-    // Calculate bounding box of selected nodes
+    this.saveToHistory();
+
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const node of selectedNodes) {
-      const w = node.width || 200;
-      const h = node.height || 100;
+      const w = node.measured?.width ?? node.width ?? 200;
+      const h = node.measured?.height ?? node.height ?? 100;
       minX = Math.min(minX, node.position.x);
       minY = Math.min(minY, node.position.y);
       maxX = Math.max(maxX, node.position.x + w);
       maxY = Math.max(maxY, node.position.y + h);
     }
 
-    // Add padding
     const padding = 40;
     minX -= padding;
-    minY -= padding + 30; // Extra for header
+    minY -= padding + 30; // Extra room for the group header
     maxX += padding;
     maxY += padding;
 
-    // Create group node
-    const groupNode = this.createNode('group', { x: minX, y: minY }, {
-      label: 'Group',
-      childNodeIds: this.selectedNodeIds.slice(),
-    });
+    const groupNode = this.createNode(
+      'group',
+      { x: minX, y: minY },
+      { label: 'Group' },
+      { recordHistory: false, size: { width: maxX - minX, height: maxY - minY } }
+    );
 
-    // Update group node size
-    groupNode.width = maxX - minX;
-    groupNode.height = maxY - minY;
-    
-    // Update nodes to be children of group (set parentId)
-    let updatedNodes = this.nodes.map(node => {
-      if (this.selectedNodeIds.includes(node.id)) {
-        return {
-          ...node,
-          parentId: groupNode.id,
-          position: {
-            x: node.position.x - minX,
-            y: node.position.y - minY,
-          },
-          expandParent: true,
-          extent: 'parent' as const, // Constrain within parent bounds
-        };
-      }
-      if (node.id === groupNode.id) {
-        return { ...node, width: maxX - minX, height: maxY - minY };
-      }
-      return node;
-    });
-    
-    // Reorder nodes so parent comes before children (required for SvelteFlow subflows)
-    this.nodes = this.reorderNodesForSubflows(updatedNodes);
+    const childIds = new Set(selectedNodes.map(n => n.id));
+    const children: MosaicNode[] = [];
+    this.nodes = this.reorderNodesForSubflows(this.nodes.map(node => {
+      if (!childIds.has(node.id)) return node;
+      const child: MosaicNode = {
+        ...node,
+        parentId: groupNode.id,
+        position: { x: node.position.x - minX, y: node.position.y - minY },
+        extent: undefined,
+        expandParent: undefined,
+      };
+      children.push(child);
+      return child;
+    }));
 
-    // Clear selection and select the group
+    if (this.workspacePath) {
+      children.forEach(child => saveNodeProperties(child));
+    }
+
     this.setSelectedNodes([groupNode.id]);
     return groupNode;
   }
 
-  // Ungroup a group node
+  // Ungroup a group node, keeping its children where they are on screen
   ungroupNode(groupId: string) {
     const groupNode = this.nodes.find(n => n.id === groupId && nodeRegistry.isContainer(n.type));
     if (!groupNode) return;
 
-    // Save state before mutation
     this.saveToHistory();
 
-    // Get child nodes
-    const childNodes = this.nodes.filter(n => n.parentId === groupId);
-    const childIds = childNodes.map(n => n.id);
-
-    // Update child nodes to remove parent and restore absolute positions
+    const children: MosaicNode[] = [];
     this.nodes = this.nodes.map(node => {
-      if (node.parentId === groupId) {
-        return {
-          ...node,
-          parentId: undefined,
-          position: {
-            x: node.position.x + groupNode.position.x,
-            y: node.position.y + groupNode.position.y,
-          },
-          expandParent: undefined,
-          extent: undefined, // Remove containment
-        };
-      }
-      return node;
+      if (node.parentId !== groupId) return node;
+      const child: MosaicNode = {
+        ...node,
+        parentId: undefined,
+        position: {
+          x: node.position.x + groupNode.position.x,
+          y: node.position.y + groupNode.position.y,
+        },
+        expandParent: undefined,
+        extent: undefined,
+      };
+      children.push(child);
+      return child;
     });
 
-    // Remove the group node
-    this.deleteNode(groupId);
+    if (this.workspacePath) {
+      children.forEach(child => saveNodeProperties(child));
+    }
 
-    // Select the ungrouped nodes
-    this.setSelectedNodes(childIds);
+    this.removeNodes([groupId]);
+    this.setSelectedNodes(children.map(n => n.id));
   }
 
   // Selection management
   setSelectedNodes(ids: string[]) {
-    this.selectedNodeIds = ids;
+    const idSet = new Set(ids);
+    if (this.nodes.some(n => !!n.selected !== idSet.has(n.id))) {
+      this.nodes = this.nodes.map(n => (!!n.selected === idSet.has(n.id) ? n : { ...n, selected: idSet.has(n.id) }));
+    }
+    this.syncPropertiesPanel();
+  }
+
+  // Open/close the properties panel to match the current node selection
+  syncPropertiesPanel() {
     if (this.suppressPropertiesPanel) return;
+    const ids = this.selectedNodeIds;
     if (ids.length === 1) {
       const node = this.nodes.find(n => n.id === ids[0]);
       if (node) {
@@ -670,7 +669,7 @@ class WorkspaceStore {
       }
     } else {
       this.selectedNodeForProperties = null;
-      if (ids.length === 0) {
+      if (ids.length === 0 && this.selectedEdgeIds.length === 0) {
         this.propertiesPanelOpen = false;
       }
     }
@@ -841,7 +840,6 @@ class WorkspaceStore {
     
     this.nodes = [];
     this.edges = [];
-    this.selectedNodeIds = [];
     this.selectedEdgeIds = [];
     this.name = 'Untitled Workspace';
     this.description = '';
@@ -943,21 +941,22 @@ class WorkspaceStore {
   // Load UI state
   loadUIState(state: UIState) {
     this.viewport = state.viewport ?? DEFAULT_VIEWPORT;
-    this.selectedNodeIds = state.selectedNodeIds ?? [];
     this.selectedEdgeIds = state.selectedEdgeIds ?? [];
+    const selected = new Set(state.selectedNodeIds ?? []);
     
     // Update node positions from state
     this.nodes = this.nodes.map(node => {
-      const stateNode = state.nodes[node.id];
+      const stateNode = state.nodes?.[node.id];
       if (stateNode) {
         return {
           ...node,
+          selected: selected.has(node.id),
           position: stateNode.position,
           width: stateNode.width ?? node.width,
           height: stateNode.height ?? node.height,
         };
       }
-      return node;
+      return selected.has(node.id) ? { ...node, selected: true } : node;
     });
   }
 

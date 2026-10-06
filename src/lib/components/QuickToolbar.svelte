@@ -5,6 +5,7 @@
     getIconByName,
   } from '$lib/kernel/registries/node-registry';
   import { workspace } from '$lib/stores/workspace.svelte';
+  import { findNonOverlappingPosition } from '$lib/utils/resolve-collisions';
   import SimpleTooltip from '$lib/components/ui/SimpleTooltip.svelte';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   import { 
@@ -36,10 +37,16 @@
   }
 
   function handleAddNode(type: string) {
-    // Add node at center of viewport
+    const { defaultWidth, defaultHeight } = nodeRegistry.getDimensions(type);
     const centerX = (window.innerWidth / 2 - workspace.viewport.x) / workspace.viewport.zoom;
     const centerY = (window.innerHeight / 2 - workspace.viewport.y) / workspace.viewport.zoom;
-    const newNode = workspace.createNode(type, { x: centerX - 100, y: centerY - 50 });
+    const position = findNonOverlappingPosition(
+      { x: centerX - defaultWidth / 2, y: centerY - defaultHeight / 2 },
+      { width: defaultWidth, height: defaultHeight },
+      workspace.nodes,
+      20
+    );
+    const newNode = workspace.createNode(type, position);
     
     // Select the newly created node
     workspace.setSelectedNodes([newNode.id]);

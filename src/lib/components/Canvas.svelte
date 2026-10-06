@@ -9,8 +9,10 @@
     type Node,
     type Edge,
     ConnectionLineType,
+    SelectionMode,
   } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
+  import { untrack } from 'svelte';
 
   import { workspace } from '$lib/stores/workspace.svelte';
   import { nodeRegistry, NODE_CATEGORIES, getIconComponent } from '$lib/kernel/registries/node-registry';
@@ -220,18 +222,6 @@
     workspace.setViewport(viewport);
   });
   
-  // Sync workspace.selectedNodeIds to nodes' selected property for visual selection
-  $effect(() => {
-    const selectedIds = workspace.selectedNodeIds;
-    const needsUpdate = nodes.some(n => n.selected !== selectedIds.includes(n.id));
-    if (needsUpdate) {
-      nodes = nodes.map(n => ({
-        ...n,
-        selected: selectedIds.includes(n.id)
-      }));
-    }
-  });
-
   // Handle edge connection
   function handleConnect(params: { source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }) {
     if (params.source && params.target) {
@@ -275,100 +265,78 @@
   // Create node from edge drop and connect it
   function createNodeFromEdgeDrop(type: NodeType) {
     if (!pendingConnectionSource) return;
-    
-    // Convert screen position to flow position
-    const flowPosition = screenToFlowPosition({
-      x: edgeDropMenuPosition.x,
-      y: edgeDropMenuPosition.y,
-    });
-    
-    // Get default node size
-    const nodeSize = getNodeSizeForType(type);
-    
-    // Offset position to center the node on the drop point
+    const { nodeId, handleId, handleType } = pendingConnectionSource;
+
+    const flowPosition = screenToFlowPosition(edgeDropMenuPosition);
+    const { width, height } = getNodeSizeForType(type);
+
+    // The new node's handle faces the handle the drag started from.
+    const OPPOSITE = { left: 'right', right: 'left', top: 'bottom', bottom: 'top' } as const;
+    const startSide = handleId?.split('-')[0];
+    const fromSide = startSide && startSide in OPPOSITE
+      ? startSide as keyof typeof OPPOSITE
+      : handleType === 'source' ? 'right' : 'left';
+    const newSide = OPPOSITE[fromSide];
+    const newHandleId = `${newSide}-${handleType === 'source' ? 'target' : 'source'}`;
+
+    // Place the new node so its connecting handle sits at the release point.
     const position = {
-      x: flowPosition.x - nodeSize.width / 2,
-      y: flowPosition.y - nodeSize.height / 2,
-    };
-    
-    // Find non-overlapping position
-    const finalPosition = findNonOverlappingPosition(position, nodeSize, nodes, 20);
-    
-    // Create the node
-    const newNode = workspace.createNode(type, finalPosition);
-    
-    // Create edge based on which handle type was used
-    if (pendingConnectionSource.handleType === 'source') {
-      // Dragged from source, so new node is target
-      workspace.createEdge(
-        pendingConnectionSource.nodeId,
-        newNode.id,
-        undefined,
-        pendingConnectionSource.handleId,
-        'left' // Default target handle
-      );
+      left: { x: flowPosition.x, y: flowPosition.y - height / 2 },
+      right: { x: flowPosition.x - width, y: flowPosition.y - height / 2 },
+      top: { x: flowPosition.x - width / 2, y: flowPosition.y },
+      bottom: { x: flowPosition.x - width / 2, y: flowPosition.y - height },
+    }[newSide];
+
+    const newNode = workspace.createNode(type, findNonOverlappingPosition(position, { width, height }, nodes, 20));
+
+    if (handleType === 'source') {
+      workspace.createEdge(nodeId, newNode.id, undefined, handleId, newHandleId);
     } else {
-      // Dragged from target, so new node is source
-      workspace.createEdge(
-        newNode.id,
-        pendingConnectionSource.nodeId,
-        undefined,
-        'right', // Default source handle
-        pendingConnectionSource.handleId
-      );
+      workspace.createEdge(newNode.id, nodeId, undefined, newHandleId, handleId);
     }
-    
-    // Run collision resolution
-    setTimeout(() => {
-      nodes = resolveCollisions(nodes, { 
-        maxIterations: 100, 
-        overlapThreshold: 0.5, 
-        margin: 15 
-      });
-      
-      // Select the new node
-      nodes = nodes.map(n => ({
-        ...n,
-        selected: n.id === newNode.id
-      }));
-      workspace.setSelectedNodes([newNode.id]);
-    }, 50);
-    
-    // Clean up
+
+    workspace.setSelectedNodes([newNode.id]);
+
     pendingConnectionSource = null;
     edgeDropMenuOpen = false;
   }
 
-  // Handle selection changes
+  // Selection lives in node flags (shared with the store); this only post-processes and syncs UI.
+  // Called from inside xyflow's effect, so it must not track the state it reads.
   function handleSelectionChange(params: { nodes: Node[]; edges: Edge[] }) {
-    // Get the selected nodes from the event
-    let selectedNodes = params.nodes;
+    untrack(() => applySelectionChange(params.edges));
+  }
+
+  function applySelectionChange(selectedEdges: Edge[]) {
+    const edgeIds = selectedEdges.map(e => e.id);
+    if (edgeIds.join() !== workspace.selectedEdgeIds.join()) {
+      workspace.setSelectedEdges(edgeIds);
+    }
+
+    const selectedNodes = nodes.filter(n => n.selected);
+    let keep = selectedNodes;
     
     // Fix for issue: clicking on a single node shouldn't accidentally select child nodes inside groups
     // This can happen due to overlapping bounds or z-index issues with subflows
     if (selectedNodes.length > 1) {
-      // Check if we have a mix of root nodes and child nodes
       const hasRootNodes = selectedNodes.some(n => !n.parentId);
       const hasChildNodes = selectedNodes.some(n => n.parentId);
       
       if (hasRootNodes && hasChildNodes) {
-        // Mixed selection - this could be intentional (box selection) or not (click overlap)
-        // If a group is selected along with its children, that's likely intentional
         const selectedGroupIds = new Set(selectedNodes.filter(n => nodeRegistry.isContainer(n.type)).map(n => n.id));
-        const childrenOfSelectedGroups = selectedNodes.filter(n => n.parentId && selectedGroupIds.has(n.parentId));
         const orphanChildren = selectedNodes.filter(n => n.parentId && !selectedGroupIds.has(n.parentId));
         
         if (orphanChildren.length > 0 && !selectedNodes.some(n => nodeRegistry.isContainer(n.type))) {
-          // We have child nodes selected but their parent group is NOT selected
-          // This is likely unintended (click on root node accidentally selecting children)
-          // Keep only root nodes
-          selectedNodes = selectedNodes.filter(n => !n.parentId);
+          keep = selectedNodes.filter(n => !n.parentId);
         }
       }
     }
     
-    workspace.setSelectedNodes(selectedNodes.map(n => n.id));
-    workspace.setSelectedEdges(params.edges.map(e => e.id));
+    if (keep.length !== selectedNodes.length) {
+      workspace.setSelectedNodes(keep.map(n => n.id));
+    } else {
+      workspace.syncPropertiesPanel();
+    }
   }
 
   // Handle drop for adding new nodes
@@ -405,22 +373,42 @@
    * Add a node as a child of a group (subflow)
    */
   function addNodeToGroup(nodeId: string, groupId: string) {
-    const node = nodes.find(n => n.id === nodeId);
-    const group = nodes.find(n => n.id === groupId);
+    const node = workspace.getNode(nodeId);
+    const group = workspace.getNode(groupId);
     if (!node || !group) return;
     
-    // Calculate relative position within the group
-    const relativePosition = {
-      x: node.position.x - group.position.x,
-      y: node.position.y - group.position.y,
-    };
+    const pad = 20;
+    const nodeW = node.measured?.width ?? node.width ?? 200;
+    const nodeH = node.measured?.height ?? node.height ?? 100;
+    const groupW = group.measured?.width ?? group.width ?? 400;
+    const groupH = group.measured?.height ?? group.height ?? 300;
+    const rel = { x: node.position.x - group.position.x, y: node.position.y - group.position.y };
+
+    // Grow the group so the new child sits fully inside it.
+    const shiftX = Math.min(0, rel.x - pad);
+    const shiftY = Math.min(0, rel.y - pad);
+    const width = Math.max(groupW, rel.x + nodeW + pad) - shiftX;
+    const height = Math.max(groupH, rel.y + nodeH + pad) - shiftY;
+    if (shiftX < 0 || shiftY < 0 || width !== groupW || height !== groupH) {
+      workspace.updateNode(groupId, {
+        position: { x: group.position.x + shiftX, y: group.position.y + shiftY },
+        width,
+        height,
+      });
+      if (shiftX < 0 || shiftY < 0) {
+        for (const child of workspace.getChildNodes(groupId)) {
+          workspace.updateNode(child.id, {
+            position: { x: child.position.x - shiftX, y: child.position.y - shiftY },
+          });
+        }
+      }
+    }
     
-    // Update the node to be a child of the group
     workspace.updateNode(nodeId, {
       parentId: groupId,
-      position: relativePosition,
-      extent: 'parent' as const,
-      expandParent: true,
+      position: { x: rel.x - shiftX, y: rel.y - shiftY },
+      extent: undefined,
+      expandParent: undefined,
     });
   }
 
@@ -428,10 +416,10 @@
    * Remove a node from its parent group
    */
   function removeNodeFromGroup(nodeId: string) {
-    const node = nodes.find(n => n.id === nodeId);
+    const node = workspace.getNode(nodeId);
     if (!node || !node.parentId) return;
     
-    const parent = nodes.find(n => n.id === node.parentId);
+    const parent = workspace.getNode(node.parentId);
     if (!parent) return;
     
     // Calculate absolute position
@@ -456,81 +444,60 @@
 
   // Handle node drag stop - resolve collisions, save positions, handle subflow, and clear snap guides
   function handleNodeDragStop(event: { nodes: Node[] }) {
-    // Clear snap guides
     snapGuides = [];
+
+    // Work on the store so every step below sees the previous step's result.
+    if (nodes !== workspace.nodes) workspace.nodes = nodes as MosaicNode[];
+    const draggedIds = new Set(event.nodes.map(n => n.id));
+    const regrouped = new Set<string>();
     
-    // Handle subflow: check if nodes are dragged into/out of groups
     for (const draggedNode of event.nodes) {
-      // Skip group nodes themselves
       if (nodeRegistry.isContainer(draggedNode.type)) continue;
       
-      const currentNode = nodes.find(n => n.id === draggedNode.id);
+      const currentNode = workspace.getNode(draggedNode.id);
       if (!currentNode) continue;
-      
-      // Find all group nodes
-      const groups = nodes.filter(n => nodeRegistry.isContainer(n.type) && n.id !== draggedNode.id);
-      
-      // Check if node is inside any group
-      let foundGroup: Node | null = null;
-      for (const group of groups) {
-        // For child nodes, we need to calculate absolute position
-        let absolutePos = { ...currentNode.position };
-        if (currentNode.parentId) {
-          const parent = nodes.find(n => n.id === currentNode.parentId);
-          if (parent) {
-            absolutePos = {
-              x: currentNode.position.x + parent.position.x,
-              y: currentNode.position.y + parent.position.y,
-            };
-          }
-        }
-        
-        // Create a temporary node with absolute position for checking
-        const tempNode = { ...currentNode, position: absolutePos };
-        if (isNodeInsideGroup(tempNode, group)) {
-          foundGroup = group;
-          break;
-        }
+
+      let absolutePos = { ...currentNode.position };
+      const currentParent = currentNode.parentId ? workspace.getNode(currentNode.parentId) : undefined;
+      if (currentParent) {
+        absolutePos = {
+          x: currentNode.position.x + currentParent.position.x,
+          y: currentNode.position.y + currentParent.position.y,
+        };
       }
+      const probe = { ...currentNode, position: absolutePos } as Node;
+      const foundGroup = workspace.nodes.find(
+        g => nodeRegistry.isContainer(g.type) && g.id !== currentNode.id && !g.parentId && isNodeInsideGroup(probe, g as Node)
+      );
       
-      // Handle entering a group
       if (foundGroup && currentNode.parentId !== foundGroup.id) {
-        // If currently in a different group, remove from old first
-        if (currentNode.parentId) {
-          removeNodeFromGroup(currentNode.id);
-          // Recalculate after removal
-          const updatedNode = nodes.find(n => n.id === currentNode.id);
-          if (updatedNode) {
-            addNodeToGroup(updatedNode.id, foundGroup.id);
-          }
-        } else {
-          addNodeToGroup(currentNode.id, foundGroup.id);
-        }
-      }
-      // Handle exiting a group - only if explicitly dragged outside
-      else if (!foundGroup && currentNode.parentId) {
+        if (currentNode.parentId) removeNodeFromGroup(currentNode.id);
+        addNodeToGroup(currentNode.id, foundGroup.id);
+        regrouped.add(currentNode.id);
+      } else if (!foundGroup && currentNode.parentId) {
         removeNodeFromGroup(currentNode.id);
+        regrouped.add(currentNode.id);
       }
     }
     
-    // Resolve collisions (will skip child nodes and groups)
-    nodes = resolveCollisions(nodes, { 
+    // Resolve collisions (skips child nodes and groups) and persist every node that moved
+    const before = workspace.nodes;
+    const resolved = resolveCollisions(before, { 
       maxIterations: 100, 
       overlapThreshold: 0.5, 
       margin: 15 
     });
-    
-    // Save the position/dimension changes for each dragged node
-    for (const draggedNode of event.nodes) {
-      const node = nodes.find(n => n.id === draggedNode.id);
-      if (node) {
+    resolved.forEach((node, i) => {
+      const moved = node !== before[i];
+      if (regrouped.has(node.id) && !moved) return;
+      if (moved || draggedIds.has(node.id)) {
         workspace.updateNode(node.id, {
           position: node.position,
           width: node.width,
           height: node.height,
         });
       }
-    }
+    });
   }
 
   // Handle node drag - calculate snap alignment guides
@@ -686,19 +653,10 @@
     }
   }
 
-  // Check if we can group (2+ nodes selected, and none of them are inside a group)
-  const canGroup = $derived(() => {
-    if (workspace.selectedNodeIds.length < 2) return false;
-    
-    // Check if any selected node is a child of a group
-    for (const nodeId of workspace.selectedNodeIds) {
-      const parentGroup = workspace.nodes.find(
-        n => nodeRegistry.isContainer(n.type) && (n.data as any).childNodeIds?.includes(nodeId)
-      );
-      if (parentGroup) return false;
-    }
-    return true;
-  });
+  // Check if we can group (2+ top-level nodes selected)
+  const canGroup = $derived(() =>
+    workspace.selectedNodeIds.filter(id => !workspace.getNode(id)?.parentId).length >= 2
+  );
   
   // Check if we can ungroup
   const canUngroup = $derived(
@@ -720,33 +678,37 @@
     if (event.key === 'Delete' || event.key === 'Backspace') {
       handleDeleteSelected();
     }
+
+    // With Shift held, event.key is upper-case.
+    const key = event.key.toLowerCase();
+    const mod = event.ctrlKey || event.metaKey;
     
     // Ctrl/Cmd + G to group
-    if ((event.ctrlKey || event.metaKey) && event.key === 'g' && !event.shiftKey) {
+    if (mod && key === 'g' && !event.shiftKey) {
       event.preventDefault();
       if (canGroup()) handleGroupNodes();
     }
     
     // Ctrl/Cmd + Shift + G to ungroup
-    if ((event.ctrlKey || event.metaKey) && event.key === 'g' && event.shiftKey) {
+    if (mod && key === 'g' && event.shiftKey) {
       event.preventDefault();
       if (canUngroup) handleUngroupNodes();
     }
     
     // Ctrl/Cmd + D to duplicate
-    if ((event.ctrlKey || event.metaKey) && event.key === 'd') {
+    if (mod && key === 'd') {
       event.preventDefault();
       if (workspace.selectedNodeIds.length > 0) handleDuplicateNodes();
     }
     
     // Ctrl/Cmd + Z to undo
-    if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
+    if (mod && key === 'z' && !event.shiftKey) {
       event.preventDefault();
       workspace.undo();
     }
     
     // Ctrl/Cmd + Y or Ctrl/Cmd + Shift + Z to redo
-    if ((event.ctrlKey || event.metaKey) && (event.key === 'y' || (event.key === 'z' && event.shiftKey))) {
+    if (mod && (key === 'y' || (key === 'z' && event.shiftKey))) {
       event.preventDefault();
       workspace.redo();
     }
@@ -799,10 +761,11 @@
         onnodedrag={handleNodeDrag}
         onnodedragstop={handleNodeDragStop}
         fitView
-        elevateNodesOnSelect={false}
+        fitViewOptions={{ maxZoom: 1, padding: 0.2 }}        elevateNodesOnSelect={false}
         connectionLineType={ConnectionLineType.Bezier}
         panOnDrag={panOnDrag}
         selectionOnDrag={selectionOnDrag}
+        selectionMode={SelectionMode.Full}
         minZoom={0.01}
         maxZoom={8}
         defaultEdgeOptions={{
@@ -940,7 +903,7 @@
     {#each NODE_CATEGORIES as category}
       <div class="edge-drop-section">
         <div class="edge-drop-section-title">{category.label}</div>
-        {#each nodeRegistry.getByCategory(category.id) as nodeDef}
+        {#each nodeRegistry.getByCategory(category.id).filter(def => nodeRegistry.isConnectable(def.type)) as nodeDef}
           {@const IconComponent = getIconComponent(nodeDef.type)}
           <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop(nodeDef.type)}>
             <IconComponent size={14} /> {nodeDef.label}
