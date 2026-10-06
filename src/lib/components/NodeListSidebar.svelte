@@ -1,6 +1,6 @@
 <script lang="ts">
   import { workspace } from '$lib/stores/workspace.svelte';
-  import { ChevronRight, ChevronDown, Search, FolderOpen, GripVertical } from 'lucide-svelte';
+  import { ChevronRight, ChevronDown, ChevronLeft, Search, FolderOpen, GripVertical } from 'lucide-svelte';
   import type { MosaicNode, NodeType } from '$lib/types';
   import { getIconComponent, nodeRegistry } from '$lib/kernel/registries/node-registry';
   import { useSvelteFlow } from '@xyflow/svelte';
@@ -17,6 +17,40 @@
   let searchQuery = $state('');
   let expandedGroups = $state<Set<string>>(new Set());
   let focusOnly = $state(false);
+  let viewMode = $state<'story' | 'canvas'>('story');
+
+  // Story = authored data.order first, then everything else in reading order (rows top-to-bottom, left-to-right).
+  const storyNodes = $derived.by(() => {
+    const query = searchQuery.toLowerCase();
+    const items = workspace.nodes.filter(n => nodeRegistry.isConnectable(n.type));
+    const pos = new Map(items.map(n => [n.id, getAbsolutePosition(n)]));
+    const order = (n: MosaicNode) => (typeof n.data.order === 'number' ? (n.data.order as number) : Infinity);
+    const sorted = [...items].sort((a, b) => {
+      const oa = order(a), ob = order(b);
+      if (oa !== ob) return oa - ob;
+      const [ax, ay] = pos.get(a.id)!;
+      const [bx, by] = pos.get(b.id)!;
+      return Math.abs(ay - by) > 80 ? ay - by : ax - bx;
+    });
+    return query ? sorted.filter(n => getNodeLabel(n).toLowerCase().includes(query)) : sorted;
+  });
+
+  const currentStep = $derived(
+    workspace.selectedNodeIds.length === 1 ? storyNodes.findIndex(n => n.id === workspace.selectedNodeIds[0]) : -1
+  );
+
+  function goToStep(index: number) {
+    const node = storyNodes[index];
+    if (node) handleNodeDoubleClick(node);
+  }
+
+  // Persist a new story order as data.order = 1..N
+  function saveStoryOrder(ids: string[]) {
+    ids.forEach((id, i) => {
+      const node = workspace.getNode(id);
+      if (node && node.data.order !== i + 1) workspace.updateNodeData(id, { order: i + 1 });
+    });
+  }
 
   // Sync suppress flag with focusOnly toggle
   $effect(() => {
@@ -129,7 +163,9 @@
 
   function applyDrop(fromId: string, toId: string, context: string) {
     let currentList: MosaicNode[];
-    if (context === 'groups') {
+    if (context === 'story') {
+      currentList = storyNodes;
+    } else if (context === 'groups') {
       currentList = organizedNodes.groups;
     } else if (context === 'root') {
       currentList = organizedNodes.rootNodes;
@@ -146,7 +182,9 @@
     const insertIdx = dropPosition === 'before' ? ids.indexOf(toId) : ids.indexOf(toId) + 1;
     ids.splice(insertIdx, 0, fromId);
 
-    if (context === 'groups') {
+    if (context === 'story') {
+      saveStoryOrder(ids);
+    } else if (context === 'groups') {
       groupSortOrder = ids;
     } else if (context === 'root') {
       rootSortOrder = ids;
@@ -249,6 +287,20 @@
     </div>
   </div>
 
+  <div class="view-bar">
+    <div class="segmented" role="tablist">
+      <button role="tab" class:active={viewMode === 'story'} aria-selected={viewMode === 'story'} onclick={() => viewMode = 'story'}>Story</button>
+      <button role="tab" class:active={viewMode === 'canvas'} aria-selected={viewMode === 'canvas'} onclick={() => viewMode = 'canvas'}>Canvas</button>
+    </div>
+    {#if viewMode === 'story'}
+      <div class="stepper">
+        <button class="step-btn" aria-label="Previous step" disabled={currentStep <= 0} onclick={() => goToStep(currentStep - 1)}><ChevronLeft size={14} /></button>
+        <span class="step-count">{currentStep >= 0 ? currentStep + 1 : '–'} / {storyNodes.length}</span>
+        <button class="step-btn" aria-label="Next step" disabled={currentStep >= storyNodes.length - 1} onclick={() => goToStep(currentStep + 1)}><ChevronRight size={14} /></button>
+      </div>
+    {/if}
+  </div>
+
   <div class="search-bar">
     <Search size={14} class="search-icon" />
     <input 
@@ -259,6 +311,38 @@
   </div>
 
   <div class="node-list">
+    {#if viewMode === 'story'}
+      {#each storyNodes as node, i (node.id)}
+        {@const Icon = getIcon(node.type)}
+        <div
+          class="node-item story-item"
+          class:selected={workspace.selectedNodeIds.includes(node.id)}
+          class:dragging={draggedId === node.id}
+          class:drop-before={dropTargetId === node.id && dropPosition === 'before'}
+          class:drop-after={dropTargetId === node.id && dropPosition === 'after'}
+          data-node-id={node.id}
+          data-drag-context="story"
+          onclick={() => handleNodeClick(node)}
+          ondblclick={() => handleNodeDoubleClick(node)}
+          role="button"
+          tabindex="0"
+          onkeydown={(e) => e.key === 'Enter' && handleNodeDoubleClick(node)}
+        >
+          <span
+            class="drag-handle"
+            onpointerdown={(e) => handleGripDown(e, node.id, 'story')}
+            role="button"
+            tabindex="-1"
+            title="Drag to change the story order"
+          ><GripVertical size={12} /></span>
+          <span class="step-no">{i + 1}</span>
+          <Icon size={14} class="node-icon" />
+          <span class="node-label">{getNodeLabel(node)}</span>
+        </div>
+      {:else}
+        <div class="empty-state">No nodes found</div>
+      {/each}
+    {:else}
     <!-- Groups -->
     {#each organizedNodes.groups as group (group.id)}
       <div class="node-item-group">
@@ -363,6 +447,7 @@
       <div class="empty-state">
         No nodes found
       </div>
+    {/if}
     {/if}
   </div>
 </div>
@@ -487,6 +572,81 @@
   .search-bar {
     padding: 8px;
     position: relative;
+  }
+
+  .view-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 8px 0;
+  }
+
+  .segmented {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    background: var(--mf-hover);
+    border-radius: var(--mf-radius);
+  }
+
+  .segmented button {
+    height: 22px;
+    padding: 0 10px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--mf-text-3);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .segmented button.active {
+    background: var(--mf-active);
+    color: var(--mf-text);
+  }
+
+  .stepper {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .step-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--mf-text-2);
+    cursor: pointer;
+  }
+
+  .step-btn:hover:not(:disabled) {
+    background: var(--mf-hover);
+    color: var(--mf-text);
+  }
+
+  .step-count {
+    min-width: 44px;
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--mf-text-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .step-no {
+    width: 20px;
+    margin-right: 6px;
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--mf-text-3);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
   }
 
   .search-bar :global(.search-icon) {

@@ -119,8 +119,19 @@ function applyLayout(n: StoredNode): StoredNode {
   const entry = LAYOUT[n.id];
   if (!entry) return n;
   const [x, y, width, height, style] = entry;
-  return { ...n, position: { x, y }, width, height, data: { ...n.data, ...style } };
+  const step = STORY.indexOf(n.id);
+  return { ...n, position: { x, y }, width, height, data: { ...n.data, ...style, ...(step >= 0 ? { order: step + 1 } : {}) } };
 }
+
+// Learning path shown by the Nodes sidebar "Story" view.
+const STORY = [
+  'title', 'overview',
+  'charles-babbage', 't-1837', 'wiki-analytical-engine',
+  'ada-lovelace', 't-1843', 'note-g',
+  'alan-turing', 'cambridge', 't-1936', 'bletchley-park', 'bletchley-map',
+  'grace-hopper', 't-1944',
+  'todo-turing', 'further-reading',
+];
 
 function node(id: string, type: string, x: number, y: number, width: number, height: number, data: Record<string, unknown>, parentId?: string): StoredNode {
   return { id, type, position: { x, y }, width, height, zIndex: type === 'group' ? -1 : 1, parentId, data: { ...base, ...data } };
@@ -149,7 +160,7 @@ function timestamp(id: string, x: number, iso: string, label: string): StoredNod
 function buildNodes(): StoredNode[] {
   return [
     node('title', 'simpleText', 0, -150, 760, 80, {
-      title: 'Title',
+      title: 'History of Computing',
       content: 'History of Computing',
       fontSize: 28,
       bgOpacity: 0,

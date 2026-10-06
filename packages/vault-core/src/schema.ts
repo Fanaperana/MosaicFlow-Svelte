@@ -49,6 +49,7 @@ export const DESIGN_GUIDE: DesignGuide = {
     'When several edges leave one node toward different targets, use different handles (e.g. top for one, bottom for another) so their lanes and labels do not stack.',
     'Order nodes so the main flow does not cross itself (e.g. people left-to-right in the same order as their dates on the timeline below).',
     'Add a large transparent simpleText heading above the board and an annotation pointing at the entry node.',
+    'Define the learning path with data.order = 1..N on every connectable node (heading first, then the story beat by beat); the Nodes sidebar "Story" view and its next/previous buttons follow it. Nodes without order come after, in reading order.',
     'Use findFreePosition (vault-core) or the gaps above to avoid overlapping existing nodes.',
   ],
 };
