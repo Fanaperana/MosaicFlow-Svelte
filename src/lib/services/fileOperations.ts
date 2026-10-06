@@ -9,6 +9,22 @@ import { getNodesBounds, getViewportForBounds } from '@xyflow/svelte';
 import { toast } from 'svelte-sonner';
 import { loadAllNodes } from './nodeFileService';
 import { loadAllEdges } from './edgeFileService';
+import { buildNodeTypesDocument, NODE_TYPES_FILE } from '@mosaicflow/vault-core';
+import { nodeRegistry } from '$lib/kernel/registries/node-registry';
+import { vaultStore } from '$lib/stores/vault.svelte';
+
+// Lets external tools (MCP servers, scripts) discover node types without running the app.
+async function exportNodeTypes(vaultPath: string) {
+  try {
+    const { writeTextFile, mkdir, exists } = await import('@tauri-apps/plugin-fs');
+    const dir = `${vaultPath}/.mosaicflow`;
+    if (!(await exists(dir))) await mkdir(dir, { recursive: true });
+    const doc = buildNodeTypesDocument(nodeRegistry.getSchemas());
+    await writeTextFile(`${vaultPath}/${NODE_TYPES_FILE}`, JSON.stringify(doc, null, 2));
+  } catch (error) {
+    console.error('Error exporting node types:', error);
+  }
+}
 
 // Workspace manifest format (v2 - minimal)
 interface WorkspaceManifest {
@@ -47,6 +63,7 @@ export async function loadWorkspace(path: string): Promise<boolean> {
     
     // Initialize file services with workspace path
     workspace.initFileServices(path);
+    if (vaultStore.currentVaultPath) exportNodeTypes(vaultStore.currentVaultPath);
     
     if (isV2) {
       // V2 format: Load nodes and edges from individual files
