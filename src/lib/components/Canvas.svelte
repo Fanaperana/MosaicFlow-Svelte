@@ -715,6 +715,11 @@
       event.preventDefault();
       workspace.setSelectedNodes(workspace.nodes.map(n => n.id));
     }
+    if (event.key === 'Escape' && edgeDropMenuOpen) {
+      edgeDropMenuOpen = false;
+      pendingConnectionSource = null;
+      return;
+    }
     if (event.key === 'Escape' && (workspace.selectedNodeIds.length > 0 || workspace.selectedEdgeIds.length > 0)) {
       workspace.setSelectedEdges([]);
       workspace.edges = workspace.edges.map(e => (e.selected ? { ...e, selected: false } : e));
