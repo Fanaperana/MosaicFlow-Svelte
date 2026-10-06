@@ -123,6 +123,8 @@ export interface WorkspaceSettings {
   showMinimap: boolean;
   defaultNodeColor: string;
   defaultEdgeColor: string;
+  /** Saved canvas filters (words and/or #tags) shown as chips in the filter bar. */
+  savedFilters?: string[];
 }
 
 // Viewport state

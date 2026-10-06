@@ -24,6 +24,7 @@ export {
   type NodeDimensions,
 } from '$lib/components/nodes/_shared/utils';
 export { openExternal } from '$lib/utils';
+export { renderMarkdown } from './markdown';
 
 // Types
 export type { BaseNodeData, NodeType } from './types';

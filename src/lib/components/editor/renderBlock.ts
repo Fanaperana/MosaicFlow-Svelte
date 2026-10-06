@@ -2,6 +2,7 @@ import { Decoration, EditorView, WidgetType } from '@codemirror/view';
 import { RangeSet, StateField } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
 import markdoc from '@markdoc/markdoc';
+import DOMPurify from 'dompurify';
 
 import type { Config } from '@markdoc/markdoc';
 import type { DecorationSet } from '@codemirror/view';
@@ -17,7 +18,7 @@ class RenderBlockWidget extends WidgetType {
 
     const document = markdoc.parse(source);
     const transformed = markdoc.transform(document, config);
-    this.rendered = markdoc.renderers.html(transformed);
+    this.rendered = DOMPurify.sanitize(markdoc.renderers.html(transformed));
   }
 
   eq(widget: RenderBlockWidget): boolean {

@@ -64,10 +64,24 @@ export function registerTools(server: McpServer, ops: MosaicOps) {
 
   server.registerTool('search', {
     title: 'Search vault',
-    description: 'Full-text search over node titles and content in all canvases (or one). Every word must match.',
+    description: 'Full-text search over node titles and content in all canvases (or one). Every word must match; "#tag" words match tags.',
     inputSchema: { query: z.string().min(1), canvas: canvas.optional(), limit: z.number().int().positive().max(100).optional() },
     annotations: readOnly,
   }, ({ query, canvas: ref, limit }) => run(() => ops.search(query, { canvas: ref, limit })));
+
+  server.registerTool('get_links', {
+    title: 'Links and backlinks',
+    description: 'The [[wikilinks]] a node makes (resolved to nodes, possibly on other canvases) and the nodes that link to it.',
+    inputSchema: { canvas, nodeId: z.string() },
+    annotations: readOnly,
+  }, ({ canvas: ref, nodeId }) => run(() => ops.links(ref, nodeId)));
+
+  server.registerTool('list_tags', {
+    title: 'List tags',
+    description: 'Tags used in the vault (or one canvas) with counts. Tags come from data.tags and #tag words in text.',
+    inputSchema: { canvas: canvas.optional() },
+    annotations: readOnly,
+  }, ({ canvas: ref }) => run(() => ops.tags(ref)));
 
   server.registerTool('create_node', {
     title: 'Create node',

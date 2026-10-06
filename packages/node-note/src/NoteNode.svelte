@@ -9,8 +9,7 @@
   import { workspace } from '@mosaicflow/node-sdk/store';
   import { StickyNote, Check, Pencil } from 'lucide-svelte';
   import { RichMarkdownEditor } from '@mosaicflow/node-sdk/editor';
-  import { marked } from 'marked';
-  import { hexToRgba } from '@mosaicflow/node-sdk';
+  import { hexToRgba, renderMarkdown } from '@mosaicflow/node-sdk';
   import { NodeFloatingToolbar } from '@mosaicflow/node-sdk';
 
   type NoteNodeType = Node<NoteNodeData, 'note'>;
@@ -51,21 +50,8 @@
     wasSelected = selected ?? false;
   });
 
-  // Configure marked for safe rendering
-  marked.setOptions({
-    breaks: true,
-    gfm: true,
-  });
-
-  // Render markdown content
-  const renderedHtml = $derived.by(() => {
-    if (!content) return '';
-    try {
-      return marked.parse(content) as string;
-    } catch {
-      return content;
-    }
-  });
+  // Sanitized markdown with [[wikilinks]] and #tags
+  const renderedHtml = $derived(renderMarkdown(content));
   
   function toggleEdit() {
     if (viewMode === 'edit') {

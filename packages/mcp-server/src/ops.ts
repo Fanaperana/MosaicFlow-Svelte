@@ -2,12 +2,14 @@
 
 import {
   DESIGN_GUIDE,
+  KnowledgeIndex,
   absoluteRects,
   boundsOf,
   buildEdge,
   facingSides,
   findFreePosition,
   isPaletteName,
+  nodeText,
   paletteCard,
   paletteColor,
   paletteGroup,
@@ -81,29 +83,6 @@ function uniqueId(base: string, taken: Set<string>): string {
   for (let i = 2; ; i++) if (!taken.has(`${root}-${i}`)) return `${root}-${i}`;
 }
 
-function textOf(value: unknown, depth = 0): string {
-  if (value == null || depth > 4) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  if (Array.isArray(value)) return value.map((v) => textOf(v, depth + 1)).join(' ');
-  if (typeof value === 'object') return Object.values(value).map((v) => textOf(v, depth + 1)).join(' ');
-  return '';
-}
-
-/** Style keys are noise for search and summaries. */
-const STYLE_KEYS = new Set([
-  'color', 'borderColor', 'borderWidth', 'borderRadius', 'borderStyle', 'textColor', 'bgOpacity', 'fontSize',
-  'labelColor', 'locked', 'order', 'viewMode', 'labelBgColor', 'strokeWidth', 'strokeStyle',
-]);
-
-function contentText(data: Record<string, unknown>): string {
-  return Object.entries(data)
-    .filter(([k]) => !STYLE_KEYS.has(k))
-    .map(([, v]) => textOf(v))
-    .filter(Boolean)
-    .join(' \n ');
-}
-
 function edgeLook(style: EdgeStyleInput = {}, fallbackColor = '#94a3b8'): EdgeLook {
   const color = style.color ?? (style.palette && isPaletteName(style.palette) ? paletteColor(style.palette) : fallbackColor);
   return { color, path: style.path, stroke: style.stroke, animated: style.animated, start: style.start, end: style.end, width: style.width };
@@ -130,6 +109,7 @@ export class MosaicOps {
         'Group related nodes with create_group and give each category one palette name.',
         'Connect with connect; sides are picked automatically from node positions unless given.',
         'Finish with set_story_order so the Story view walks the canvas in a sensible order, and auto_layout if the canvas got messy.',
+        'Link related notes with [[Node title]] in text and tag them with #tag; get_links shows outgoing links and backlinks.',
         'Changes are written to the vault and appear live in the MosaicFlow app.',
       ],
       design: doc?.design ?? DESIGN_GUIDE,
@@ -178,7 +158,7 @@ export class MosaicOps {
           ...(typeof n.data.order === 'number' ? { order: n.data.order } : {}),
         };
         if (detail === 'full') return { ...base, data: n.data };
-        const text = contentText(n.data).replace(String(n.data.title ?? ''), '').trim();
+        const text = nodeText(n.data).replace(String(n.data.title ?? ''), '').replace(/\s+/g, ' ').trim();
         return { ...base, preview: text.length > 160 ? `${text.slice(0, 160)}…` : text };
       }),
       edges: edges.map((e) => ({
@@ -190,25 +170,38 @@ export class MosaicOps {
   }
 
   async search(query: string, opts: { canvas?: string; limit?: number } = {}) {
-    const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-    if (terms.length === 0) throw new Error('Query is empty');
-    const canvases = opts.canvas ? [await this.vault.findCanvas(opts.canvas)] : await this.vault.listCanvases();
-    const hits: { canvas: string; nodeId: string; type: string; title: string; snippet: string; score: number }[] = [];
+    const index = await this.buildIndex();
+    const canvasId = opts.canvas ? (await this.vault.findCanvas(opts.canvas)).id : undefined;
+    return index.search(query, { canvasId, limit: opts.limit ?? 20 }).map((h) => ({
+      canvas: h.node.canvasName, nodeId: h.node.id, type: h.node.type, title: h.node.title, tags: h.node.tags, snippet: h.snippet, score: h.score,
+    }));
+  }
 
-    for (const c of canvases) {
+  private async buildIndex(): Promise<KnowledgeIndex> {
+    const canvases = [];
+    for (const c of await this.vault.listCanvases()) {
       const { repo } = await this.vault.openCanvas(c.id);
-      for (const n of await repo.readAllNodes()) {
-        const title = String(n.data.title ?? '');
-        const text = `${title} \n ${contentText(n.data)}`;
-        const lower = text.toLowerCase();
-        if (!terms.every((t) => lower.includes(t))) continue;
-        const score = terms.reduce((s, t) => s + (title.toLowerCase().includes(t) ? 3 : 1), 0);
-        const at = Math.max(0, lower.indexOf(terms[0]) - 60);
-        const snippet = text.slice(at, at + 180).replace(/\s+/g, ' ').trim();
-        hits.push({ canvas: c.name, nodeId: n.id, type: n.type, title, snippet, score });
-      }
+      canvases.push({ id: c.id, name: c.name, nodes: await repo.readAllNodes() });
     }
-    return hits.sort((a, b) => b.score - a.score).slice(0, opts.limit ?? 20);
+    return new KnowledgeIndex(canvases);
+  }
+
+  async links(canvas: string, nodeId: string) {
+    const entry = await this.vault.findCanvas(canvas);
+    const index = await this.buildIndex();
+    if (!index.nodes.some((n) => n.canvasId === entry.id && n.id === nodeId)) throw new Error(`Node "${nodeId}" not found`);
+    const ref = (n: { canvasName: string; id: string; title: string }) => ({ canvas: n.canvasName, nodeId: n.id, title: n.title });
+    return {
+      syntax: 'Link nodes by writing [[Node title]] (or [[Canvas name#Node title]], [[Title|label]]) in any text field; tag with #tag or data.tags.',
+      outgoing: index.outgoing(entry.id, nodeId).map(({ link, node }) => ({ text: link.raw, resolved: node ? ref(node) : null })),
+      backlinks: index.backlinks(entry.id, nodeId).map(ref),
+    };
+  }
+
+  async tags(canvas?: string) {
+    const index = await this.buildIndex();
+    const canvasId = canvas ? (await this.vault.findCanvas(canvas)).id : undefined;
+    return index.tagCounts(canvasId);
   }
 
   // ---------------------------------------------------------------------------

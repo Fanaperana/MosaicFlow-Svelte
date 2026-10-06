@@ -88,6 +88,15 @@ async function main() {
     const hits = await call('search', { query: 'borrow references' });
     assert(hits[0]?.nodeId === 'borrowing', 'search finds content across canvases');
 
+    await call('create_node', { canvas: 'MCP Test', type: 'note', title: 'Smart pointers', data: { content: 'Builds on [[Borrowing]] and [[Missing note]]. #rust #memory' } });
+    const links = await call('get_links', { canvas: 'MCP Test', nodeId: 'smart-pointers' });
+    assert(links.outgoing.length === 2 && links.outgoing[0].resolved?.nodeId === 'borrowing' && links.outgoing[1].resolved === null, 'wikilinks resolve (and report unresolved)');
+    const back = await call('get_links', { canvas: 'MCP Test', nodeId: 'borrowing' });
+    assert(back.backlinks.some((b: { nodeId: string }) => b.nodeId === 'smart-pointers'), 'backlinks found');
+    const tags = await call('list_tags', {});
+    assert(tags.some((t: { tag: string }) => t.tag === 'memory'), 'tags listed');
+    assert((await call('search', { query: '#memory' }))[0]?.nodeId === 'smart-pointers', '#tag search');
+
     await call('set_story_order', { canvas: 'MCP Test', nodeIds: [a.id, b.id] });
     const ordered = (await call('read_canvas', { canvas: 'MCP Test' })).nodes.filter((n: { order?: number }) => n.order);
     assert(ordered.length === 2, 'story order set');

@@ -1,0 +1,50 @@
+// Jump to a node on any canvas (wikilinks, search results, backlinks).
+
+import { tick } from 'svelte';
+import { extractWikilinks } from '@mosaicflow/vault-core';
+import { toast } from 'svelte-sonner';
+import { vaultStore } from '$lib/stores/vault.svelte';
+import { knowledge } from '$lib/stores/knowledge.svelte';
+
+let pendingFocus: string | null = null;
+
+function focusOnCanvas(nodeId: string) {
+  window.dispatchEvent(new CustomEvent('mosaicflow:focusNode', { detail: { id: nodeId } }));
+}
+
+export async function openNode(canvasId: string, nodeId: string) {
+  if (vaultStore.currentCanvas?.id === canvasId) {
+    focusOnCanvas(nodeId);
+    return;
+  }
+  const canvas = vaultStore.canvases.find((c) => c.id === canvasId);
+  if (!canvas) {
+    toast.error('Canvas not found');
+    return;
+  }
+  pendingFocus = nodeId;
+  await vaultStore.openCanvas(canvas);
+}
+
+/** Called after a canvas finished loading. */
+export async function consumePendingFocus() {
+  const id = pendingFocus;
+  pendingFocus = null;
+  if (!id) return;
+  await tick();
+  // Give the flow one frame to measure the freshly loaded nodes.
+  requestAnimationFrame(() => focusOnCanvas(id));
+}
+
+/** Resolves "[[ref]]" text (ref may be "Canvas#Title") and opens it. */
+export async function openWikilink(ref: string) {
+  const [link] = extractWikilinks(`[[${ref}]]`);
+  if (!link) return;
+  await knowledge.loadVault();
+  const hit = knowledge.index.resolve(link, vaultStore.currentCanvas?.id);
+  if (!hit) {
+    toast.info(`No node titled "${link.target}"${link.canvas ? ` in ${link.canvas}` : ''}`, { description: 'Create a node with that title to link it.' });
+    return;
+  }
+  await openNode(hit.canvasId, hit.id);
+}

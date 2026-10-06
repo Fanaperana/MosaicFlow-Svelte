@@ -11,6 +11,10 @@
   import { NumberInput } from '$lib/components/ui/number-input';
   import FixedTooltip from '$lib/components/ui/FixedTooltip.svelte';
   import { openExternal } from '$lib/utils';
+  import { knowledge } from '$lib/stores/knowledge.svelte';
+  import { vaultStore } from '$lib/stores/vault.svelte';
+  import { openNode, openWikilink } from '$lib/services/navigation';
+  import { extractTags } from '@mosaicflow/vault-core';
 
   // Helper: Convert hex + opacity to RGBA string
   function hexToRgba(hex: string, opacity: number): string {
@@ -51,6 +55,7 @@
   let optionsOpen = $state(true);
   let actionsOpen = $state(true);
   let fieldsOpen = $state(true);
+  let linksOpen = $state(true);
 
   let selectedNode = $derived(
     workspace.selectedNodeIds.length === 1
@@ -73,6 +78,14 @@
   );
 
   let bodyField = $derived(selectedNode ? nodeRegistry.getBodyMapping(selectedNode.type).field : '');
+
+  let canvasId = $derived(vaultStore.currentCanvas?.id ?? '');
+  let nodeTags = $derived(selectedNode ? extractTags(selectedNode.data as Record<string, unknown>) : []);
+  let outgoing = $derived(selectedNode ? knowledge.index.outgoing(canvasId, selectedNode.id) : []);
+  let backlinks = $derived(selectedNode ? knowledge.index.backlinks(canvasId, selectedNode.id) : []);
+  let explicitTags = $derived(
+    selectedNode && Array.isArray(selectedNode.data.tags) ? (selectedNode.data.tags as string[]).join(', ') : ''
+  );
 
   function fieldLabel(key: string): string {
     const words = key.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
@@ -570,6 +583,50 @@
           {/each}
         </PropertyGroup>
       {/if}
+
+      <!-- Knowledge: tags, [[wikilinks]] and backlinks across the vault -->
+      <PropertyGroup title="Links & Tags" bind:open={linksOpen}>
+        <div class="field" title="Comma-separated tags; #tags written in the text are added automatically">
+          <span>Tags</span>
+          <input
+            type="text"
+            value={explicitTags}
+            placeholder="idea, todo"
+            onchange={(e) => updateNodeData('tags', (e.target as HTMLInputElement).value.split(',').map(s => s.trim().replace(/^#/, '')).filter(Boolean))}
+          />
+        </div>
+        {#if nodeTags.length > 0}
+          <div class="tag-list">
+            {#each nodeTags as tag (tag)}
+              <button class="tag-pill" class:active={knowledge.activeTag === tag} onclick={() => knowledge.toggleTag(tag)} title="Highlight nodes tagged #{tag}">#{tag}</button>
+            {/each}
+          </div>
+        {/if}
+
+        <div class="link-section">
+          <div class="link-heading">Links <span class="count">{outgoing.length}</span></div>
+          {#each outgoing as { link, node } (link.raw)}
+            <button class="link-row" class:unresolved={!node} onclick={() => openWikilink(link.canvas ? `${link.canvas}#${link.target}` : link.target)} title={node ? `${node.canvasName} › ${node.title}` : 'No node with this title yet'}>
+              <span class="link-title">{link.alias ?? link.target}</span>
+              {#if node && node.canvasId !== canvasId}<span class="link-canvas">{node.canvasName}</span>{/if}
+            </button>
+          {:else}
+            <p class="link-empty">Write [[Node title]] in the text to link nodes.</p>
+          {/each}
+        </div>
+
+        <div class="link-section">
+          <div class="link-heading">Backlinks <span class="count">{backlinks.length}</span></div>
+          {#each backlinks as source (source.canvasId + source.id)}
+            <button class="link-row" onclick={() => openNode(source.canvasId, source.id)} title="{source.canvasName} › {source.title}">
+              <span class="link-title">{source.title || source.id}</span>
+              {#if source.canvasId !== canvasId}<span class="link-canvas">{source.canvasName}</span>{/if}
+            </button>
+          {:else}
+            <p class="link-empty">No other node links here yet.</p>
+          {/each}
+        </div>
+      </PropertyGroup>
 
       <!-- Appearance Section -->
       <PropertyGroup title="Appearance" bind:open={appearanceOpen}>
@@ -1826,6 +1883,79 @@
     height: 14px;
     background: var(--mf-border-strong);
     margin: 0 5px;
+  }
+
+  .tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 2px 0 6px;
+  }
+
+  .link-section {
+    padding: 4px 0;
+  }
+
+  .link-heading {
+    font-size: 11px;
+    color: var(--mf-text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 0 4px;
+  }
+
+  .link-heading .count {
+    margin-left: 4px;
+    color: var(--mf-text-2);
+  }
+
+  .link-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    height: var(--mf-row);
+    padding: 0 6px;
+    border-radius: var(--mf-radius);
+    background: transparent;
+    border: none;
+    color: var(--mf-text);
+    font-size: 12.5px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .link-row:hover {
+    background: var(--mf-hover);
+  }
+
+  .link-row.unresolved .link-title {
+    color: var(--mf-text-3);
+    text-decoration: underline dashed;
+  }
+
+  .link-title {
+    flex-shrink: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .link-canvas {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+    color: var(--mf-text-3);
+  }
+
+  .link-empty {
+    font-size: 11.5px;
+    color: var(--mf-text-3);
+    padding: 2px 6px 4px;
   }
 
   .toolbar-input {

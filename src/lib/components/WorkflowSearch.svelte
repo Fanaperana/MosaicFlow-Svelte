@@ -1,10 +1,10 @@
 <script lang="ts">
   import { Search, X, FileText, StickyNote, Image, Link, Code, Clock, User, Building2, Globe, FileDigit, KeyRound, MessageSquare, Router, Camera, FolderOpen, MapPin, List, ChevronRight } from 'lucide-svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
-  import { workspace } from '$lib/stores/workspace.svelte';
-  import { loadWorkspace } from '$lib/services/fileOperations';
+  import { knowledge } from '$lib/stores/knowledge.svelte';
+  import { openNode } from '$lib/services/navigation';
   import type { CanvasInfo } from '$lib/services/vaultService';
-  import type { MosaicNode } from '$lib/types';
+  import type { IndexedNode } from '@mosaicflow/vault-core';
   import Fuse from 'fuse.js';
 
   interface Props {
@@ -20,15 +20,11 @@
   let searchResults = $state<SearchResult[]>([]);
   let isSearching = $state(false);
   let selectedIndex = $state(0);
-  
-  // Cache for loaded canvases and their nodes
-  let canvasCache = $state<Map<string, { canvas: CanvasInfo; nodes: MosaicNode[] }>>(new Map());
 
   interface SearchResult {
     type: 'canvas' | 'node';
     canvas: CanvasInfo;
-    node?: MosaicNode;
-    matchedField?: string;
+    node?: IndexedNode;
     matchedText?: string;
     score: number;
   }
@@ -65,15 +61,14 @@
     }
   });
 
-  // Load and cache canvas data for searching
+  // Make sure the vault index is fresh when the palette opens
   $effect(() => {
-    if (isOpen && vaultStore.canvases.length > 0) {
-      loadCanvasesForSearch();
-    }
+    if (isOpen) knowledge.loadVault();
   });
 
-  // Perform search when query changes
+  // Perform search when query or index changes
   $effect(() => {
+    void knowledge.index;
     if (searchQuery.trim()) {
       performSearch(searchQuery);
     } else {
@@ -86,105 +81,26 @@
     }
   });
 
-  async function loadCanvasesForSearch() {
-    // Load all canvases in the background for search indexing
-    for (const canvas of vaultStore.canvases) {
-      if (!canvasCache.has(canvas.id)) {
-        try {
-          // Load workspace data from the canvas path
-          const workspacePath = `${canvas.path}/workspace.json`;
-          const response = await fetch(`/api/load?path=${encodeURIComponent(workspacePath)}`).catch(() => null);
-          
-          // For now, just use basic canvas info
-          // In production, this would load the actual workspace.json file
-          canvasCache.set(canvas.id, { canvas, nodes: [] });
-        } catch (err) {
-          console.error('Failed to load canvas for search:', canvas.name, err);
-          canvasCache.set(canvas.id, { canvas, nodes: [] });
-        }
-      }
-    }
-  }
-
   function performSearch(query: string) {
     isSearching = true;
-    
-    // Prepare search items
-    const searchItems: Array<{
-      type: 'canvas' | 'node';
-      canvas: CanvasInfo;
-      node?: MosaicNode;
-      searchText: string;
-      field: string;
-    }> = [];
 
-    // Add canvases
-    for (const canvas of vaultStore.canvases) {
-      searchItems.push({
-        type: 'canvas',
-        canvas,
-        searchText: canvas.name,
-        field: 'name'
-      });
-    }
+    const canvasHits = new Fuse(vaultStore.canvases, { keys: ['name', 'description', 'tags'], threshold: 0.35, ignoreLocation: true })
+      .search(query)
+      .slice(0, 5)
+      .map((r): SearchResult => ({ type: 'canvas', canvas: r.item, score: 0 }));
 
-    // Add nodes from current canvas
-    if (workspace.nodes.length > 0 && vaultStore.currentCanvas) {
-      for (const node of workspace.nodes) {
-        const nodeData = node.data as Record<string, unknown>;
-        
-        // Index various text fields
-        const textFields = ['title', 'content', 'name', 'description', 'notes', 'url', 'code', 'label'];
-        
-        for (const field of textFields) {
-          if (nodeData[field] && typeof nodeData[field] === 'string') {
-            searchItems.push({
-              type: 'node',
-              canvas: vaultStore.currentCanvas,
-              node: node as MosaicNode,
-              searchText: nodeData[field] as string,
-              field
-            });
-          }
-        }
-      }
-    }
+    const byId = new Map(vaultStore.canvases.map(c => [c.id, c]));
+    const nodeHits = knowledge.index.search(query, { limit: 40 })
+      .filter(h => byId.has(h.node.canvasId))
+      .map((h): SearchResult => ({
+        type: 'node',
+        canvas: byId.get(h.node.canvasId)!,
+        node: h.node,
+        matchedText: h.snippet,
+        score: h.score,
+      }));
 
-    // Configure Fuse.js
-    const fuse = new Fuse(searchItems, {
-      keys: ['searchText'],
-      threshold: 0.4,
-      includeScore: true,
-      ignoreLocation: true,
-      minMatchCharLength: 2,
-    });
-
-    const fuseResults = fuse.search(query);
-    
-    // Deduplicate and format results
-    const seen = new Set<string>();
-    const results: SearchResult[] = [];
-
-    for (const result of fuseResults) {
-      const item = result.item;
-      const key = item.type === 'canvas' 
-        ? `canvas:${item.canvas.id}`
-        : `node:${item.node?.id}`;
-
-      if (!seen.has(key)) {
-        seen.add(key);
-        results.push({
-          type: item.type,
-          canvas: item.canvas,
-          node: item.node,
-          matchedField: item.field,
-          matchedText: item.searchText.slice(0, 100),
-          score: result.score || 0
-        });
-      }
-    }
-
-    searchResults = results.slice(0, 20);
+    searchResults = [...canvasHits, ...nodeHits].slice(0, 30);
     selectedIndex = 0;
     isSearching = false;
   }
@@ -215,26 +131,13 @@
     if (result.type === 'canvas') {
       onCanvasSelect(result.canvas);
     } else if (result.node) {
-      // If clicking a node in current canvas, select it
-      if (result.canvas.id === vaultStore.currentCanvas?.id) {
-        workspace.setSelectedNodes([result.node.id]);
-        // Center on the node
-        const nodePosition = result.node.position;
-        workspace.setViewport({
-          x: -nodePosition.x + window.innerWidth / 2 - 150,
-          y: -nodePosition.y + window.innerHeight / 2 - 100,
-          zoom: 1
-        });
-      } else {
-        // Switch to that canvas first
-        onCanvasSelect(result.canvas);
-        // TODO: After canvas loads, select and center on the node
-      }
+      openNode(result.node.canvasId, result.node.id);
     }
     onClose();
   }
 
-  function highlightMatch(text: string, query: string): string {
+  function highlightMatch(text: string, rawQuery: string): string {
+    const query = rawQuery.trim().split(/\s+/).find(w => !w.startsWith('#')) ?? '';
     if (!query) return escapeHtml(text);
     const escapedText = escapeHtml(text);
     const escapedQuery = escapeHtml(query);
@@ -317,7 +220,10 @@
                     <span class="result-title">{@html highlightMatch(result.canvas.name, searchQuery)}</span>
                     <span class="result-type">Canvas</span>
                   {:else if result.node}
-                    <span class="result-title">{@html highlightMatch(result.matchedText || '', searchQuery)}</span>
+                    <span class="result-title">{@html highlightMatch(result.node.title || result.node.id, searchQuery)}</span>
+                    {#if result.matchedText}
+                      <span class="result-snippet">{@html highlightMatch(result.matchedText, searchQuery)}</span>
+                    {/if}
                     <span class="result-meta">
                       <span class="result-type">{result.node.type}</span>
                       <span class="result-canvas">in {result.canvas.name}</span>
@@ -475,11 +381,20 @@
     text-overflow: ellipsis;
   }
 
-  .result-title :global(mark) {
+  .result-title :global(mark),
+  .result-snippet :global(mark) {
     background: rgba(59, 130, 246, 0.3);
     color: #60a5fa;
     padding: 0 2px;
     border-radius: 2px;
+  }
+
+  .result-snippet {
+    color: var(--mf-text-muted, #a1a1aa);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .result-meta {

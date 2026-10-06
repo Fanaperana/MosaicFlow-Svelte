@@ -12,6 +12,9 @@
   import { vaultStore } from '$lib/stores/vault.svelte';
   import { loadWorkspace, exportAsPng, exportAsSvg, exportAsJson } from '$lib/services/fileOperations';
   import { exportCanvasPackage } from '$lib/services/packageService';
+  import { knowledge } from '$lib/stores/knowledge.svelte';
+  import { consumePendingFocus, openWikilink } from '$lib/services/navigation';
+  import { openExternal } from '$lib/utils';
   import { message } from '@tauri-apps/plugin-dialog';
   import type { CanvasInfo } from '$lib/services/vaultService';
   
@@ -35,6 +38,44 @@
     await vaultStore.initialize();
   });
 
+  // Vault-wide index for search, wikilinks, backlinks and tags
+  $effect(() => {
+    if (vaultStore.currentVault && vaultStore.canvases) knowledge.loadVault();
+  });
+
+  $effect(() => {
+    void workspace.nodes;
+    knowledge.scheduleLiveRefresh();
+  });
+
+  // Links inside rendered markdown: wikilinks navigate, tags highlight, web links open in the browser.
+  function handleContentClick(e: MouseEvent) {
+    const target = e.target as HTMLElement | null;
+    const wikilink = target?.closest<HTMLAnchorElement>('a.wikilink');
+    if (wikilink) {
+      e.preventDefault();
+      e.stopPropagation();
+      openWikilink(wikilink.dataset.wikilink ?? '');
+      return;
+    }
+    const tag = target?.closest<HTMLElement>('.tag-pill[data-tag]');
+    if (tag) {
+      e.stopPropagation();
+      knowledge.toggleTag(tag.dataset.tag ?? null);
+      return;
+    }
+    const link = target?.closest<HTMLAnchorElement>('.markdown-content a[href], .cm-markdoc-renderBlock a[href]');
+    if (link) {
+      e.preventDefault();
+      openExternal(link.href);
+    }
+  }
+
+  onMount(() => {
+    document.addEventListener('click', handleContentClick, true);
+    return () => document.removeEventListener('click', handleContentClick, true);
+  });
+
   async function loadCurrentCanvas() {
     if (!vaultStore.currentCanvas) return;
     
@@ -53,6 +94,7 @@
         // If no workspace.json exists yet, that's fine - we just start fresh
         console.log('No existing workspace data, starting fresh');
       }
+      await consumePendingFocus();
     } catch (err) {
       console.error('Failed to load canvas:', err);
     }
