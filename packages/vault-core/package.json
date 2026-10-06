@@ -1,0 +1,16 @@
+{
+  "name": "@mosaicflow/vault-core",
+  "version": "0.1.0",
+  "description": "Headless MosaicFlow vault format: node markdown codec, canvas repository, node-type schemas and placement helpers. No Svelte/Tauri dependencies so it can be shared by the app and an MCP server.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "yaml": "^2.8.1"
+  }
+}
