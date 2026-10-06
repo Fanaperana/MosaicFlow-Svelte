@@ -23,6 +23,7 @@ export {
   type NodeStyleProps,
   type NodeDimensions,
 } from '$lib/components/nodes/_shared/utils';
+export { openExternal } from '$lib/utils';
 
 // Types
 export type { BaseNodeData, NodeType } from './types';

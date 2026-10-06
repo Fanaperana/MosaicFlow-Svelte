@@ -79,7 +79,8 @@
   }
 
   function handleDuplicate() {
-    workspace.duplicateNodes([nodeId]);
+    const copies = workspace.duplicateNodes([nodeId]);
+    if (copies.length) workspace.setSelectedNodes(copies.map(n => n.id));
   }
 
   function handleToggleLock() {
@@ -181,6 +182,7 @@
           class="toolbar-btn danger"
           onclick={handleDelete}
           type="button"
+          aria-label="Delete"
         >
           <Trash2 size={14} />
         </button>
@@ -191,6 +193,7 @@
           class="toolbar-btn"
           onclick={handleDuplicate}
           type="button"
+          aria-label="Duplicate"
         >
           <Copy size={14} />
         </button>
@@ -201,6 +204,7 @@
           class="toolbar-btn"
           onclick={() => showColorPicker = true}
           type="button"
+          aria-label="Change color"
         >
           <Palette size={14} />
         </button>
@@ -211,6 +215,7 @@
           class="toolbar-btn"
           onclick={handleToggleLock}
           type="button"
+          aria-label={isLocked ? 'Unlock' : 'Lock'}
         >
           {#if isLocked}
             <Lock size={14} />
@@ -225,6 +230,7 @@
           class="toolbar-btn"
           onclick={handleZoomToFit}
           type="button"
+          aria-label="Zoom to fit"
         >
           <ZoomIn size={14} />
         </button>
@@ -235,6 +241,7 @@
           class="toolbar-btn"
           onclick={handleMoreProperties}
           type="button"
+          aria-label="More properties"
         >
           <Settings2 size={14} />
         </button>

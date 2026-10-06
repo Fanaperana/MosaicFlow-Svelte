@@ -8,7 +8,7 @@
   import type { IframeNodeData } from './types';
   import { workspace } from '@mosaicflow/node-sdk/store';
   import { Globe, ExternalLink, RefreshCw } from 'lucide-svelte';
-  import { NodeWrapper, NodeField } from '@mosaicflow/node-sdk';
+  import { NodeWrapper, NodeField, openExternal as openInBrowser } from '@mosaicflow/node-sdk';
 
   type IframeNodeType = Node<IframeNodeData, 'iframe'>;
 
@@ -22,7 +22,7 @@
 
   function openExternal() {
     if (data.url) {
-      window.open(data.url, '_blank');
+      openInBrowser(data.url);
     }
   }
 

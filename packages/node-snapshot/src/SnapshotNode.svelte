@@ -10,7 +10,7 @@
   import { Camera, Calendar, Download, ExternalLink, Link } from 'lucide-svelte';
   import { open } from '@tauri-apps/plugin-dialog';
   import { convertFileSrc } from '@tauri-apps/api/core';
-  import { NodeWrapper, NodeField } from '@mosaicflow/node-sdk';
+  import { NodeWrapper, NodeField, openExternal } from '@mosaicflow/node-sdk';
 
   type SnapshotNodeType = Node<SnapshotNodeData, 'snapshot'>;
 
@@ -40,7 +40,7 @@
 
   function openSource() {
     if (data.sourceUrl) {
-      window.open(data.sourceUrl, '_blank');
+      openExternal(data.sourceUrl);
     }
   }
 </script>

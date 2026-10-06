@@ -11,7 +11,7 @@
   import type { MapNodeData } from './types';
   import { workspace } from '@mosaicflow/node-sdk/store';
   import { MapPin, Navigation, ExternalLink, ZoomIn, ZoomOut, Loader2, Search } from 'lucide-svelte';
-  import { NodeWrapper, NodeField } from '@mosaicflow/node-sdk';
+  import { NodeWrapper, NodeField, openExternal } from '@mosaicflow/node-sdk';
   import { MapLibre, Marker, NavigationControl } from 'svelte-maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -140,10 +140,10 @@
   function openInMaps() {
     if (data.latitude && data.longitude) {
       const url = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
-      window.open(url, '_blank');
+      openExternal(url);
     } else if (data.address) {
       const url = `https://www.google.com/maps/search/${encodeURIComponent(data.address)}`;
-      window.open(url, '_blank');
+      openExternal(url);
     }
   }
 

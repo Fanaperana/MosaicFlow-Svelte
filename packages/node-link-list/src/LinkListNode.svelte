@@ -8,7 +8,7 @@
   import type { LinkListNodeData, LinkItem } from './types';
   import { workspace } from '@mosaicflow/node-sdk/store';
   import { List, Plus, Trash2, ExternalLink, GripVertical } from 'lucide-svelte';
-  import { NodeWrapper, NodeField } from '@mosaicflow/node-sdk';
+  import { NodeWrapper, NodeField, openExternal } from '@mosaicflow/node-sdk';
 
   type LinkListNodeType = Node<LinkListNodeData, 'linkList'>;
 
@@ -38,7 +38,7 @@
 
   function openLink(url: string) {
     if (url) {
-      window.open(url, '_blank');
+      openExternal(url);
     }
   }
 </script>

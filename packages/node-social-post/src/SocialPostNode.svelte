@@ -8,7 +8,7 @@
   import type { SocialPostNodeData } from './types';
   import { workspace } from '@mosaicflow/node-sdk/store';
   import { MessageCircle, Heart, Repeat2, ExternalLink, Calendar } from 'lucide-svelte';
-  import { NodeWrapper, NodeField } from '@mosaicflow/node-sdk';
+  import { NodeWrapper, NodeField, openExternal } from '@mosaicflow/node-sdk';
 
   type SocialPostNodeType = Node<SocialPostNodeData, 'socialPost'>;
 
@@ -20,7 +20,7 @@
 
   function openPost() {
     if (data.url) {
-      window.open(data.url, '_blank');
+      openExternal(data.url);
     }
   }
 
