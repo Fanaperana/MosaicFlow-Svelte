@@ -13,6 +13,7 @@ import { metadata as mapMetadata } from '@mosaicflow/node-map/plugin';
 import { metadata as linkListMetadata } from '@mosaicflow/node-link-list/plugin';
 import { metadata as actionMetadata } from '@mosaicflow/node-action/plugin';
 import { metadata as annotationMetadata } from '@mosaicflow/node-annotation/plugin';
+import { metadata as embedMetadata } from '@mosaicflow/node-embed/plugin';
 
 const utilityNodes: Omit<NodeTypeRegistration, 'pluginId'>[] = [
   groupMetadata,
@@ -20,6 +21,7 @@ const utilityNodes: Omit<NodeTypeRegistration, 'pluginId'>[] = [
   linkListMetadata,
   actionMetadata,
   annotationMetadata,
+  embedMetadata,
 ];
 
 export const activate = (api: PluginAPI): void => {

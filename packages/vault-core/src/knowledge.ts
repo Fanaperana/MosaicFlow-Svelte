@@ -82,6 +82,7 @@ export interface IndexedNode {
   text: string;
   tags: string[];
   links: Wikilink[];
+  data: Record<string, unknown>;
 }
 
 export interface IndexCanvas {
@@ -105,6 +106,8 @@ export class KnowledgeIndex {
       for (const n of c.nodes) {
         const title = String(n.data.title ?? n.data.name ?? n.data.label ?? '').trim();
         const text = nodeText(n.data);
+        // An embed's `ref` is a link to the node it shows.
+        const ref = typeof n.data.ref === 'string' && n.data.ref.trim() ? extractWikilinks(`[[${n.data.ref.trim()}]]`) : [];
         const entry: IndexedNode = {
           canvasId: c.id,
           canvasName: c.name,
@@ -113,7 +116,8 @@ export class KnowledgeIndex {
           title,
           text,
           tags: extractTags(n.data),
-          links: extractWikilinks(text),
+          links: [...ref, ...extractWikilinks(text)],
+          data: n.data,
         };
         this.nodes.push(entry);
         for (const key of [title.toLowerCase(), n.id.toLowerCase()]) {

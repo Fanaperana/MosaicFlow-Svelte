@@ -56,6 +56,9 @@ importers:
       '@mosaicflow/node-domain':
         specifier: workspace:*
         version: link:packages/node-domain
+      '@mosaicflow/node-embed':
+        specifier: workspace:*
+        version: link:packages/node-embed
       '@mosaicflow/node-group':
         specifier: workspace:*
         version: link:packages/node-group
@@ -300,6 +303,21 @@ importers:
         version: 5.46.0
 
   packages/node-domain:
+    dependencies:
+      '@mosaicflow/node-sdk':
+        specifier: workspace:*
+        version: link:../node-sdk
+      '@xyflow/svelte':
+        specifier: ^1.5.0
+        version: 1.5.0(svelte@5.46.0)
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
+
+  packages/node-embed:
     dependencies:
       '@mosaicflow/node-sdk':
         specifier: workspace:*

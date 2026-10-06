@@ -36,6 +36,7 @@ import {
   Box,
   AppWindow,
   MessageCircle,
+  Link2,
 } from 'lucide-svelte';
 
 // =============================================================================
@@ -390,6 +391,7 @@ export const NODE_CATEGORIES: { id: NodeCategory; label: string; icon: string }[
 
 /** Map of icon names to Lucide components */
 export const ICON_COMPONENTS: Record<string, typeof StickyNote> = {
+  Link2,
   StickyNote,
   Type,
   Image,

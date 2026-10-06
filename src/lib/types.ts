@@ -27,6 +27,7 @@ export type { MapNodeData } from '@mosaicflow/node-map/types';
 export type { LinkListNodeData, LinkItem } from '@mosaicflow/node-link-list/types';
 export type { ActionNodeData } from '@mosaicflow/node-action/types';
 export type { AnnotationNodeData } from '@mosaicflow/node-annotation/types';
+export type { EmbedNodeData } from '@mosaicflow/node-embed/types';
 
 // Import types for union
 import type { NoteNodeData } from '@mosaicflow/node-note/types';

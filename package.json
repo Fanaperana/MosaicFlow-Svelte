@@ -30,6 +30,7 @@
     "@mosaicflow/node-code": "workspace:*",
     "@mosaicflow/node-credential": "workspace:*",
     "@mosaicflow/node-domain": "workspace:*",
+    "@mosaicflow/node-embed": "workspace:*",
     "@mosaicflow/node-group": "workspace:*",
     "@mosaicflow/node-hash": "workspace:*",
     "@mosaicflow/node-iframe": "workspace:*",
