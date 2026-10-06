@@ -140,7 +140,7 @@
       backgroundColor: 'transparent',
     },
     '.cm-content': {
-      fontFamily: "'Space Mono', monospace",
+      fontFamily: 'var(--mf-font-mono)',
       padding: '4px 0',
       caretColor: '#fff',
     },

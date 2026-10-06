@@ -196,7 +196,7 @@
     min-height: 28px;
     width: 100%;
     height: 100%;
-    font-family: 'Space Mono', monospace;
+    font-family: var(--mf-font-mono);
     box-sizing: border-box;
     display: flex;
     flex-direction: column;

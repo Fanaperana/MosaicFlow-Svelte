@@ -21,6 +21,7 @@
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.39.4",
     "@fontsource-variable/space-grotesk": "^5.3.0",
+    "@fontsource/pt-mono": "^5.3.0",
     "@lezer/highlight": "^1.2.3",
     "@lezer/markdown": "^1.6.1",
     "@markdoc/markdoc": "^0.5.4",

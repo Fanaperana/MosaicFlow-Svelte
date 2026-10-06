@@ -4,6 +4,7 @@
 
 /* Bundled UI font (local-first: shipped with the app, no network) */
 @import "@fontsource-variable/space-grotesk/wght.css";
+@import "@fontsource/pt-mono/400.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -58,7 +59,7 @@
 :root {
   /* MosaicFlow UI tokens (dark, Notion-like compact chrome) */
   --mf-font-ui: 'Space Grotesk Variable', 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --mf-font-mono: 'Space Mono', ui-monospace, 'Consolas', monospace;
+  --mf-font-mono: 'PT Mono', 'Space Mono', ui-monospace, 'Consolas', monospace;
   --mf-bg: #0d1117;
   --mf-surface: #111318;
   --mf-surface-2: #171a20;
@@ -196,7 +197,7 @@
     -webkit-text-size-adjust: 100%;
   }
 
-  /* Canvas content keeps the Space Mono look */
+  /* Canvas content uses the mono font */
   .svelte-flow__node,
   .svelte-flow__edge-label,
   .svelte-flow__edge-text,

@@ -177,7 +177,7 @@
     min-height: 60px;
     width: 100%;
     height: 100%;
-    font-family: 'Space Mono', monospace;
+    font-family: var(--mf-font-mono);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     overflow: hidden;
     display: flex;

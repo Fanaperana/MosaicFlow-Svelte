@@ -199,7 +199,7 @@
       border: 1px solid #30363d !important;
       color: #c9d1d9 !important;
       border-radius: 4px !important;
-      font-family: 'Space Mono', monospace !important;
+      font-family: var(--mf-font-mono) !important;
       font-size: 11px !important;
     }
 
