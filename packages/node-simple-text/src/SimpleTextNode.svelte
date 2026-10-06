@@ -66,8 +66,14 @@
   />
 {/if}
 
-<Handle type="target" position={Position.Left} class="handle-style" />
-<Handle type="source" position={Position.Right} class="handle-style" />
+<Handle type="target" position={Position.Left} id="left-target" class="handle-style" />
+<Handle type="source" position={Position.Left} id="left-source" class="handle-style" />
+<Handle type="target" position={Position.Right} id="right-target" class="handle-style" />
+<Handle type="source" position={Position.Right} id="right-source" class="handle-style" />
+<Handle type="target" position={Position.Top} id="top-target" class="handle-style" />
+<Handle type="source" position={Position.Top} id="top-source" class="handle-style" />
+<Handle type="target" position={Position.Bottom} id="bottom-target" class="handle-style" />
+<Handle type="source" position={Position.Bottom} id="bottom-source" class="handle-style" />
 
 <div 
   class="simple-text-node"

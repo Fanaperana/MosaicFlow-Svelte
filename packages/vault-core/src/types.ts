@@ -34,8 +34,10 @@ export interface NodeKnowledgeSchema {
 }
 
 export interface NodeCapabilities {
-  /** Node can contain other nodes (children use `parentId` and the container keeps `data.childNodeIds`). */
+  /** Node can contain other nodes; children reference it through `parentId` (layout.parent on disk). */
   container?: boolean;
+  /** Set to false for nodes without connection handles (they cannot be linked with edges). */
+  connectable?: boolean;
 }
 
 export interface Size {

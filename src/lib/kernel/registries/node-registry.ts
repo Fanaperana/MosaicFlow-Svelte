@@ -298,6 +298,13 @@ class NodeRegistry {
   }
 
   /**
+   * Whether nodes of this type have connection handles
+   */
+  isConnectable(type: string | undefined): boolean {
+    return !!type && this.registrations.get(type)?.capabilities?.connectable !== false;
+  }
+
+  /**
    * Serializable schemas of all node types (for the vault's node-types.json)
    */
   getSchemas(): NodeTypeSchema[] {

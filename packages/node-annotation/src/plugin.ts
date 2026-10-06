@@ -10,6 +10,7 @@ export const metadata: Omit<NodeTypeRegistration, "pluginId"> = {
   defaultData: { title: "Annotation", label: "Note", arrowPosition: "bottom-left", arrowRotation: 0, fontSize: 16 },
   dimensions: { minWidth: 100, minHeight: 60, defaultWidth: 200, defaultHeight: 120 },
   colors: { bg: "transparent", border: "transparent", icon: "💭" },
+  capabilities: { connectable: false },
   knowledge: {
     purpose: "A visual callout with an arrow that comments on nearby nodes. Not for storing knowledge.",
     bodyField: "label",

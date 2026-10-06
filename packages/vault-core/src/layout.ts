@@ -13,6 +13,24 @@ export interface PlacementOptions {
   maxRings?: number;
 }
 
+/** Stable sort so every node comes after its ancestors (required by subflow renderers). */
+export function orderParentsFirst<T extends { id: string; parentId?: string }>(nodes: T[]): T[] {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const depth = (node: T): number => {
+    let d = 0;
+    let parent = node.parentId ? byId.get(node.parentId) : undefined;
+    while (parent && d < nodes.length) {
+      d++;
+      parent = parent.parentId ? byId.get(parent.parentId) : undefined;
+    }
+    return d;
+  };
+  return nodes
+    .map((node, index) => ({ node, index, depth: depth(node) }))
+    .sort((a, b) => a.depth - b.depth || a.index - b.index)
+    .map((entry) => entry.node);
+}
+
 export function rectsOverlap(a: Rect, b: Rect, gap = 0): boolean {
   return (
     a.x < b.x + b.width + gap &&

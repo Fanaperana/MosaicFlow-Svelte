@@ -2,7 +2,7 @@
 // Real-time persistence of nodes as markdown files: <canvas>/nodes/<id>.md
 // The on-disk format lives in @mosaicflow/vault-core so external tools (e.g. an MCP server) share it.
 
-import { CanvasRepository, type StoredNode } from '@mosaicflow/vault-core';
+import { CanvasRepository, orderParentsFirst, type StoredNode } from '@mosaicflow/vault-core';
 import type { MosaicNode, MosaicNodeData, NodeType } from '$lib/types';
 import { nodeRegistry } from '$lib/kernel/registries/node-registry';
 import { tauriFsAdapter } from './tauriFsAdapter';
@@ -142,24 +142,6 @@ export async function loadAllNodes(nodesManifest: Record<string, { type: NodeTyp
   stored.sort((a, b) => rank(a.id) - rank(b.id));
 
   return orderParentsFirst(stored.map(fromStored));
-}
-
-// SvelteFlow requires parent nodes to appear before their children.
-function orderParentsFirst(nodes: MosaicNode[]): MosaicNode[] {
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  const depth = (node: MosaicNode): number => {
-    let d = 0;
-    let parent = node.parentId ? byId.get(node.parentId) : undefined;
-    while (parent && d < nodes.length) {
-      d++;
-      parent = parent.parentId ? byId.get(parent.parentId) : undefined;
-    }
-    return d;
-  };
-  return nodes
-    .map((node, index) => ({ node, index, depth: depth(node) }))
-    .sort((a, b) => a.depth - b.depth || a.index - b.index)
-    .map((entry) => entry.node);
 }
 
 // Write all pending saves now (call before closing or switching canvas)
