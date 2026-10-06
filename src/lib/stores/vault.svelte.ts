@@ -374,6 +374,8 @@ class VaultStore {
     this._config.current_canvas_path = null;
     this.saveConfig();
     this.appView = this.canvases.length > 0 ? 'canvas-list' : 'vault-picker';
+    // Canvases may have been added or removed on disk (e.g. by an MCP server or a seed script).
+    void this.refreshCanvases();
   }
 
   /**

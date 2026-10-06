@@ -2,74 +2,22 @@
 // format (no app running) — the same path an MCP server will take.
 // Usage: pnpm dlx tsx packages/vault-core/scripts/seed-example.ts "<vault path>"
 
-import { promises as fs } from 'node:fs';
-import { randomUUID } from 'node:crypto';
-import path from 'node:path';
-import {
-  CanvasRepository,
-  DESIGN_GUIDE,
-  NODE_TYPES_FILE,
-  bodyMappingFor,
-  type FsAdapter,
-  type NodeTypesDocument,
-  type StoredEdge,
-  type StoredNode,
-} from '../src/index';
-
-const nodeFs: FsAdapter = {
-  readText: (p) => fs.readFile(p, 'utf8'),
-  writeText: (p, c) => fs.writeFile(p, c, 'utf8'),
-  exists: (p) => fs.access(p).then(() => true, () => false),
-  mkdir: async (p) => void (await fs.mkdir(p, { recursive: true })),
-  remove: (p) => fs.rm(p, { recursive: true, force: true }),
-  list: async (p) =>
-    (await fs.readdir(p, { withFileTypes: true })).map((e) => ({ name: e.name, isDirectory: e.isDirectory() })),
-};
+import { DESIGN_GUIDE, type StoredEdge, type StoredNode } from '../src/index';
+import { edge, vaultArg, writeCanvas } from './seed-lib';
 
 const CANVAS_NAME = 'Example - History of Computing';
 
 async function main() {
-  const vaultPath = process.argv[2];
-  if (!vaultPath) throw new Error('Pass the vault folder as the first argument');
-
-  const vault = JSON.parse(await fs.readFile(path.join(vaultPath, 'vault.json'), 'utf8'));
-  const types: NodeTypesDocument = JSON.parse(await fs.readFile(path.join(vaultPath, NODE_TYPES_FILE), 'utf8'));
-  const knowledge = new Map(types.nodeTypes.map((t) => [t.type, t.knowledge]));
-
-  const canvasPath = path.join(vaultPath, 'canvases', CANVAS_NAME);
-  if (await nodeFs.exists(canvasPath)) throw new Error(`Canvas already exists: ${canvasPath}`);
-
-  const now = new Date().toISOString();
-  await fs.mkdir(path.join(canvasPath, '.mosaic'), { recursive: true });
-  for (const dir of ['nodes', 'edges', 'images', 'attachments']) {
-    await fs.mkdir(path.join(canvasPath, dir), { recursive: true });
-  }
-  await fs.writeFile(
-    path.join(canvasPath, '.mosaic', 'meta.json'),
-    JSON.stringify({
-      id: randomUUID(),
-      vault_id: vault.id,
+  await writeCanvas(
+    vaultArg(),
+    {
       name: CANVAS_NAME,
       description: 'Sample knowledge map: pioneers, institutions, a timeline and sources.',
       tags: ['example', 'history'],
-      created_at: now,
-      updated_at: now,
-      version: '2.0.0',
-    }, null, 2)
+    },
+    buildNodes().map(applyLayout),
+    buildEdges()
   );
-  await fs.writeFile(
-    path.join(canvasPath, '.mosaic', 'state.json'),
-    JSON.stringify({ viewport: { x: 0, y: 0, zoom: 1 }, selected_nodes: [], selected_edges: [], canvas_mode: '', updated_at: '' }, null, 2)
-  );
-  // Same empty manifest the backend writes for a brand-new canvas; nodes live in nodes/*.md.
-  await fs.writeFile(path.join(canvasPath, 'workspace.json'), JSON.stringify({ version: '2.0.0', nodes: [], edges: [], settings: {} }, null, 2));
-
-  const repo = new CanvasRepository(nodeFs, canvasPath.replaceAll('\\', '/'), (type) => bodyMappingFor(knowledge.get(type)));
-
-  for (const node of buildNodes().map(applyLayout)) await repo.writeNode(node);
-  for (const edge of buildEdges()) await repo.writeEdge(edge);
-
-  console.log(`Created "${CANVAS_NAME}" with ${buildNodes().length} nodes and ${buildEdges().length} edges at ${canvasPath}`);
 }
 
 const base = { color: '#1e1e1e' };
@@ -255,37 +203,6 @@ function buildNodes(): StoredNode[] {
       ],
     }),
   ];
-}
-
-type Marker = 'none' | 'arrow' | 'arrowclosed';
-interface EdgeLook {
-  color: string;
-  path?: 'bezier' | 'straight' | 'step' | 'smoothstep';
-  stroke?: 'solid' | 'dashed' | 'dotted';
-  animated?: boolean;
-  start?: Marker;
-  end?: Marker;
-  width?: number;
-}
-
-function edge(id: string, source: string, target: string, label: string, sourceHandle: string, targetHandle: string, look: EdgeLook): StoredEdge {
-  const path = look.path ?? 'bezier';
-  return {
-    id, source, target, sourceHandle, targetHandle, label,
-    type: path === 'bezier' ? 'default' : path,
-    animated: !!look.animated,
-    data: {
-      pathType: path,
-      color: look.color,
-      strokeWidth: look.width ?? 2,
-      strokeStyle: look.stroke ?? 'solid',
-      animated: !!look.animated,
-      markerStart: look.start ?? 'none',
-      markerEnd: look.end ?? 'arrowclosed',
-      labelColor: look.color,
-      labelBgColor: '#0d1117',
-    },
-  };
 }
 
 const VIOLET = DESIGN_GUIDE.palette.violet.border;
