@@ -15,7 +15,9 @@
     Image,
     FileCode,
     Package,
+    Shapes,
   } from 'lucide-svelte';
+  import { exportJsonCanvasDialog } from '$lib/services/interopService';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { cn } from '$lib/utils';
   import SimpleTooltip from '$lib/components/ui/SimpleTooltip.svelte';
@@ -92,6 +94,10 @@
           <button class="menu-item" onclick={() => { onExportPackage(); exportMenuOpen = false; }}>
             <Package size={16} strokeWidth={1.5} />
             <span>Export as .mosaic</span>
+          </button>
+          <button class="menu-item" onclick={() => { exportJsonCanvasDialog(); exportMenuOpen = false; }}>
+            <Shapes size={16} strokeWidth={1.5} />
+            <span>Export as Obsidian canvas</span>
           </button>
           <button class="menu-item" onclick={() => { onExport(); exportMenuOpen = false; }}>
             <Download size={16} strokeWidth={1.5} />

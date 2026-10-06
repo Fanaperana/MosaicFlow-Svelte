@@ -167,4 +167,18 @@ export function registerTools(server: McpServer, ops: MosaicOps) {
     inputSchema: { canvas, nodeIds: z.array(z.string()).min(1) },
     annotations: write,
   }, ({ canvas: ref, nodeIds }) => run(() => ops.setStoryOrder(ref, nodeIds)));
+
+  server.registerTool('auto_layout', {
+    title: 'Auto layout',
+    description: 'Tidy nodes with a layered layout that follows the edges (grid when there are none). Lays out the top-level nodes, the children of parentId, or the given nodeIds (same parent). Groups grow to fit.',
+    inputSchema: { canvas, parentId: z.string().optional(), nodeIds: z.array(z.string()).optional(), direction: z.enum(['LR', 'TB']).optional() },
+    annotations: write,
+  }, (args) => run(() => ops.autoLayout(args)));
+
+  server.registerTool('import_mermaid', {
+    title: 'Create canvas from Mermaid',
+    description: 'Create a new canvas from a Mermaid flowchart (flowchart LR / graph TD): nodes become notes, edge labels and dotted/thick styles are kept, subgraphs become groups. Fastest way to sketch a process.',
+    inputSchema: { name: z.string().min(1), mermaid: z.string().min(1), description: z.string().optional() },
+    annotations: write,
+  }, (args) => run(() => ops.importMermaid(args)));
 }

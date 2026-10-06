@@ -101,6 +101,14 @@ async function main() {
     const ordered = (await call('read_canvas', { canvas: 'MCP Test' })).nodes.filter((n: { order?: number }) => n.order);
     assert(ordered.length === 2, 'story order set');
 
+    const mm = await call('import_mermaid', { name: 'Flow', mermaid: 'flowchart LR\n  a[Plan] --> b[Do]\n  b --> c[Check]\n  c -->|retry| b' });
+    assert(mm.nodes === 3 && mm.edges === 3, 'mermaid canvas created');
+    await call('update_node', { canvas: 'Flow', id: 'c', position: { x: -500, y: 900 } });
+    await call('auto_layout', { canvas: 'Flow' });
+    const flow = (await call('read_canvas', { canvas: 'Flow' })).nodes;
+    const x = (id: string) => flow.find((n: { id: string }) => n.id === id).x;
+    assert(x('a') < x('b') && x('b') < x('c'), 'auto_layout restores left-to-right order');
+
     const del = await call('delete_node', { canvas: 'MCP Test', id: g.id });
     assert(del.detachedChildren.includes(a.id), 'deleting a group detaches children');
     const del2 = await call('delete_node', { canvas: 'MCP Test', id: a.id });

@@ -11,21 +11,47 @@
     Pencil,
     Check,
     X,
-    PackageOpen
+    PackageOpen,
+    FolderInput,
   } from 'lucide-svelte';
+  import { onMount } from 'svelte';
   import { Button } from '$lib/components/ui/button';
-  import { importCanvasPackage } from '$lib/services/packageService';
+  import { importDropped, importFileDialog, importMarkdownFolderDialog } from '$lib/services/interopService';
 
   let isImporting = $state(false);
+  let dropActive = $state(false);
 
-  async function handleImport() {
+  async function runImport(task: () => Promise<unknown>) {
     isImporting = true;
     try {
-      await importCanvasPackage();
+      await task();
     } finally {
       isImporting = false;
     }
   }
+
+  // OS file drops: .mosaic/.zip/.canvas/.json/.mmd files, or folders of markdown notes.
+  onMount(() => {
+    let unlisten: (() => void) | undefined;
+    let disposed = false;
+    import('@tauri-apps/api/webview').then(async ({ getCurrentWebview }) => {
+      const off = await getCurrentWebview().onDragDropEvent((event) => {
+        const p = event.payload;
+        if (p.type === 'enter' || p.type === 'over') dropActive = true;
+        else if (p.type === 'leave') dropActive = false;
+        else if (p.type === 'drop') {
+          dropActive = false;
+          if (p.paths.length) runImport(() => importDropped(p.paths));
+        }
+      });
+      if (disposed) off();
+      else unlisten = off;
+    }).catch(() => {});
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  });
 
   let isCreating = $state(false);
   let newCanvasName = $state('');
@@ -95,6 +121,13 @@
 </script>
 
 <div class="canvas-list-page">
+  {#if dropActive}
+    <div class="drop-overlay">
+      <PackageOpen size={28} />
+      <p>Drop to import</p>
+      <span>.mosaic · .zip · Obsidian .canvas · .json · Mermaid · folders of .md notes</span>
+    </div>
+  {/if}
   <div class="canvas-list-content">
     <header class="list-header">
       <button class="back-btn" onclick={() => vaultStore.closeVault()}>
@@ -104,7 +137,11 @@
         <h1>{vaultStore.currentVault?.name || 'Vault'}</h1>
         <p class="canvas-count">{vaultStore.canvases.length} canvas{vaultStore.canvases.length !== 1 ? 'es' : ''}</p>
       </div>
-      <Button onclick={handleImport} disabled={isImporting} variant="ghost" size="sm" class="px-3" title="Import a .mosaic package or zipped canvas folder">
+      <Button onclick={() => runImport(importMarkdownFolderDialog)} disabled={isImporting} variant="ghost" size="sm" class="px-3" title="Import a folder of markdown notes (e.g. an Obsidian vault); [[wikilinks]] become edges">
+        <FolderInput size={14} class="mr-1" />
+        Notes folder
+      </Button>
+      <Button onclick={() => runImport(importFileDialog)} disabled={isImporting} variant="ghost" size="sm" class="px-3" title="Import a .mosaic package, Obsidian .canvas, MosaicFlow JSON or Mermaid flowchart">
         {#if isImporting}
           <Loader2 size={14} class="mr-1 animate-spin" />
         {:else}
@@ -211,6 +248,33 @@
 </div>
 
 <style>
+  .drop-overlay {
+    position: fixed;
+    inset: 12px;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 2px dashed rgba(91, 141, 239, 0.7);
+    border-radius: 14px;
+    background: rgba(13, 17, 23, 0.85);
+    color: #93b4f5;
+    pointer-events: none;
+  }
+
+  .drop-overlay p {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--mf-text);
+  }
+
+  .drop-overlay span {
+    font-size: 12px;
+    color: var(--mf-text-2);
+  }
+
   .canvas-list-page {
     min-height: 100vh;
     background: linear-gradient(135deg, #0a0a0f 0%, #111118 100%);

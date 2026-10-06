@@ -4,6 +4,8 @@ import {
   DESIGN_GUIDE,
   KnowledgeIndex,
   absoluteRects,
+  autoLayout,
+  importMermaid,
   boundsOf,
   buildEdge,
   facingSides,
@@ -545,5 +547,77 @@ export class MosaicOps {
     }
     await this.vault.touchCanvas(entry);
     return { ordered: nodeIds.length, changed };
+  }
+
+  /** Creates a canvas from a Mermaid flowchart (nodes become notes, subgraphs become groups). */
+  async importMermaid(input: { name: string; mermaid: string; description?: string }) {
+    const result = importMermaid(input.mermaid);
+    const { entry, repo } = await this.vault.createCanvas({ name: input.name, description: input.description ?? 'Imported from Mermaid', tags: ['mermaid'] });
+    for (const n of result.nodes) await repo.writeNode(n);
+    for (const e of result.edges) await repo.writeEdge(e);
+    return { canvas: entry.name, nodes: result.nodes.length, edges: result.edges.length, warnings: result.warnings };
+  }
+
+  /**
+   * Re-arranges nodes with a layered layout following the edges (or a grid). Only nodes that share
+   * the same parent are moved; by default the top-level nodes of the canvas.
+   */
+  async autoLayout(input: { canvas: string; parentId?: string; nodeIds?: string[]; direction?: 'LR' | 'TB' }) {
+    const { entry, repo, nodes } = await this.open(input.canvas);
+    const edges = await repo.readAllEdges();
+    let targets = input.nodeIds
+      ? input.nodeIds.map((id) => {
+          const n = nodes.find((x) => x.id === id);
+          if (!n) throw new Error(`Node "${id}" not found`);
+          return n;
+        })
+      : nodes.filter((n) => n.parentId === input.parentId);
+    if (targets.length < 2) throw new Error('Need at least two nodes to lay out');
+    const parentId = targets[0].parentId;
+    targets = targets.filter((n) => n.parentId === parentId);
+
+    // Edges to/from descendants count for their top-most ancestor in this set.
+    const ids = new Set(targets.map((n) => n.id));
+    const owner = (id: string): string | undefined => {
+      let cur = nodes.find((n) => n.id === id);
+      for (let i = 0; cur && i < nodes.length; i++) {
+        if (ids.has(cur.id)) return cur.id;
+        const parent: string | undefined = cur.parentId;
+        cur = parent ? nodes.find((n) => n.id === parent) : undefined;
+      }
+      return undefined;
+    };
+    const layoutEdges = edges
+      .map((e) => ({ source: owner(e.source), target: owner(e.target) }))
+      .filter((e): e is { source: string; target: string } => !!e.source && !!e.target && e.source !== e.target);
+
+    const before = boundsOf(targets.map((n) => ({ ...n.position, width: n.width ?? FALLBACK_SIZE.width, height: n.height ?? FALLBACK_SIZE.height })))!;
+    const origin = parentId ? { x: Math.max(before.x, GROUP_PAD.side), y: Math.max(before.y, GROUP_PAD.top) } : { x: before.x, y: before.y };
+    const positions = autoLayout(
+      targets.map((n) => ({ id: n.id, width: n.width ?? FALLBACK_SIZE.width, height: n.height ?? FALLBACK_SIZE.height })),
+      layoutEdges,
+      { direction: input.direction ?? 'LR', origin, nodeGap: parentId ? 40 : 60 }
+    );
+    for (const n of targets) {
+      n.position = positions.get(n.id)!;
+      await repo.writeNode(n);
+    }
+    await this.growToFit(repo, nodes, parentId);
+
+    // Re-pick facing handles for edges between moved nodes.
+    const rects = absoluteRects(nodes, FALLBACK_SIZE);
+    let rerouted = 0;
+    for (const e of edges) {
+      if (!owner(e.source) || !owner(e.target)) continue;
+      const sides = facingSides(rects.get(e.source)!, rects.get(e.target)!);
+      const sourceHandle = `${sides.source}-source`;
+      const targetHandle = `${sides.target}-target`;
+      if (e.sourceHandle !== sourceHandle || e.targetHandle !== targetHandle) {
+        await repo.writeEdge({ ...e, sourceHandle, targetHandle });
+        rerouted++;
+      }
+    }
+    await this.vault.touchCanvas(entry);
+    return { moved: targets.length, reroutedEdges: rerouted };
   }
 }
