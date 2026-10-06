@@ -335,10 +335,15 @@
     
     if (keep.length !== selectedNodes.length) {
       workspace.setSelectedNodes(keep.map(n => n.id));
-    } else {
-      workspace.syncPropertiesPanel();
     }
   }
+
+  // xyflow reports selection before the store has synced, so drive the panel from the store itself.
+  const selectionKey = $derived(workspace.selectedNodeIds.join(','));
+  $effect(() => {
+    selectionKey;
+    untrack(() => workspace.syncPropertiesPanel());
+  });
 
   // Handle drop for adding new nodes
   function handleDragOver(event: DragEvent) {
@@ -788,7 +793,7 @@
         connectionLineType={ConnectionLineType.Bezier}
         panOnDrag={panOnDrag}
         selectionOnDrag={selectionOnDrag}
-        selectionMode={SelectionMode.Full}
+        selectionMode={SelectionMode.Partial}
         minZoom={0.01}
         maxZoom={8}
         defaultEdgeOptions={{
@@ -916,7 +921,7 @@
   ></div>
   <div 
     class="edge-drop-menu"
-    style="left: {edgeDropMenuPosition.x}px; top: {edgeDropMenuPosition.y}px;"
+    style="left: {Math.max(8, Math.min(edgeDropMenuPosition.x, window.innerWidth - 208))}px; top: {Math.max(8, Math.min(edgeDropMenuPosition.y, window.innerHeight - 428))}px;"
   >
     <div class="edge-drop-header">
       <Plus size={14} />
@@ -958,12 +963,14 @@
   }
 
   :global(.context-menu-content) {
-    min-width: 180px;
-    background: #1a1d21 !important;
-    border: 1px solid #333 !important;
+    min-width: 184px;
+    background: var(--mf-surface-2) !important;
+    border: 1px solid var(--mf-border-strong) !important;
     border-radius: 8px !important;
     padding: 4px !important;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45) !important;
+    font-family: var(--mf-font-ui);
+    outline: none !important;
     z-index: 1000;
   }
 
@@ -971,41 +978,49 @@
     display: flex !important;
     align-items: center !important;
     gap: 8px !important;
-    padding: 8px 12px !important;
-    font-size: 13px !important;
-    color: #e0e0e0 !important;
+    height: var(--mf-row);
+    padding: 0 8px !important;
+    font-size: 12.5px !important;
+    color: var(--mf-text) !important;
     border-radius: 4px !important;
     cursor: pointer !important;
     outline: none !important;
   }
 
+  :global(.context-menu-item svg) {
+    color: var(--mf-text-2);
+  }
+
   :global(.context-menu-item:hover),
-  :global(.context-menu-item:focus) {
-    background: rgba(59, 130, 246, 0.2) !important;
+  :global(.context-menu-item:focus),
+  :global(.context-menu-item[data-highlighted]) {
+    background: var(--mf-hover) !important;
   }
 
   :global(.context-menu-item.active) {
-    background: rgba(59, 130, 246, 0.3) !important;
+    background: var(--mf-active) !important;
+  }
+
+  :global(.context-menu-item-danger),
+  :global(.context-menu-item-danger svg) {
+    color: var(--mf-danger) !important;
   }
 
   :global(.context-menu-item-danger:hover) {
-    background: rgba(239, 68, 68, 0.2) !important;
-    color: #ef4444 !important;
+    background: var(--mf-danger-soft) !important;
   }
 
   :global(.context-menu-heading) {
-    padding: 6px 12px !important;
+    padding: 6px 8px 2px !important;
     font-size: 11px !important;
-    font-weight: 600 !important;
-    color: #888 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
+    font-weight: 500 !important;
+    color: var(--mf-text-3) !important;
   }
 
   :global(.context-menu-separator) {
     height: 1px !important;
     margin: 4px 0 !important;
-    background: #333 !important;
+    background: var(--mf-border) !important;
   }
 
   :global(.svelte-flow) {
@@ -1028,8 +1043,9 @@
    * Do NOT add translate3d, will-change, or preserve-3d here — they create an
    * extra compositing layer that rasterizes at 1x then GPU-scales, worsening blur.
    */
+  /* intentionally empty — let xyflow control this */
   :global(.svelte-flow__viewport) {
-    /* intentionally empty — let xyflow control this */
+    contain: none;
   }
 
   /*
@@ -1062,22 +1078,23 @@
   }
 
   :global(.svelte-flow__controls) {
-    background: #1a1d21;
-    border: 1px solid #333;
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    background: var(--mf-surface-2);
+    border: 1px solid var(--mf-border-strong);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
   }
 
   :global(.svelte-flow__controls-button) {
-    background: #1a1d21 !important;
+    background: transparent !important;
     border: none !important;
-    border-bottom: 1px solid #333 !important;
-    color: #888 !important;
+    border-bottom: 1px solid var(--mf-border) !important;
+    color: var(--mf-text-2) !important;
   }
 
   :global(.svelte-flow__controls-button:hover) {
-    background: #252a30 !important;
-    color: #fafafa !important;
+    background: var(--mf-hover) !important;
+    color: var(--mf-text) !important;
   }
 
   :global(.svelte-flow__controls-button:last-child) {
@@ -1140,9 +1157,10 @@
   }
 
   :global(.svelte-flow__minimap) {
-    background: #1a1d21 !important;
-    border: 1px solid #333 !important;
-    border-radius: 6px !important;
+    background: var(--mf-surface) !important;
+    border: 1px solid var(--mf-border-strong) !important;
+    border-radius: 8px !important;
+    overflow: hidden;
   }
 
   :global(.svelte-flow__minimap-mask) {
@@ -1181,6 +1199,21 @@
     outline: none !important;
   }
 
+  /* Locked nodes (draggable=false) show a small lock badge so they don't feel broken */
+  :global(.svelte-flow__node.selectable:not(.draggable)::after) {
+    content: '';
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--mf-surface-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%23a6a6ad' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E") center / 11px no-repeat;
+    border: 1px solid var(--mf-border-strong);
+    pointer-events: none;
+    z-index: 10;
+  }
+
   /* Edge Drop Menu Styles */
   .edge-drop-overlay {
     position: fixed;
@@ -1194,44 +1227,38 @@
   .edge-drop-menu {
     position: fixed;
     z-index: 1000;
-    background: #1a1d21;
-    border: 1px solid #333;
+    background: var(--mf-surface-2);
+    border: 1px solid var(--mf-border-strong);
     border-radius: 8px;
-    padding: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-    min-width: 180px;
-    max-height: 400px;
+    padding: 4px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    width: 200px;
+    max-height: min(420px, calc(100vh - 16px));
     overflow-y: auto;
-    transform: translate(-50%, 0);
+    font-family: var(--mf-font-ui);
   }
 
   .edge-drop-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    color: #3b82f6;
+    gap: 6px;
+    height: var(--mf-row);
+    padding: 0 8px;
+    color: var(--mf-text-2);
     font-size: 12px;
-    font-weight: 600;
-    border-bottom: 1px solid #333;
-    margin-bottom: 8px;
+    font-weight: 500;
   }
 
   .edge-drop-section {
-    margin-bottom: 8px;
-  }
-
-  .edge-drop-section:last-child {
-    margin-bottom: 0;
+    padding: 2px 0;
+    border-top: 1px solid var(--mf-border);
   }
 
   .edge-drop-section-title {
-    padding: 4px 12px;
-    font-size: 10px;
-    font-weight: 600;
-    color: #666;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    padding: 6px 8px 2px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--mf-text-3);
   }
 
   .edge-drop-item {
@@ -1239,18 +1266,23 @@
     align-items: center;
     gap: 8px;
     width: 100%;
-    padding: 8px 12px;
+    height: var(--mf-row);
+    padding: 0 8px;
     background: transparent;
     border: none;
-    color: #e0e0e0;
-    font-size: 13px;
+    color: var(--mf-text);
+    font-size: 12.5px;
     cursor: pointer;
     border-radius: 4px;
     text-align: left;
   }
 
+  .edge-drop-item :global(svg) {
+    color: var(--mf-text-2);
+  }
+
   .edge-drop-item:hover {
-    background: rgba(59, 130, 246, 0.2);
+    background: var(--mf-hover);
   }
 
   /* LOD (Level of Detail) Rendering Optimizations */

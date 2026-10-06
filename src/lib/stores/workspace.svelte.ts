@@ -283,12 +283,17 @@ class WorkspaceStore {
     
     const nodesToDuplicate = this.nodes.filter(n => nodeIds.includes(n.id));
     const newNodes: MosaicNode[] = [];
+
+    // Place the copies just to the right of the originals so they never stack on top.
+    const left = Math.min(...nodesToDuplicate.map(n => n.position.x));
+    const right = Math.max(...nodesToDuplicate.map(n => n.position.x + (n.measured?.width ?? n.width ?? 200)));
+    const offsetX = right - left + 40;
     
     for (const node of nodesToDuplicate) {
       const id = uuidv4();
       const newPosition = {
-        x: node.position.x + 50,
-        y: node.position.y + 50,
+        x: node.position.x + offsetX,
+        y: node.position.y,
       };
       
       const newNode: MosaicNode = {
@@ -653,6 +658,11 @@ class WorkspaceStore {
     const idSet = new Set(ids);
     if (this.nodes.some(n => !!n.selected !== idSet.has(n.id))) {
       this.nodes = this.nodes.map(n => (!!n.selected === idSet.has(n.id) ? n : { ...n, selected: idSet.has(n.id) }));
+    }
+    // Selecting nodes programmatically replaces any edge selection, like a click would.
+    if (ids.length > 0 && this.selectedEdgeIds.length > 0) {
+      this.selectedEdgeIds = [];
+      this.edges = this.edges.map(e => (e.selected ? { ...e, selected: false } : e));
     }
     this.syncPropertiesPanel();
   }
