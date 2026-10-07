@@ -1174,16 +1174,23 @@
   .pp-header {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: 6px 10px 8px;
+    padding: 0 10px;
+  }
+
+  .pp-header:has(.pp-title) {
+    padding-bottom: 8px;
     border-bottom: 1px solid var(--mf-border);
   }
 
+  /* Same height as the canvas header so their dividers line up */
   .pp-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 28px;
+    height: 36px;
+    margin: 0 -10px 6px;
+    padding: 0 6px 0 12px;
+    border-bottom: 1px solid var(--mf-border);
   }
 
   .pp-kind {
