@@ -2,6 +2,7 @@
   import { tick } from 'svelte';
   import { open } from '@tauri-apps/plugin-dialog';
   import { vaultStore } from '$lib/stores/vault.svelte';
+  import { keybindings } from '$lib/kernel/keybindings.svelte';
   import { formatRelativeTime } from '$lib/services/vaultService';
   import { ChevronsUpDown, Check, FolderOpen, Plus, Search, X, Loader2, CircleAlert } from 'lucide-svelte';
 
@@ -87,26 +88,27 @@
     }
   }
 
-  function handleWindowKey(e: KeyboardEvent) {
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
-      e.preventDefault();
-      setOpen(!isOpen);
-    }
-  }
-
   function handleWindowPointer(e: PointerEvent) {
     if (isOpen && root && !root.contains(e.target as Node)) isOpen = false;
   }
+
+  let shortcut = $derived(keybindings.label('vault.switch'));
+
+  $effect(() => {
+    const toggle = () => setOpen(!isOpen);
+    window.addEventListener('mosaicflow:openVaultSwitcher', toggle);
+    return () => window.removeEventListener('mosaicflow:openVaultSwitcher', toggle);
+  });
 </script>
 
-<svelte:window onkeydown={handleWindowKey} onpointerdown={handleWindowPointer} />
+<svelte:window onpointerdown={handleWindowPointer} />
 
 <div class="vault-switcher {size}" bind:this={root}>
   <button
     class="trigger"
     class:open={isOpen}
     onclick={() => setOpen(!isOpen)}
-    title="Switch vault (Ctrl+Shift+O)"
+    title={shortcut ? `Switch vault (${shortcut})` : 'Switch vault'}
     aria-haspopup="menu"
     aria-expanded={isOpen}
   >
@@ -184,7 +186,7 @@
       <button class="action" onclick={manageVaults} role="menuitem">
         <Plus size={14} />Create or manage vaults…
       </button>
-      <div class="footer"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>O</kbd> to switch vaults</div>
+      {#if shortcut}<div class="footer">{#each shortcut.split('+') as part}<kbd>{part}</kbd>{/each} to switch vaults</div>{/if}
     </div>
   {/if}
 </div>

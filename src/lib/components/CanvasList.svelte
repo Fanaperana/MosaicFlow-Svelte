@@ -17,6 +17,7 @@
   } from 'lucide-svelte';
   import { importDropped, importFileDialog, importMarkdownFolderDialog } from '$lib/services/interopService';
   import { packageDialogs } from '$lib/stores/packages.svelte';
+  import { settings } from '$lib/stores/settings.svelte';
   import VaultSwitcher from './VaultSwitcher.svelte';
 
   type SortMode = 'recent' | 'name';
@@ -95,7 +96,7 @@
   }
 
   async function handleDeleteCanvas(canvas: CanvasInfo) {
-    if (confirm(`Delete "${canvas.name}"? This cannot be undone.`)) {
+    if (!settings.current.general.confirmDelete || confirm(`Delete "${canvas.name}"? This cannot be undone.`)) {
       await vaultStore.deleteCanvasById(canvas.path);
     }
   }

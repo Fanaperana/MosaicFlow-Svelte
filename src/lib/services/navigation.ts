@@ -27,14 +27,15 @@ export async function openNode(canvasId: string, nodeId: string) {
   await vaultStore.openCanvas(canvas);
 }
 
-/** Called after a canvas finished loading. */
-export async function consumePendingFocus() {
+/** Called after a canvas finished loading. Returns whether a node was focused. */
+export async function consumePendingFocus(): Promise<boolean> {
   const id = pendingFocus;
   pendingFocus = null;
-  if (!id) return;
+  if (!id) return false;
   await tick();
   // Give the flow one frame to measure the freshly loaded nodes.
   requestAnimationFrame(() => focusOnCanvas(id));
+  return true;
 }
 
 /** A canvas whose name matches, case-insensitively. */

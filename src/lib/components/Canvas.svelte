@@ -26,6 +26,14 @@
   import FlowHelper from '$lib/components/FlowHelper.svelte';
   import CanvasFilterBar from '$lib/components/CanvasFilterBar.svelte';
   import NodeInsertMenu from '$lib/components/NodeInsertMenu.svelte';
+  import { settings } from '$lib/stores/settings.svelte';
+  import { keybindings } from '$lib/kernel/keybindings.svelte';
+
+  const BACKGROUND_VARIANTS = {
+    dots: BackgroundVariant.Dots,
+    lines: BackgroundVariant.Lines,
+    cross: BackgroundVariant.Cross,
+  } as const;
   import * as ContextMenu from '$lib/components/ui/context-menu';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   interface Props {
@@ -140,6 +148,7 @@
   }
 
   function handlePaneDoubleClick(e: MouseEvent) {
+    if (!settings.current.canvas.doubleClickInsert) return;
     const target = e.target as HTMLElement;
     if (!target.closest('.svelte-flow__pane') || target.closest('.svelte-flow__node, .svelte-flow__edge')) return;
     openInsertMenu({ x: e.clientX, y: e.clientY });
@@ -153,7 +162,12 @@
       openInsertMenu(anchor, { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 }, true);
     };
     window.addEventListener('mosaicflow:insertMenu', onRequest);
-    return () => window.removeEventListener('mosaicflow:insertMenu', onRequest);
+    const onInsertAtPointer = () => { if (!insertMenu) openInsertMenuAtPointer(); };
+    window.addEventListener('mosaicflow:insertAtPointer', onInsertAtPointer);
+    return () => {
+      window.removeEventListener('mosaicflow:insertMenu', onRequest);
+      window.removeEventListener('mosaicflow:insertAtPointer', onInsertAtPointer);
+    };
   });
   
   // Snap guides state
@@ -706,73 +720,21 @@
   // Check if selected nodes are inside a group
   const hasNodesSelected = $derived(workspace.selectedNodeIds.length > 0);
 
-  // Handle node deletion
+  // Escape is contextual (menus first, then selection); every other shortcut is a command (see commands/core.ts).
   function handleKeyDown(event: KeyboardEvent) {
-    // Don't handle delete if user is typing in an input/textarea
+    if (event.key !== 'Escape') return;
     const target = event.target as HTMLElement;
-    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-      return;
-    }
-    
-    if (event.key === 'Delete' || event.key === 'Backspace') {
-      handleDeleteSelected();
-    }
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
 
-    // "/" opens the block picker, like Notion
-    if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey && !insertMenu) {
-      event.preventDefault();
-      openInsertMenuAtPointer();
-      return;
-    }
-
-    // With Shift held, event.key is upper-case.
-    const key = event.key.toLowerCase();
-    const mod = event.ctrlKey || event.metaKey;
-
-    // Ctrl/Cmd + A selects every node; Escape clears the selection
-    if (mod && key === 'a') {
-      event.preventDefault();
-      workspace.setSelectedNodes(workspace.nodes.map(n => n.id));
-    }
-    if (event.key === 'Escape' && edgeDropMenuOpen) {
+    if (edgeDropMenuOpen) {
       edgeDropMenuOpen = false;
       pendingConnectionSource = null;
       return;
     }
-    if (event.key === 'Escape' && (workspace.selectedNodeIds.length > 0 || workspace.selectedEdgeIds.length > 0)) {
+    if (workspace.selectedNodeIds.length > 0 || workspace.selectedEdgeIds.length > 0) {
       workspace.setSelectedEdges([]);
       workspace.edges = workspace.edges.map(e => (e.selected ? { ...e, selected: false } : e));
       workspace.setSelectedNodes([]);
-    }
-    
-    // Ctrl/Cmd + G to group
-    if (mod && key === 'g' && !event.shiftKey) {
-      event.preventDefault();
-      if (canGroup()) handleGroupNodes();
-    }
-    
-    // Ctrl/Cmd + Shift + G to ungroup
-    if (mod && key === 'g' && event.shiftKey) {
-      event.preventDefault();
-      if (canUngroup) handleUngroupNodes();
-    }
-    
-    // Ctrl/Cmd + D to duplicate
-    if (mod && key === 'd') {
-      event.preventDefault();
-      if (workspace.selectedNodeIds.length > 0) handleDuplicateNodes();
-    }
-    
-    // Ctrl/Cmd + Z to undo
-    if (mod && key === 'z' && !event.shiftKey) {
-      event.preventDefault();
-      workspace.undo();
-    }
-    
-    // Ctrl/Cmd + Y or Ctrl/Cmd + Shift + Z to redo
-    if (mod && (key === 'y' || (key === 'z' && event.shiftKey))) {
-      event.preventDefault();
-      workspace.redo();
     }
   }
 
@@ -828,6 +790,7 @@
         fitView
         fitViewOptions={{ maxZoom: 1, padding: 0.2 }}        elevateNodesOnSelect={false}
         zoomOnDoubleClick={false}
+        snapGrid={settings.current.canvas.snapToGrid ? [settings.current.canvas.gridSize, settings.current.canvas.gridSize] : undefined}
         connectionLineType={ConnectionLineType.Bezier}
         panOnDrag={panOnDrag}
         selectionOnDrag={selectionOnDrag}
@@ -851,9 +814,11 @@
 
     <CanvasFilterBar />
     
-    <Controls position="bottom-right" />
+    {#if settings.current.canvas.showControls}
+      <Controls position="bottom-right" />
+    {/if}
     
-    {#if workspace.settings.showMinimap}
+    {#if settings.current.canvas.showMinimap}
       <MiniMap 
         position="bottom-left"
         pannable
@@ -862,11 +827,13 @@
       />
     {/if}
     
-    <Background 
-      variant={BackgroundVariant.Dots} 
-      gap={workspace.settings.gridSize}
-      size={1}
-    />
+    {#if settings.current.canvas.background !== 'none'}
+      <Background 
+        variant={BACKGROUND_VARIANTS[settings.current.canvas.background]} 
+        gap={settings.current.canvas.gridSize}
+        size={settings.current.canvas.background === 'cross' ? 6 : 1}
+      />
+    {/if}
     
     <NodeListSidebar isOpen={showNodeList} onClose={() => onToggleNodeList?.()} />
       </SvelteFlow>
@@ -879,14 +846,14 @@
       <ContextMenu.Item class="context-menu-item" onclick={handleDuplicateNodes}>
         <Copy size={14} />
         <span>Duplicate</span>
-        <ContextMenu.Shortcut>Ctrl+D</ContextMenu.Shortcut>
+        <ContextMenu.Shortcut>{keybindings.label('edit.duplicate')}</ContextMenu.Shortcut>
       </ContextMenu.Item>
 
       {#if canGroup()}
         <ContextMenu.Item class="context-menu-item" onclick={handleGroupNodes}>
           <Group size={14} />
           <span>Group</span>
-          <ContextMenu.Shortcut>Ctrl+G</ContextMenu.Shortcut>
+          <ContextMenu.Shortcut>{keybindings.label('edit.group')}</ContextMenu.Shortcut>
         </ContextMenu.Item>
       {/if}
 
@@ -894,7 +861,7 @@
         <ContextMenu.Item class="context-menu-item" onclick={handleUngroupNodes}>
           <Ungroup size={14} />
           <span>Ungroup</span>
-          <ContextMenu.Shortcut>Ctrl+Shift+G</ContextMenu.Shortcut>
+          <ContextMenu.Shortcut>{keybindings.label('edit.ungroup')}</ContextMenu.Shortcut>
         </ContextMenu.Item>
       {/if}
 
@@ -903,14 +870,14 @@
       <ContextMenu.Item class="context-menu-item context-menu-item-danger" onclick={handleDeleteSelected}>
         <Trash2 size={14} />
         <span>Delete</span>
-        <ContextMenu.Shortcut>Del</ContextMenu.Shortcut>
+        <ContextMenu.Shortcut>{keybindings.label('edit.delete')}</ContextMenu.Shortcut>
       </ContextMenu.Item>
     {:else}
       <!-- Canvas Actions (shown when clicking on empty canvas) -->
       <ContextMenu.Item class="context-menu-item" onclick={() => openInsertMenu(contextMenuPosition)}>
         <Plus size={14} />
         <span>Insert block…</span>
-        <ContextMenu.Shortcut>/</ContextMenu.Shortcut>
+        <ContextMenu.Shortcut>{keybindings.label('canvas.insert')}</ContextMenu.Shortcut>
       </ContextMenu.Item>
 
       <ContextMenu.Separator class="context-menu-separator" />

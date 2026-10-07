@@ -8,6 +8,8 @@
   import { pageNav } from '$lib/stores/pages.svelte';
   import type { CanvasInfo } from '$lib/services/vaultService';
   import VaultSwitcher from './VaultSwitcher.svelte';
+  import { settings } from '$lib/stores/settings.svelte';
+  import { keybindings } from '$lib/kernel/keybindings.svelte';
 
   interface Props {
     onSearch: () => void;
@@ -43,7 +45,7 @@
   }
 
   async function remove(canvas: CanvasInfo) {
-    if (confirm(`Delete "${canvas.name}"? This cannot be undone.`)) {
+    if (!settings.current.general.confirmDelete || confirm(`Delete "${canvas.name}"? This cannot be undone.`)) {
       await vaultStore.deleteCanvasById(canvas.path);
     }
   }
@@ -52,14 +54,14 @@
 <aside class="pages-sidebar" aria-label="Pages">
   <div class="ps-top">
     <div class="ps-vault"><VaultSwitcher /></div>
-    <button class="ps-icon-btn" onclick={() => pageNav.toggleSidebar(false)} title="Close sidebar (Ctrl+\)" aria-label="Close sidebar">
+    <button class="ps-icon-btn" onclick={() => pageNav.toggleSidebar(false)} title={keybindings.label('view.togglePages') ? `Close sidebar (${keybindings.label('view.togglePages')})` : 'Close sidebar'} aria-label="Close sidebar">
       <ChevronsLeft size={15} />
     </button>
   </div>
 
   <nav class="ps-actions">
     <button class="ps-row" onclick={onSearch}>
-      <Search size={14} /><span class="ps-label">Search</span><kbd>Ctrl K</kbd>
+      <Search size={14} /><span class="ps-label">Search</span><kbd>{keybindings.label('app.search').replaceAll('+', ' ')}</kbd>
     </button>
     <button class="ps-row" onclick={onAllPages}>
       <LayoutGrid size={14} /><span class="ps-label">All pages</span>

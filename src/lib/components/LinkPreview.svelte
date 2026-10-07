@@ -9,13 +9,13 @@
   import type { IndexedNode } from '@mosaicflow/vault-core';
   import { knowledge } from '$lib/stores/knowledge.svelte';
   import CanvasMiniMap from './CanvasMiniMap.svelte';
+  import { settings } from '$lib/stores/settings.svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
   import { resolveWikilink, type LinkTarget } from '$lib/services/navigation';
   import { nodeRegistry, getIconComponent } from '$lib/kernel/registries/node-registry';
   import { formatRelativeTime } from '$lib/services/vaultService';
 
   const SELECTOR = '[data-wikilink], [data-preview-canvas]';
-  const SHOW_DELAY = 380;
   const SWITCH_DELAY = 120;
   const HIDE_DELAY = 200;
   const WIDTH = 340;
@@ -102,7 +102,9 @@
       return;
     }
     clearTimeout(showTimer);
-    if (link) showTimer = setTimeout(() => show(link), visible ? SWITCH_DELAY : SHOW_DELAY);
+    if (link && settings.current.general.hoverPreviews) {
+      showTimer = setTimeout(() => show(link), visible ? SWITCH_DELAY : settings.current.general.previewDelay);
+    }
     if (visible) {
       clearTimeout(hideTimer);
       hideTimer = setTimeout(hide, HIDE_DELAY);

@@ -19,8 +19,13 @@ export interface CommandRegistration {
   description?: string;
   /** Icon name (Lucide) */
   iconName?: string;
-  /** Keyboard shortcut (e.g., "Cmd+S", "Ctrl+Shift+P") */
-  shortcut?: string;
+  /** Default keyboard shortcut(s), e.g. "Ctrl+Shift+P" or ["Delete", "Backspace"] */
+  shortcut?: string | string[];
+  /**
+   * Where the shortcut works: "canvas" (default) only on an open page while not typing;
+   * "global" everywhere, including text fields when it uses Ctrl/Alt.
+   */
+  context?: 'canvas' | 'global';
   /** Command handler */
   handler: (args?: unknown) => void | Promise<void>;
   /** Plugin that provides this command */
@@ -49,8 +54,6 @@ class CommandRegistry {
 
     this.registrations.set(registration.id, registration);
     this.notifyListeners();
-    
-    console.log(`[CommandRegistry] Registered command: ${registration.id} from ${registration.pluginId}`);
   }
 
   unregister(id: string): boolean {

@@ -183,6 +183,15 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* Settings → Appearance → Reduce motion */
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

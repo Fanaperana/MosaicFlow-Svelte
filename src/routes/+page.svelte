@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import { slide } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import Canvas from '$lib/components/Canvas.svelte';
@@ -12,7 +12,9 @@
   import WorkflowSearch from '$lib/components/WorkflowSearch.svelte';
   import PagesSidebar from '$lib/components/PagesSidebar.svelte';
   import LinkPreview from '$lib/components/LinkPreview.svelte';
-  import PluginsDialog from '$lib/components/PluginsDialog.svelte';
+  import SettingsDialog from '$lib/components/settings/SettingsDialog.svelte';
+  import { ui } from '$lib/stores/ui.svelte';
+  import { keybindings } from '$lib/kernel/keybindings.svelte';
   import { pageNav } from '$lib/stores/pages.svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
@@ -27,9 +29,6 @@
   import { message } from '@tauri-apps/plugin-dialog';
   import type { CanvasInfo } from '$lib/services/vaultService';
   
-  let showSearch = $state(false);
-  let showNodeList = $state(false);
-  let showPlugins = $state(false);
 
   const PANEL_TRANSITION = { axis: 'x', duration: 200, easing: cubicOut } as const;
   
@@ -120,12 +119,20 @@
         // If no workspace.json exists yet, that's fine - we just start fresh
         console.log('No existing workspace data, starting fresh');
       }
-      await consumePendingFocus();
+      if (!(await consumePendingFocus())) fitLoadedCanvas();
     } catch (err) {
       console.error('Failed to load canvas:', err);
     }
   }
   
+  // Each page opens fitted to its content instead of inheriting the previous page's zoom.
+  async function fitLoadedCanvas() {
+    await tick();
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.1, maxZoom: 1, duration: 0 } }));
+    }));
+  }
+
   async function handleHome() {
     // Go back to canvas list or vault picker (auto-save handles persistence)
     currentCanvasId = null;
@@ -170,29 +177,13 @@
   }
 
   function handleSearch() {
-    showSearch = true;
+    ui.searchOpen = true;
   }
 
   async function handleCanvasSelect(canvas: CanvasInfo) {
     // Switch to selected canvas (auto-save handles persistence)
     await vaultStore.openCanvas(canvas);
-    showSearch = false;
-  }
-
-  // Global keyboard shortcuts: search, page sidebar, back/forward between pages
-  function handleGlobalKeydown(e: KeyboardEvent) {
-    const mod = e.ctrlKey || e.metaKey;
-    if (mod && !e.shiftKey && (e.key === 'k' || e.key === 'o')) {
-      e.preventDefault();
-      showSearch = !showSearch;
-    } else if (mod && e.key === '\\' && vaultStore.appView === 'canvas') {
-      e.preventDefault();
-      pageNav.toggleSidebar();
-    } else if (e.altKey && !mod && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && vaultStore.appView === 'canvas') {
-      e.preventDefault();
-      if (e.key === 'ArrowLeft') pageNav.goBack();
-      else pageNav.goForward();
-    }
+    ui.searchOpen = false;
   }
 
   // Mouse back/forward buttons
@@ -204,7 +195,7 @@
   }
 </script>
 
-<svelte:window onkeydown={handleGlobalKeydown} onmouseup={handleMouseNav} />
+<svelte:window onkeydown={(e) => keybindings.handle(e, vaultStore.appView)} onmouseup={handleMouseNav} />
 
 {#if !vaultStore.isInitialized || vaultStore.isLoading}
   <div class="loading-screen">
@@ -223,7 +214,8 @@
       onExportPackage={() => packageDialogs.openExport('current')}
       onExportPng={handleExportPng}
       onExportSvg={handleExportSvg}
-      onPlugins={() => (showPlugins = true)}
+      onPlugins={() => ui.openSettings('plugins')}
+      onSettings={() => ui.openSettings()}
     />
     
     <div class="main-content">
@@ -233,9 +225,9 @@
         </div>
       {/if}
       <div class="canvas-container">
-        <CanvasHeader onToggleNodeList={() => showNodeList = !showNodeList} />
+        <CanvasHeader onToggleNodeList={() => (ui.nodeListOpen = !ui.nodeListOpen)} />
         <QuickToolbar />
-        <Canvas showNodeList={showNodeList} onToggleNodeList={() => showNodeList = !showNodeList} />
+        <Canvas showNodeList={ui.nodeListOpen} onToggleNodeList={() => (ui.nodeListOpen = !ui.nodeListOpen)} />
       </div>
       
       {#if workspace.propertiesPanelOpen}
@@ -246,17 +238,18 @@
     </div>
     
     <WorkflowSearch 
-      isOpen={showSearch}
-      onClose={() => showSearch = false}
+      isOpen={ui.searchOpen}
+      onClose={() => (ui.searchOpen = false)}
       onCanvasSelect={handleCanvasSelect}
     />
     <LinkPreview />
-    {#if showPlugins}
-      <PluginsDialog onClose={() => (showPlugins = false)} />
-    {/if}
   </div>
 {:else}
   <VaultPicker />
+{/if}
+
+{#if ui.settingsOpen}
+  <SettingsDialog />
 {/if}
 
 {#if packageDialogs.importPreview}

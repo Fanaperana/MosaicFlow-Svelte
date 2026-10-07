@@ -10,6 +10,7 @@ import { nodeRegistry, type NodeTypeRegistration } from './registries/node-regis
 import { panelRegistry, type PanelRegistration } from './registries/panel-registry';
 import { commandRegistry, type CommandRegistration } from './registries/command-registry';
 import ExternalNode from '$lib/plugins/ExternalNode.svelte';
+import { settings, type PluginSettingDef } from '$lib/stores/settings.svelte';
 
 /** Node registration as written by plugin authors: only `type` and a renderer are required. */
 export type PluginNodeType = Partial<Omit<NodeTypeRegistration, 'pluginId' | 'dimensions' | 'colors'>> & {
@@ -55,8 +56,15 @@ export interface PluginAPI {
   registerNodeTypes: (types: PluginNodeType[]) => void;
   /** Register panels */
   registerPanels: (panels: Omit<PanelRegistration, 'pluginId'>[]) => void;
-  /** Register commands */
+  /** Register commands; their shortcuts appear in Settings → Keyboard shortcuts */
   registerCommands: (commands: Omit<CommandRegistration, 'pluginId'>[]) => void;
+  /** Plugin settings shown in Settings → Plugins and saved in settings.json */
+  settings: {
+    register: (defs: PluginSettingDef[]) => void;
+    get: <T = unknown>(key: string) => T;
+    set: (key: string, value: unknown) => void;
+    onChange: (listener: (key: string, value: unknown) => void) => () => void;
+  };
   /** Plugin manifest */
   manifest: PluginManifest;
 }
@@ -184,6 +192,7 @@ class PluginLoader {
       nodeRegistry.unregisterByPlugin(pluginId);
       panelRegistry.unregisterByPlugin(pluginId);
       commandRegistry.unregisterByPlugin(pluginId);
+      settings.unregisterPlugin(pluginId);
       console.error(`[PluginLoader] Failed to load external plugin: ${pluginId}`, error);
       throw error;
     } finally {
@@ -211,6 +220,7 @@ class PluginLoader {
       nodeRegistry.unregisterByPlugin(pluginId);
       panelRegistry.unregisterByPlugin(pluginId);
       commandRegistry.unregisterByPlugin(pluginId);
+      settings.unregisterPlugin(pluginId);
 
       this.loadedPlugins.delete(pluginId);
       console.log(`[PluginLoader] Unloaded plugin: ${pluginId}`);
@@ -293,11 +303,22 @@ class PluginLoader {
 
       registerCommands: (commands) => {
         for (const command of commands) {
+          // External plugins get their id as a prefix so they can't replace built-in commands.
+          const id = manifest.core || command.id.startsWith(`${pluginId}.`) ? command.id : `${pluginId}.${command.id}`;
           commandRegistry.register({
             ...command,
+            id,
+            category: command.category ?? manifest.name,
             pluginId,
           });
         }
+      },
+
+      settings: {
+        register: (defs) => settings.registerPluginSettings(pluginId, manifest.name, defs),
+        get: <T = unknown>(key: string) => settings.getPluginSetting(pluginId, key) as T,
+        set: (key, value) => settings.setPluginSetting(pluginId, key, value),
+        onChange: (listener) => settings.onPluginSettingChange(pluginId, listener),
       },
     };
   }

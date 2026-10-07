@@ -178,22 +178,40 @@ api.registerPanels([
 ]);
 ```
 
-### Commands (Coming Soon)
+### Commands
 
-Register command palette commands:
+Register actions users can run with a keyboard shortcut. They are listed under
+**Settings → Keyboard shortcuts**, where users can change or remove their keys.
+Ids are prefixed with your plugin id automatically.
 
 ```javascript
 api.registerCommands([
   {
-    id: 'my-command',
-    label: 'Do Something',
-    shortcut: 'Ctrl+Shift+D',
-    execute: () => {
-      console.log('Command executed!');
-    },
-  }
+    id: 'insert-today',            // becomes "<plugin id>.insert-today"
+    label: 'Insert today\'s date',
+    shortcut: 'Ctrl+Shift+D',      // default; string or array of strings
+    context: 'canvas',             // 'canvas' (page open, not typing) or 'global'
+    handler: () => { /* ... */ },
+  },
 ]);
 ```
+
+### Settings
+
+Declare options and they appear under your plugin in **Settings → Plugins**; values are saved in `settings.json`.
+
+```javascript
+api.settings.register([
+  { key: 'showScore', label: 'Show review count', type: 'toggle', default: true },
+  { key: 'side', label: 'Start on', type: 'select', default: 'front',
+    options: [{ value: 'front', label: 'Question' }, { value: 'back', label: 'Answer' }] },
+]);
+
+const show = api.settings.get('showScore');
+const stop = api.settings.onChange((key, value) => { /* re-render */ });
+```
+
+Types: `toggle`, `text`, `number`, `select`.
 
 ## Node Categories
 

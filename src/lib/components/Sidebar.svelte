@@ -17,11 +17,13 @@
     Shapes,
     PanelLeft,
     Puzzle,
+    Settings,
   } from 'lucide-svelte';
   import { exportJsonCanvasDialog } from '$lib/services/interopService';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { pageNav } from '$lib/stores/pages.svelte';
   import SimpleTooltip from '$lib/components/ui/SimpleTooltip.svelte';
+  import { keybindings } from '$lib/kernel/keybindings.svelte';
 
   interface Props {
     onSearch: () => void;
@@ -30,9 +32,16 @@
     onExportPng: () => void;
     onExportSvg: () => void;
     onPlugins: () => void;
+    onSettings: () => void;
   }
 
-  let { onSearch, onExport, onExportPackage, onExportPng, onExportSvg, onPlugins }: Props = $props();
+  let { onSearch, onExport, onExportPackage, onExportPng, onExportSvg, onPlugins, onSettings }: Props = $props();
+
+  /** Tooltip with the command's current shortcut, e.g. "Undo (Ctrl+Z)". */
+  function tip(text: string, commandId: string): string {
+    const keys = keybindings.label(commandId);
+    return keys ? `${text} (${keys})` : text;
+  }
 
   let exportMenuOpen = $state(false);
   let hasSelection = $derived(workspace.selectedNodeIds.length > 0 || workspace.selectedEdgeIds.length > 0);
@@ -47,12 +56,12 @@
 
 <nav class="ribbon" aria-label="Canvas tools">
   <div class="ribbon-section">
-    <SimpleTooltip text="Pages (Ctrl+\)" position="right">
+    <SimpleTooltip text={tip('Pages', 'view.togglePages')} position="right">
       <button class="ribbon-btn" class:active={pageNav.sidebarOpen} aria-pressed={pageNav.sidebarOpen} onclick={() => pageNav.toggleSidebar()}>
         <PanelLeft size={17} strokeWidth={1.6} />
       </button>
     </SimpleTooltip>
-    <SimpleTooltip text="Search (Ctrl+K)" position="right">
+    <SimpleTooltip text={tip('Search', 'app.search')} position="right">
       <button class="ribbon-btn" onclick={(e) => { e.stopPropagation(); onSearch(); }}>
         <Search size={17} strokeWidth={1.6} />
       </button>
@@ -60,12 +69,12 @@
   </div>
 
   <div class="ribbon-section">
-    <SimpleTooltip text="Undo (Ctrl+Z)" position="right">
+    <SimpleTooltip text={tip('Undo', 'edit.undo')} position="right">
       <button class="ribbon-btn" disabled={!workspace.canUndo} onclick={() => workspace.undo()}>
         <Undo2 size={17} strokeWidth={1.6} />
       </button>
     </SimpleTooltip>
-    <SimpleTooltip text="Redo (Ctrl+Y)" position="right">
+    <SimpleTooltip text={tip('Redo', 'edit.redo')} position="right">
       <button class="ribbon-btn" disabled={!workspace.canRedo} onclick={() => workspace.redo()}>
         <Redo2 size={17} strokeWidth={1.6} />
       </button>
@@ -73,17 +82,17 @@
   </div>
 
   <div class="ribbon-section">
-    <SimpleTooltip text="Zoom in" position="right">
+    <SimpleTooltip text={tip('Zoom in', 'view.zoomIn')} position="right">
       <button class="ribbon-btn" onclick={() => window.dispatchEvent(new CustomEvent('mosaicflow:zoomIn'))}>
         <ZoomIn size={17} strokeWidth={1.6} />
       </button>
     </SimpleTooltip>
-    <SimpleTooltip text="Zoom out" position="right">
+    <SimpleTooltip text={tip('Zoom out', 'view.zoomOut')} position="right">
       <button class="ribbon-btn" onclick={() => window.dispatchEvent(new CustomEvent('mosaicflow:zoomOut'))}>
         <ZoomOut size={17} strokeWidth={1.6} />
       </button>
     </SimpleTooltip>
-    <SimpleTooltip text="Fit view" position="right">
+    <SimpleTooltip text={tip('Fit view', 'view.fit')} position="right">
       <button class="ribbon-btn" onclick={() => window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.1 } }))}>
         <Maximize2 size={17} strokeWidth={1.6} />
       </button>
@@ -91,7 +100,7 @@
   </div>
 
   <div class="ribbon-section">
-    <SimpleTooltip text="Delete selection" position="right">
+    <SimpleTooltip text={tip('Delete selection', 'edit.delete')} position="right">
       <button
         class="ribbon-btn danger"
         disabled={!hasSelection}
@@ -145,6 +154,11 @@
         </div>
       {/if}
     </div>
+    <SimpleTooltip text={tip('Settings', 'app.settings')} position="right">
+      <button class="ribbon-btn" onclick={(e) => { e.stopPropagation(); onSettings(); }}>
+        <Settings size={17} strokeWidth={1.6} />
+      </button>
+    </SimpleTooltip>
   </div>
 </nav>
 

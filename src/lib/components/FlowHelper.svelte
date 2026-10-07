@@ -21,11 +21,12 @@
   
   // Export a global trigger for fitView that can be called from anywhere
   // We use a custom event pattern
-  function handleFitView(event: CustomEvent<{ padding?: number }>) {
+  function handleFitView(event: CustomEvent<{ padding?: number; maxZoom?: number; duration?: number }>) {
     const options = event.detail || {};
     fitView({
       padding: options.padding ?? 0.1,
-      duration: 200,
+      maxZoom: options.maxZoom,
+      duration: options.duration ?? 200,
     });
   }
   

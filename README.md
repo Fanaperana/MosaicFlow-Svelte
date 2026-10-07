@@ -113,21 +113,32 @@ Highlights:
 
 ## Keyboard shortcuts
 
+Every shortcut can be changed in **Settings → Keyboard shortcuts** (<kbd>Ctrl</kbd> + <kbd>/</kbd>). Defaults:
+
 | Shortcut | Action |
 |----------|--------|
 | <kbd>/</kbd> or double-click | Insert a block |
 | <kbd>Ctrl</kbd> + <kbd>K</kbd> / <kbd>Ctrl</kbd> + <kbd>O</kbd> | Search pages and nodes |
+| <kbd>Ctrl</kbd> + <kbd>,</kbd> | Settings |
+| <kbd>Ctrl</kbd> + <kbd>/</kbd> | Keyboard shortcuts |
+| <kbd>Ctrl</kbd> + <kbd>N</kbd> | New page |
 | <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> | Switch vault |
-| <kbd>Ctrl</kbd> + <kbd>\\</kbd> | Show / hide the pages sidebar |
+| <kbd>Ctrl</kbd> + <kbd>\\</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>\\</kbd> | Pages sidebar / properties panel |
 | <kbd>Alt</kbd> + <kbd>←</kbd> / <kbd>→</kbd> | Back / forward between pages |
+| <kbd>Shift</kbd> + <kbd>1</kbd> | Fit view |
+| <kbd>Ctrl</kbd> + <kbd>=</kbd> / <kbd>Ctrl</kbd> + <kbd>-</kbd> | Zoom in / out |
+| <kbd>V</kbd> / <kbd>H</kbd> | Select tool / hand tool |
 | <kbd>Ctrl</kbd> + <kbd>G</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> | Group / ungroup |
 | <kbd>Ctrl</kbd> + <kbd>D</kbd> | Duplicate selection |
 | <kbd>Ctrl</kbd> + <kbd>A</kbd> | Select all nodes |
 | <kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Ctrl</kbd> + <kbd>Y</kbd> | Undo / redo |
 | <kbd>Delete</kbd> | Delete selection |
-| <kbd>F2</kbd> or double-click (sidebar) | Rename a page |
-| <kbd>Space</kbd> + drag | Pan |
+| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd> | Export as `.mosaic` |
 | <kbd>Esc</kbd> | Clear selection / close menus |
+
+## Settings
+
+Open with the gear at the bottom of the left ribbon or <kbd>Ctrl</kbd> + <kbd>,</kbd>: **General** (hover previews, delete confirmation), **Appearance** (accent color, fonts, reduced motion), **Canvas** (background, grid, snapping, minimap, controls), **Keyboard shortcuts**, **Plugins** and **About**. Everything is saved to `settings.json` in the app data folder, so you can back it up or copy it to another machine.
 
 ---
 
