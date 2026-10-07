@@ -2,7 +2,7 @@
   "id": "core.knowledge",
   "name": "Knowledge Blocks",
   "version": "0.1.0",
-  "description": "Knowledge-base blocks: Checklist, Callout and Page link",
+  "description": "Knowledge-base blocks: Checklist, Callout, Page link, Calendar and Timer",
   "author": "MosaicFlow Team",
   "license": "MIT",
   "apiVersion": "0.1.0",
@@ -11,7 +11,7 @@
   "capabilities": [
     {
       "type": "nodeTypes",
-      "types": ["checklist", "callout", "page"]
+      "types": ["checklist", "callout", "page", "calendar", "timer"]
     }
   ],
   "permissions": [],

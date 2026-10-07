@@ -126,6 +126,8 @@ export interface WorkspaceSettings {
   defaultEdgeColor: string;
   /** Saved canvas filters (words and/or #tags) shown as chips in the filter bar. */
   savedFilters?: string[];
+  /** Page is view-only. */
+  locked?: boolean;
 }
 
 // Viewport state

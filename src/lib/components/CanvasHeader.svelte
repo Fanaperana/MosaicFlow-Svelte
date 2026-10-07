@@ -3,7 +3,8 @@
   import { workspace } from '$lib/stores/workspace.svelte';
   import { flushPendingSaves as flushNodeSaves } from '$lib/services/nodeFileService';
   import { flushPendingSaves as flushEdgeSaves } from '$lib/services/edgeFileService';
-  import { Pencil, Check, X, ChevronRight, Loader2, List, ArrowLeft, ArrowRight, PanelRight } from 'lucide-svelte';
+  import { Pencil, Check, X, ChevronRight, Loader2, List, ArrowLeft, ArrowRight, PanelRight, Lock, LockOpen } from 'lucide-svelte';
+  import { keybindings } from '$lib/kernel/keybindings.svelte';
   import VaultSwitcher from './VaultSwitcher.svelte';
   import { pageNav } from '$lib/stores/pages.svelte';
 
@@ -104,6 +105,16 @@
   </div>
 
   <div class="right-actions">
+    {#if workspace.locked}<span class="locked-badge">View only</span>{/if}
+    <button
+      class="icon-btn"
+      class:locked={workspace.locked}
+      aria-pressed={workspace.locked}
+      onclick={() => workspace.setLocked(!workspace.locked)}
+      title={`${workspace.locked ? 'Unlock page' : 'Lock page (view only)'}${keybindings.label('page.toggleLock') ? ` (${keybindings.label('page.toggleLock')})` : ''}`}
+    >
+      {#if workspace.locked}<Lock size={15} />{:else}<LockOpen size={15} />{/if}
+    </button>
     <button class="icon-btn" onclick={onToggleNodeList} title="Toggle Node List">
       <List size={16} />
     </button>
@@ -148,6 +159,21 @@
   .icon-btn.active {
     background: var(--mf-active);
     color: var(--mf-text);
+  }
+
+  .icon-btn.locked {
+    background: rgba(245, 158, 11, 0.14);
+    color: #f5b041;
+  }
+
+  .locked-badge {
+    margin-right: 4px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.14);
+    color: #f5b041;
+    font-size: 11px;
+    line-height: 20px;
   }
 
   .left-actions {

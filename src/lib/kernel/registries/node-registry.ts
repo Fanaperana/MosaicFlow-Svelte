@@ -39,6 +39,8 @@ import {
   Link2,
   ListChecks,
   Lightbulb,
+  CalendarDays,
+  Timer,
   FileText,
   Puzzle,
 } from 'lucide-svelte';
@@ -426,6 +428,8 @@ export const ICON_COMPONENTS: Record<string, typeof StickyNote> = {
   Link2,
   ListChecks,
   Lightbulb,
+  CalendarDays,
+  Timer,
   FileText,
   Puzzle,
   StickyNote,

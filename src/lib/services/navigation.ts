@@ -62,6 +62,20 @@ export function resolveWikilink(ref: string): LinkTarget | null {
   return canvas ? { canvas, node: null } : null;
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Label of a rendered [[link]]: id links show the node's current title; unresolved links are marked broken. */
+export function wikilinkLabel(ref: string): { label: string; broken?: boolean } | null {
+  const [link] = extractWikilinks(`[[${ref}]]`);
+  if (!link) return null;
+  const target = resolveWikilink(ref);
+  if (target?.node) {
+    return link.target.toLowerCase() === target.node.id.toLowerCase() ? { label: target.node.title || 'Untitled' } : null;
+  }
+  if (target) return null;
+  return { label: UUID.test(link.target) ? 'Missing node' : link.target, broken: true };
+}
+
 /** Resolves "[[ref]]" text (ref may be "Canvas#Title" or a canvas name) and opens it. */
 export async function openWikilink(ref: string) {
   await knowledge.loadVault();

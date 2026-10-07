@@ -20,6 +20,27 @@
   outline: none;
 }
 
+.rich-markdown-editor .cm-wikilink-chip {
+  color: #a78bfa;
+  border-bottom: 1px dashed rgba(167, 139, 250, 0.5);
+  cursor: text;
+}
+
+.rich-markdown-editor .cm-wikilink-chip::before {
+  content: '[[';
+  opacity: 0.35;
+}
+
+.rich-markdown-editor .cm-wikilink-chip::after {
+  content: ']]';
+  opacity: 0.35;
+}
+
+.rich-markdown-editor .cm-wikilink-chip.broken {
+  color: #9b8fb8;
+  opacity: 0.7;
+}
+
 /* Fix text sharpness in CodeMirror */
 .rich-markdown-editor .cm-scroller {
   -webkit-font-smoothing: antialiased;

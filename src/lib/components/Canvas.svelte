@@ -55,6 +55,9 @@
     ZoomIn,
     ZoomOut,
     Maximize,
+    Link2,
+    Lock,
+    LockOpen,
   } from 'lucide-svelte';
 
   // Custom edge types with glow effect on selection
@@ -121,7 +124,21 @@
   let lastPointer: { x: number; y: number } | null = null;
 
   function openInsertMenu(menu: { x: number; y: number }, at = menu, centered = false) {
+    if (workspace.locked) return;
     insertMenu = { menu, at, centered };
+  }
+
+  // View-only pages: block edits inside nodes but keep links, scrolling and the hover previews working.
+  const LOCKED_TARGETS = 'input, textarea, select, button, [contenteditable], .cm-editor, .svelte-flow__resize-control, .svelte-flow__handle';
+  function guardLocked(e: Event) {
+    if (!workspace.locked) return;
+    const target = e.target as HTMLElement | null;
+    const node = target?.closest('.svelte-flow__node');
+    if (!node) return;
+    if (e.type === 'dblclick' || target?.closest(LOCKED_TARGETS)) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
   }
 
   function openInsertMenuAtPointer() {
@@ -624,6 +641,7 @@
 
   function handleDrop(event: DragEvent) {
     event.preventDefault();
+    if (workspace.locked) return;
     
     const type = event.dataTransfer?.getData('application/mosaicflow-node') as NodeType;
     
@@ -757,10 +775,16 @@
     <div 
       class="canvas-container"
       class:drag-mode={workspace.canvasMode === 'drag'}
+      class:page-locked={workspace.locked}
       bind:this={flowContainer}
       ondragover={handleDragOver}
       ondrop={handleDrop}
       ondblclick={handlePaneDoubleClick}
+      ondblclickcapture={guardLocked}
+      onpointerdowncapture={guardLocked}
+      onclickcapture={guardLocked}
+      onkeydowncapture={guardLocked}
+      onbeforeinputcapture={guardLocked}
       onpointermove={(e) => (lastPointer = { x: e.clientX, y: e.clientY })}
       oncontextmenu={(e) => { 
         contextMenuPosition = { x: e.clientX, y: e.clientY };
@@ -790,6 +814,9 @@
         fitView
         fitViewOptions={{ maxZoom: 1, padding: 0.2 }}        elevateNodesOnSelect={false}
         zoomOnDoubleClick={false}
+        nodesDraggable={!workspace.locked}
+        nodesConnectable={!workspace.locked}
+        deleteKey={workspace.locked ? null : undefined}
         snapGrid={settings.current.canvas.snapToGrid ? [settings.current.canvas.gridSize, settings.current.canvas.gridSize] : undefined}
         connectionLineType={ConnectionLineType.Bezier}
         panOnDrag={panOnDrag}
@@ -842,6 +869,14 @@
 
   <ContextMenu.Content class="context-menu-content">
     {#if hasNodesSelected}
+      {#if workspace.selectedNodeIds.length === 1}
+        <ContextMenu.Item class="context-menu-item" onclick={() => navigator.clipboard.writeText(`[[${workspace.selectedNodeIds[0]}]]`)}>
+          <Link2 size={14} />
+          <span>Copy link</span>
+        </ContextMenu.Item>
+        {#if !workspace.locked}<ContextMenu.Separator class="context-menu-separator" />{/if}
+      {/if}
+      {#if !workspace.locked}
       <!-- Node Actions (shown when nodes are selected) -->
       <ContextMenu.Item class="context-menu-item" onclick={handleDuplicateNodes}>
         <Copy size={14} />
@@ -872,12 +907,19 @@
         <span>Delete</span>
         <ContextMenu.Shortcut>{keybindings.label('edit.delete')}</ContextMenu.Shortcut>
       </ContextMenu.Item>
+      {/if}
     {:else}
       <!-- Canvas Actions (shown when clicking on empty canvas) -->
+      {#if !workspace.locked}
       <ContextMenu.Item class="context-menu-item" onclick={() => openInsertMenu(contextMenuPosition)}>
         <Plus size={14} />
         <span>Insert block…</span>
         <ContextMenu.Shortcut>{keybindings.label('canvas.insert')}</ContextMenu.Shortcut>
+      </ContextMenu.Item>
+      {/if}
+      <ContextMenu.Item class="context-menu-item" onclick={() => workspace.setLocked(!workspace.locked)}>
+        {#if workspace.locked}<LockOpen size={14} /><span>Unlock page</span>{:else}<Lock size={14} /><span>Lock page (view only)</span>{/if}
+        <ContextMenu.Shortcut>{keybindings.label('page.toggleLock')}</ContextMenu.Shortcut>
       </ContextMenu.Item>
 
       <ContextMenu.Separator class="context-menu-separator" />
@@ -930,6 +972,17 @@
     height: 100%;
     width: 100%;
     background: #0d1117;
+  }
+
+  .canvas-container.page-locked :global(.svelte-flow__resize-control),
+  .canvas-container.page-locked :global(.svelte-flow__handle) {
+    display: none !important;
+  }
+
+  .canvas-container.page-locked :global(.svelte-flow__node input),
+  .canvas-container.page-locked :global(.svelte-flow__node textarea),
+  .canvas-container.page-locked :global(.svelte-flow__node .cm-content) {
+    caret-color: transparent;
   }
 
   .canvas-container.drag-mode {
@@ -1178,6 +1231,10 @@
   }
 
   /* Locked nodes (draggable=false) show a small lock badge so they don't feel broken */
+  :global(.page-locked .svelte-flow__node.selectable:not(.draggable)::after) {
+    display: none;
+  }
+
   :global(.svelte-flow__node.selectable:not(.draggable)::after) {
     content: '';
     position: absolute;

@@ -1,13 +1,15 @@
 /**
  * Core Knowledge Blocks Plugin
  *
- * Notion-style building blocks for a knowledge base: Checklist, Callout and Page link.
+ * Notion-style building blocks for a knowledge base: Checklist, Callout, Page link, Calendar and Timer.
  */
 
 import type { PluginAPI, PluginModule, PluginNodeType } from '$lib/kernel/plugin-loader';
 import ChecklistNode from '$lib/components/nodes/knowledge/ChecklistNode.svelte';
 import CalloutNode from '$lib/components/nodes/knowledge/CalloutNode.svelte';
 import PageNode from '$lib/components/nodes/knowledge/PageNode.svelte';
+import CalendarNode from '$lib/components/nodes/knowledge/CalendarNode.svelte';
+import TimerNode from '$lib/components/nodes/knowledge/TimerNode.svelte';
 
 const knowledgeNodes: PluginNodeType[] = [
   {
@@ -69,6 +71,53 @@ const knowledgeNodes: PluginNodeType[] = [
         canvasId: { type: 'string', description: 'Id of the linked page' },
       },
     },
+  },
+  {
+    type: 'calendar',
+    label: 'Calendar',
+    description: 'Month view with events and reminders',
+    category: 'utility',
+    iconName: 'CalendarDays',
+    keywords: ['event', 'schedule', 'agenda', 'date', 'reminder', 'notify', 'deadline'],
+    component: CalendarNode,
+    defaultData: { title: 'Calendar', events: [], view: 'month' },
+    dimensions: { minWidth: 260, minHeight: 300, defaultWidth: 320, defaultHeight: 420 },
+    colors: { bg: '#1b1726', border: '#46386a', icon: '📅' },
+    knowledge: {
+      purpose: 'A calendar of events. Events can repeat and send a reminder notification before they start.',
+      fields: {
+        events: {
+          type: 'object[]',
+          description: 'Events of {id, title, date: YYYY-MM-DD, time?: HH:MM, repeat?: none|daily|weekdays|weekly|monthly|yearly, remind?: minutes before or null, color?, notes?}',
+        },
+        view: { type: 'enum', values: ['month', 'agenda'], description: 'Month grid or upcoming list' },
+      },
+    },
+    quickAccess: true,
+  },
+  {
+    type: 'timer',
+    label: 'Timer',
+    description: 'Countdown, stopwatch and pomodoro',
+    category: 'utility',
+    iconName: 'Timer',
+    keywords: ['countdown', 'stopwatch', 'pomodoro', 'focus', 'clock', 'alarm', 'lap'],
+    component: TimerNode,
+    defaultData: { title: 'Timer', mode: 'countdown', duration: 300_000 },
+    dimensions: { minWidth: 220, minHeight: 260, defaultWidth: 260, defaultHeight: 320 },
+    colors: { bg: '#1a1a24', border: '#3a3a5a', icon: '⏱️' },
+    knowledge: {
+      purpose: 'A timer: countdown, stopwatch with laps, or pomodoro focus/break cycles. Notifies when time is up.',
+      fields: {
+        mode: { type: 'enum', values: ['countdown', 'stopwatch', 'pomodoro'], description: 'Timer kind' },
+        duration: { type: 'number', description: 'Countdown length in milliseconds' },
+        work: { type: 'number', description: 'Pomodoro focus minutes' },
+        short: { type: 'number', description: 'Pomodoro short break minutes' },
+        long: { type: 'number', description: 'Pomodoro long break minutes' },
+        rounds: { type: 'number', description: 'Focus sessions before a long break' },
+      },
+    },
+    quickAccess: true,
   },
 ];
 

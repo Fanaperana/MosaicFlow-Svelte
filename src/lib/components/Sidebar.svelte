@@ -18,7 +18,9 @@
     PanelLeft,
     Puzzle,
     Settings,
+    Waypoints,
   } from 'lucide-svelte';
+  import { ui } from '$lib/stores/ui.svelte';
   import { exportJsonCanvasDialog } from '$lib/services/interopService';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { pageNav } from '$lib/stores/pages.svelte';
@@ -66,16 +68,21 @@
         <Search size={17} strokeWidth={1.6} />
       </button>
     </SimpleTooltip>
+    <SimpleTooltip text={tip('Graph view', 'view.graph')} position="right">
+      <button class="ribbon-btn" class:active={ui.graphOpen} aria-pressed={ui.graphOpen} onclick={() => (ui.graphOpen = !ui.graphOpen)}>
+        <Waypoints size={17} strokeWidth={1.6} />
+      </button>
+    </SimpleTooltip>
   </div>
 
   <div class="ribbon-section">
     <SimpleTooltip text={tip('Undo', 'edit.undo')} position="right">
-      <button class="ribbon-btn" disabled={!workspace.canUndo} onclick={() => workspace.undo()}>
+      <button class="ribbon-btn" disabled={!workspace.canUndo || workspace.locked} onclick={() => workspace.undo()}>
         <Undo2 size={17} strokeWidth={1.6} />
       </button>
     </SimpleTooltip>
     <SimpleTooltip text={tip('Redo', 'edit.redo')} position="right">
-      <button class="ribbon-btn" disabled={!workspace.canRedo} onclick={() => workspace.redo()}>
+      <button class="ribbon-btn" disabled={!workspace.canRedo || workspace.locked} onclick={() => workspace.redo()}>
         <Redo2 size={17} strokeWidth={1.6} />
       </button>
     </SimpleTooltip>
@@ -103,7 +110,7 @@
     <SimpleTooltip text={tip('Delete selection', 'edit.delete')} position="right">
       <button
         class="ribbon-btn danger"
-        disabled={!hasSelection}
+        disabled={!hasSelection || workspace.locked}
         onclick={() => workspace.deleteSelection([...workspace.selectedNodeIds], [...workspace.selectedEdgeIds])}
       >
         <Trash2 size={17} strokeWidth={1.6} />

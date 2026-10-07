@@ -23,7 +23,12 @@
   import PackageImportDialog from '$lib/components/PackageImportDialog.svelte';
   import PackageExportDialog from '$lib/components/PackageExportDialog.svelte';
   import { knowledge } from '$lib/stores/knowledge.svelte';
-  import { consumePendingFocus, openWikilink } from '$lib/services/navigation';
+  import { consumePendingFocus, openWikilink, wikilinkLabel } from '$lib/services/navigation';
+  import { setWikilinkLabelResolver } from '@mosaicflow/node-sdk';
+  import GraphView from '$lib/components/graph/GraphView.svelte';
+  import { startReminders } from '$lib/services/reminders';
+
+  setWikilinkLabelResolver(wikilinkLabel);
   import { initOpenFiles, processOpenFiles } from '$lib/services/openFiles';
   import { openExternal } from '$lib/utils';
   import { message } from '@tauri-apps/plugin-dialog';
@@ -58,6 +63,9 @@
     initOpenFiles().then((s) => (stop = s));
     return () => stop?.();
   });
+
+  // Calendar reminders and finished timers, vault-wide.
+  onMount(() => startReminders());
 
   $effect(() => {
     if (vaultStore.isInitialized && vaultStore.currentVault) processOpenFiles();
@@ -105,6 +113,7 @@
     if (!vaultStore.currentCanvas) return;
     
     try {
+      knowledge.detachLive();
       // Clear workspace first
       workspace.clear();
       
@@ -119,6 +128,7 @@
         // If no workspace.json exists yet, that's fine - we just start fresh
         console.log('No existing workspace data, starting fresh');
       }
+      knowledge.attachLive(vaultStore.currentCanvas.id);
       if (!(await consumePendingFocus())) fitLoadedCanvas();
     } catch (err) {
       console.error('Failed to load canvas:', err);
@@ -136,6 +146,7 @@
   async function handleHome() {
     // Go back to canvas list or vault picker (auto-save handles persistence)
     currentCanvasId = null;
+    knowledge.detachLive();
     workspace.clear();
     vaultStore.closeCanvas();
   }
@@ -172,6 +183,7 @@
     // Create new canvas (auto-save handles current canvas persistence)
     // Name is auto-generated as "Untitled 1", "Untitled 2", etc.
     currentCanvasId = null;
+    knowledge.detachLive();
     workspace.clear();
     await vaultStore.createCanvas();
   }
@@ -228,6 +240,9 @@
         <CanvasHeader onToggleNodeList={() => (ui.nodeListOpen = !ui.nodeListOpen)} />
         <QuickToolbar />
         <Canvas showNodeList={ui.nodeListOpen} onToggleNodeList={() => (ui.nodeListOpen = !ui.nodeListOpen)} />
+        {#if ui.graphOpen}
+          <GraphView />
+        {/if}
       </div>
       
       {#if workspace.propertiesPanelOpen}

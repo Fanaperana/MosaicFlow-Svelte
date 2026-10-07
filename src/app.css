@@ -229,6 +229,12 @@ a.wikilink:hover {
   border-bottom-style: solid;
 }
 
+a.wikilink.broken {
+  color: #9b8fb8;
+  opacity: 0.7;
+  border-bottom-color: rgba(155, 143, 184, 0.45);
+}
+
 .tag-pill {
   display: inline-flex;
   align-items: center;

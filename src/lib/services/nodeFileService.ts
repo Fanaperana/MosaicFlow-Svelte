@@ -47,7 +47,7 @@ function fromStored(stored: StoredNode): MosaicNode {
     parentId: stored.parentId,
     extent: stored.extent as MosaicNode['extent'],
     expandParent: stored.expandParent,
-    draggable: !data.locked,
+    draggable: data.locked ? false : undefined,
     data: data as MosaicNodeData,
   };
 }

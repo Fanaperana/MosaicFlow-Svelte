@@ -11,6 +11,14 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+/** Shown text of a link; lets the host show a node's title for [[node-id]] links. */
+export type WikilinkLabelResolver = (ref: string) => { label: string; broken?: boolean } | null;
+let resolveLabel: WikilinkLabelResolver | null = null;
+
+export function setWikilinkLabelResolver(fn: WikilinkLabelResolver | null) {
+  resolveLabel = fn;
+}
+
 const wikilink: TokenizerAndRendererExtension = {
   name: 'wikilink',
   level: 'inline',
@@ -22,8 +30,10 @@ const wikilink: TokenizerAndRendererExtension = {
   },
   renderer(token) {
     const ref = String(token.ref);
-    const label = String(token.alias ?? ref.slice(ref.indexOf('#') + 1));
-    return `<a class="wikilink" href="#" data-wikilink="${escapeHtml(ref)}">${escapeHtml(label)}</a>`;
+    const resolved = resolveLabel?.(ref) ?? null;
+    const label = String(token.alias ?? resolved?.label ?? ref.slice(ref.indexOf('#') + 1));
+    const cls = resolved?.broken ? 'wikilink broken' : 'wikilink';
+    return `<a class="${cls}" href="#" data-wikilink="${escapeHtml(ref)}">${escapeHtml(label)}</a>`;
   },
 };
 

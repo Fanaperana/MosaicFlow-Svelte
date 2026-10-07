@@ -67,6 +67,7 @@
     </SimpleTooltip>
   </div>
 
+  {#if !workspace.locked}
   <div class="toolbar-divider"></div>
 
   <!-- Quick Add Nodes -->
@@ -98,6 +99,7 @@
       <Plus size={ICON_SIZE} strokeWidth={1.5} />
     </button>
   </SimpleTooltip>
+  {/if}
 </div>
 
 <style>

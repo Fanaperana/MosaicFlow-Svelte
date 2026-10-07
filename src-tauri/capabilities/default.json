@@ -13,6 +13,7 @@
     "dialog:allow-save",
     "dialog:allow-message",
     "dialog:allow-ask",
+    "notification:default",
     "http:default",
     "fs:default",
     "fs:allow-exists",

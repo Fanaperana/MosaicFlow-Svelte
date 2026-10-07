@@ -134,6 +134,7 @@ class WorkspaceStore {
    * Undo the last action
    */
   undo() {
+    if (this.settings.locked) return;
     if (this.undoStack.length === 0) return;
     
     this.isUndoRedoOperation = true;
@@ -165,6 +166,7 @@ class WorkspaceStore {
    * Redo the last undone action
    */
   redo() {
+    if (this.settings.locked) return;
     if (this.redoStack.length === 0) return;
     
     this.isUndoRedoOperation = true;
@@ -246,7 +248,8 @@ class WorkspaceStore {
     return {
       ...node,
       data: mergedData,
-      draggable: !locked,
+      // Undefined defers to the canvas-wide setting (false while the page is view only).
+      draggable: locked ? false : undefined,
     };
   }
 
@@ -286,7 +289,7 @@ class WorkspaceStore {
   // Duplicate nodes (creates new nodes with same data, offset position)
   // This is a batch operation that saves history only once
   duplicateNodes(nodeIds: string[]): MosaicNode[] {
-    if (nodeIds.length === 0) return [];
+    if (nodeIds.length === 0 || this.settings.locked) return [];
     
     // Save state before mutation (only once for all duplicates)
     this.saveToHistory();
@@ -360,6 +363,7 @@ class WorkspaceStore {
 
   // Update a node
   updateNode(id: string, updates: Partial<MosaicNode>) {
+    if (this.settings.locked) return;
     let updatedNode: MosaicNode | null = null;
     const parentIdChanged = updates.parentId !== undefined;
     
@@ -384,6 +388,7 @@ class WorkspaceStore {
 
   // Update node data
   updateNodeData(id: string, dataUpdates: Partial<MosaicNodeData>) {
+    if (this.settings.locked) return;
     let updatedNode: MosaicNode | null = null;
     this.nodes = this.nodes.map(node => {
       if (node.id === id) {
@@ -402,6 +407,7 @@ class WorkspaceStore {
 
   // Delete a node
   deleteNode(id: string) {
+    if (this.settings.locked) return;
     this.saveToHistory();
     this.removeNodes([id]);
   }
@@ -485,6 +491,7 @@ class WorkspaceStore {
 
   // Update an edge
   updateEdge(id: string, updates: Partial<MosaicEdge>) {
+    if (this.settings.locked) return;
     let updatedEdge: MosaicEdge | null = null;
     this.edges = this.edges.map(edge => {
       if (edge.id === id) {
@@ -569,6 +576,7 @@ class WorkspaceStore {
 
   // Delete an edge
   deleteEdge(id: string) {
+    if (this.settings.locked) return;
     // Save state before mutation
     this.saveToHistory();
     
@@ -582,6 +590,7 @@ class WorkspaceStore {
 
   // Delete nodes and edges as one undoable action
   deleteSelection(nodeIds: string[], edgeIds: string[]) {
+    if (this.settings.locked) return;
     if (nodeIds.length === 0 && edgeIds.length === 0) return;
     this.saveToHistory();
     if (nodeIds.length > 0) this.removeNodes(nodeIds);
@@ -600,6 +609,7 @@ class WorkspaceStore {
 
   // Group selected top-level nodes into a new container
   groupSelectedNodes(): MosaicNode | null {
+    if (this.settings.locked) return null;
     const selectedNodes = this.nodes.filter(n => this.selectedNodeIds.includes(n.id) && !n.parentId);
     if (selectedNodes.length < 2) return null;
 
@@ -653,6 +663,7 @@ class WorkspaceStore {
 
   // Ungroup a group node, keeping its children where they are on screen
   ungroupNode(groupId: string) {
+    if (this.settings.locked) return;
     const groupNode = this.nodes.find(n => n.id === groupId && nodeRegistry.isContainer(n.type));
     if (!groupNode) return;
 
@@ -927,6 +938,7 @@ class WorkspaceStore {
     this.updatedAt = new Date().toISOString();
     this.viewport = { x: 0, y: 0, zoom: 1 };
     this.workspacePath = null;
+    this.settings = { ...this.settings, locked: false };
     
     // Clear history when loading new workspace
     this.clearHistory();
@@ -938,6 +950,20 @@ class WorkspaceStore {
     initNodeFileService(path);
     initEdgeFileService(path);
     startLiveSync(path);
+  }
+
+  /** View-only mode for the open page: nothing can be moved, edited, connected or deleted. */
+  get locked(): boolean {
+    return !!this.settings.locked;
+  }
+
+  setLocked(locked: boolean) {
+    this.settings = { ...this.settings, locked };
+    if (locked) {
+      this.setSelectedNodes([]);
+      this.setSelectedEdges([]);
+    }
+    this.saveWorkspaceManifest();
   }
 
   // Save workspace manifest (minimal workspace.json with just node/edge IDs and types)

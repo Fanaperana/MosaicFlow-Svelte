@@ -1,6 +1,7 @@
 // Vault-wide knowledge index (search, [[wikilinks]], backlinks, #tags).
 // Other canvases are read from disk; the open canvas comes from the live workspace.
 
+import { untrack } from 'svelte';
 import { CanvasRepository, KnowledgeIndex, absoluteRects, type IndexCanvas, type Point } from '@mosaicflow/vault-core';
 import { nodeRegistry } from '$lib/kernel/registries/node-registry';
 import { tauriFsAdapter } from '$lib/services/tauriFsAdapter';
@@ -43,8 +44,13 @@ class KnowledgeStore {
 
   private disk = new Map<string, IndexCanvas>();
   private layouts = new Map<string, MiniNode[]>();
+  private edges = new Map<string, { source: string; target: string }[]>();
+  /** Canvas whose nodes are currently in the workspace (null while switching pages). */
+  private liveCanvasId: string | null = null;
   private loadedKey = '';
   private rebuildTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Bumped on every rebuild so views (e.g. the graph) can react. */
+  revision = $state(0);
 
   /** (Re)reads every canvas from disk when the vault or its canvas list changed. */
   async loadVault(force = false) {
@@ -55,36 +61,66 @@ class KnowledgeStore {
     this.loading = true;
     const next = new Map<string, IndexCanvas>();
     const layouts = new Map<string, MiniNode[]>();
+    const edges = new Map<string, { source: string; target: string }[]>();
     for (const c of canvases) {
       try {
         const repo = new CanvasRepository(tauriFsAdapter, c.path, (type) => nodeRegistry.getBodyMapping(type));
         const nodes = await repo.readAllNodes();
         next.set(c.id, { id: c.id, name: c.name, nodes });
         layouts.set(c.id, toMiniNodes(nodes));
+        edges.set(c.id, (await repo.readAllEdges().catch(() => [])).map((e) => ({ source: e.source, target: e.target })));
       } catch (error) {
         console.warn(`[knowledge] Skipping canvas ${c.name}:`, error);
       }
     }
+    // The open page is newer in memory than on disk.
+    if (this.liveCanvasId) {
+      next.delete(this.liveCanvasId);
+      layouts.delete(this.liveCanvasId);
+      edges.delete(this.liveCanvasId);
+    }
+    for (const [id, canvas] of this.disk) if (id === this.liveCanvasId) next.set(id, canvas);
     this.disk = next;
     this.layouts = layouts;
+    this.edges = edges;
     this.loading = false;
     this.compose();
   }
 
+  /** The workspace now holds this canvas's nodes. */
+  attachLive(canvasId: string) {
+    this.liveCanvasId = canvasId;
+    this.compose();
+  }
+
+  /** Snapshots the open canvas before the workspace is cleared, so links to its nodes keep resolving. */
+  detachLive() {
+    if (this.rebuildTimer) clearTimeout(this.rebuildTimer);
+    this.compose();
+    this.liveCanvasId = null;
+  }
+
+  /** Canvas edges (connections drawn on the canvas) per canvas id. */
+  canvasEdges(canvasId: string): { source: string; target: string }[] {
+    return this.edges.get(canvasId) ?? [];
+  }
+
   /** Node boxes of a canvas; the open canvas is read live from the workspace. */
   canvasLayout(canvasId: string): MiniNode[] {
-    if (canvasId !== vaultStore.currentCanvas?.id) return this.layouts.get(canvasId) ?? [];
-    return toMiniNodes(
-      workspace.nodes.map((n) => ({
-        id: n.id,
-        type: n.type as string,
-        parentId: n.parentId,
-        position: n.position,
-        width: n.width ?? n.measured?.width,
-        height: n.height ?? n.measured?.height,
-        data: n.data as Record<string, unknown>,
-      }))
-    );
+    if (canvasId !== this.liveCanvasId) return this.layouts.get(canvasId) ?? [];
+    return toMiniNodes(this.liveLayoutInput());
+  }
+
+  private liveLayoutInput() {
+    return workspace.nodes.map((n) => ({
+      id: n.id,
+      type: n.type as string,
+      parentId: n.parentId,
+      position: n.position,
+      width: n.width ?? n.measured?.width,
+      height: n.height ?? n.measured?.height,
+      data: n.data as Record<string, unknown>,
+    }));
   }
 
   /** Debounced refresh of the open canvas (called when workspace nodes change). */
@@ -94,16 +130,26 @@ class KnowledgeStore {
   }
 
   private compose() {
-    const current = vaultStore.currentCanvas;
-    const canvases = [...this.disk.values()].filter((c) => c.id !== current?.id);
-    if (current) {
-      canvases.push({
-        id: current.id,
-        name: current.name,
-        nodes: workspace.nodes.map((n) => ({ id: n.id, type: n.type as string, data: n.data as Record<string, unknown> })),
-      });
+    // Called from effects: reading the workspace here must not subscribe them to it.
+    untrack(() => this.composeNow());
+  }
+
+  private composeNow() {
+    // Fold the live workspace into the per-canvas snapshot so it survives page switches.
+    const live = this.liveCanvasId ? vaultStore.canvases.find((c) => c.id === this.liveCanvasId) : undefined;
+    if (live) {
+      const input = this.liveLayoutInput();
+      this.disk.set(live.id, { id: live.id, name: live.name, nodes: input.map(({ id, type, data }) => ({ id, type, data })) });
+      this.layouts.set(live.id, toMiniNodes(input));
+      this.edges.set(live.id, workspace.edges.map((e) => ({ source: e.source, target: e.target })));
     }
+    // Names may have changed (rename) since the snapshot was taken.
+    const canvases = [...this.disk.values()].map((c) => {
+      const info = vaultStore.canvases.find((v) => v.id === c.id);
+      return info && info.name !== c.name ? { ...c, name: info.name } : c;
+    }).filter((c) => vaultStore.canvases.some((v) => v.id === c.id));
     this.index = new KnowledgeIndex(canvases);
+    this.revision++;
   }
 
   toggleTag(tag: string | null) {

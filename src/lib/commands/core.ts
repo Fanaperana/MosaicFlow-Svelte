@@ -33,6 +33,8 @@ const COMMANDS: CoreCommand[] = [
   { id: 'page.back', label: 'Go back', category: 'Pages', shortcut: 'Alt+ArrowLeft', enabled: () => pageNav.canGoBack, handler: () => pageNav.goBack() },
   { id: 'page.forward', label: 'Go forward', category: 'Pages', shortcut: 'Alt+ArrowRight', enabled: () => pageNav.canGoForward, handler: () => pageNav.goForward() },
   { id: 'page.allPages', label: 'Show all pages', category: 'Pages', enabled: onCanvas, handler: () => vaultStore.closeCanvas() },
+  { id: 'page.toggleLock', label: 'Lock / unlock page (view only)', category: 'Pages', shortcut: 'Ctrl+Shift+K', context: 'global',
+    enabled: onCanvas, handler: () => workspace.setLocked(!workspace.locked) },
   { id: 'page.export', label: 'Export as .mosaic…', category: 'Pages', shortcut: 'Ctrl+Shift+E', context: 'global',
     enabled: () => !!vaultStore.currentVault, handler: () => packageDialogs.openExport(vaultStore.currentCanvas ? 'current' : 'all') },
 
@@ -43,12 +45,14 @@ const COMMANDS: CoreCommand[] = [
     enabled: onCanvas, handler: () => workspace.togglePropertiesPanel() },
   { id: 'view.toggleNodeList', label: 'Toggle node list', category: 'View', shortcut: 'Ctrl+Shift+L', context: 'global',
     enabled: onCanvas, handler: () => { ui.nodeListOpen = !ui.nodeListOpen; } },
+  { id: 'view.graph', label: 'Open graph view', category: 'View', shortcut: 'Ctrl+Alt+G', context: 'global',
+    enabled: onCanvas, handler: () => { ui.graphOpen = !ui.graphOpen; } },
   { id: 'view.fit', label: 'Fit view', category: 'View', shortcut: 'Shift+1', handler: emit('mosaicflow:fitView', { padding: 0.1 }) },
   { id: 'view.zoomIn', label: 'Zoom in', category: 'View', shortcut: ['Ctrl+=', 'Shift+='], handler: emit('mosaicflow:zoomIn') },
   { id: 'view.zoomOut', label: 'Zoom out', category: 'View', shortcut: 'Ctrl+-', handler: emit('mosaicflow:zoomOut') },
 
   // Canvas
-  { id: 'canvas.insert', label: 'Insert block', category: 'Canvas', shortcut: '/', handler: emit('mosaicflow:insertAtPointer') },
+  { id: 'canvas.insert', label: 'Insert block', category: 'Canvas', shortcut: '/', enabled: () => !workspace.locked, handler: emit('mosaicflow:insertAtPointer') },
   { id: 'canvas.selectMode', label: 'Select tool', category: 'Canvas', shortcut: 'V', handler: () => workspace.setCanvasMode('select') },
   { id: 'canvas.panMode', label: 'Hand (pan) tool', category: 'Canvas', shortcut: 'H', handler: () => workspace.setCanvasMode('drag') },
 

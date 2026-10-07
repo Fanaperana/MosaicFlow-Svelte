@@ -51,9 +51,12 @@ Press <kbd>/</kbd> or double-click empty canvas space to open the block menu: ty
 
 ### 🔗 A connected knowledge base
 - `[[Wikilinks]]` between nodes, across pages (`[[Page#Node]]`) or to whole pages, with **backlinks** and **#tags**.
+- **Stable links by id**: type `[[` in a note to browse every node in the vault and insert `[[node-id]]`, or use **Copy link** in the properties panel / right-click menu. Id links always show the node's current title, so titles can repeat and renames never break links.
+- **Graph view** (`Ctrl + Alt + G`): an Obsidian-style force graph of the whole vault or the current page, colored by page; drag, zoom, search and click a node to jump to it.
 - Labelled, styled edges (bezier, straight, step; solid, dashed, dotted, animated; arrow markers).
 - **Groups** (`Ctrl + G`) to frame related ideas, and a **Story** view to step through a page in a chosen order.
 - Vault-wide **search** across every page and node, plus a canvas filter that fades out non-matching nodes.
+- **View-only pages** (`Ctrl + Shift + K` or the lock in the page header): read and follow links without accidentally moving or editing anything.
 
 ### 🎛️ Compact, Notion-style properties
 Select a node or edge to edit it in a dense side panel: page-style title, typed properties, tags, links and backlinks, colors, borders, layout and locks.
@@ -98,7 +101,7 @@ On first launch, create a vault (any folder) or open an existing one, then start
 | **Basic blocks** | Note (Markdown), Simple Text, Checklist, Callout, Page link, Image, Link, Code, Iframe |
 | **People & organizations** | Person, Organization, Timestamp |
 | **Research data** | Domain, Hash, Credential, Social Post, Router, Snapshot |
-| **Layout & embeds** | Group, Map, Link List, Action, Annotation, Embed |
+| **Layout & embeds** | Group, Map, Link List, Action, Annotation, Embed, Calendar, Timer |
 | **Plugins** | Anything you install, e.g. the example [Flashcard](plugins/example-flashcard/) |
 
 Highlights:
@@ -108,6 +111,8 @@ Highlights:
 - **Page link**: a card linking to another page, with a live outline of it.
 - **Embed**: a live, read-only copy of a node from anywhere in the vault.
 - **Map**: interactive MapLibre map with markers.
+- **Calendar**: month grid and upcoming list; events can repeat (daily, weekdays, weekly, monthly, yearly) and send a desktop notification before they start, from any page.
+- **Timer**: countdown with presets, stopwatch with laps, and pomodoro cycles; keeps running across page switches and notifies when time is up.
 
 ---
 
@@ -125,6 +130,9 @@ Every shortcut can be changed in **Settings → Keyboard shortcuts** (<kbd>Ctrl<
 | <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> | Switch vault |
 | <kbd>Ctrl</kbd> + <kbd>\\</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>\\</kbd> | Pages sidebar / properties panel |
 | <kbd>Alt</kbd> + <kbd>←</kbd> / <kbd>→</kbd> | Back / forward between pages |
+| <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>G</kbd> | Graph view |
+| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>K</kbd> | Lock / unlock page (view only) |
+| <kbd>[[</kbd> in a note | Link to a node or page |
 | <kbd>Shift</kbd> + <kbd>1</kbd> | Fit view |
 | <kbd>Ctrl</kbd> + <kbd>=</kbd> / <kbd>Ctrl</kbd> + <kbd>-</kbd> | Zoom in / out |
 | <kbd>V</kbd> / <kbd>H</kbd> | Select tool / hand tool |

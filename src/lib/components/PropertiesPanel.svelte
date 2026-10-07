@@ -62,6 +62,7 @@
 
   let tagDraft = $state('');
   let idCopied = $state(false);
+  let linkCopied = $state(false);
 
   const STROKES: EdgeStrokeStyle[] = ['solid', 'dashed', 'dotted'];
   const MARKERS: MarkerShape[] = ['none', 'arrow', 'arrowclosed'];
@@ -134,6 +135,13 @@
     await navigator.clipboard.writeText(selectedNode.id);
     idCopied = true;
     setTimeout(() => (idCopied = false), 1200);
+  }
+
+  async function copyNodeLink() {
+    if (!selectedNode) return;
+    await navigator.clipboard.writeText(`[[${selectedNode.id}]]`);
+    linkCopied = true;
+    setTimeout(() => (linkCopied = false), 1200);
   }
 
   function fieldLabel(key: string): string {
@@ -381,6 +389,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div 
   class="properties-panel"
+  class:readonly={workspace.locked}
   onclick={handlePanelEvent}
   onkeydown={handlePanelEvent}
   onmousedown={handlePanelEvent}
@@ -399,14 +408,14 @@
       {/if}
 
       <div class="pp-bar-actions">
-        {#if selectedNode}
+        {#if selectedNode && !workspace.locked}
           <FixedTooltip text="Duplicate" position="bottom">
             <button class="icon-btn" onclick={duplicateNode} aria-label="Duplicate node"><Copy size={14} /></button>
           </FixedTooltip>
           <FixedTooltip text="Delete" position="bottom">
             <button class="icon-btn danger" onclick={deleteNode} aria-label="Delete node"><Trash2 size={14} /></button>
           </FixedTooltip>
-        {:else if selectedEdge}
+        {:else if selectedEdge && !workspace.locked}
           <FixedTooltip text="Delete edge" position="bottom">
             <button class="icon-btn danger" onclick={deleteEdge} aria-label="Delete edge"><Trash2 size={14} /></button>
           </FixedTooltip>
@@ -436,10 +445,19 @@
         placeholder="Untitled"
         oninput={(e) => updateNodeData('title', (e.target as HTMLInputElement).value)}
       />
-      <button class="pp-id" onclick={copyNodeId} title="Copy node ID">
-        {#if idCopied}<Check size={11} />{:else}<Copy size={11} />{/if}
-        <span>{selectedNode.id}</span>
-      </button>
+      <div class="pp-id-row">
+        <button class="pp-id" onclick={copyNodeId} title="Copy node ID">
+          {#if idCopied}<Check size={11} />{:else}<Copy size={11} />{/if}
+          <span>{selectedNode.id}</span>
+        </button>
+        <button class="pp-id pp-copy-link" onclick={copyNodeLink} title="Copy a [[link]] to this node — paste it into any note">
+          {#if linkCopied}<Check size={11} />{:else}<Link2 size={11} />{/if}
+          <span>Copy link</span>
+        </button>
+      </div>
+    {/if}
+    {#if workspace.locked}
+      <div class="pp-locked"><Lock size={11} /> Page is view only — unlock it to edit.</div>
     {/if}
   </header>
 
@@ -685,7 +703,7 @@
             data-wikilink={link.canvas ? `${link.canvas}#${link.target}` : link.target}
           >
             <ArrowUpRight size={13} />
-            <span class="link-title">{link.alias ?? link.target}</span>
+            <span class="link-title">{link.alias ?? (node && node.id.toLowerCase() === link.target.toLowerCase() ? node.title || 'Untitled' : link.target)}</span>
             {#if node && node.canvasId !== canvasId}<span class="link-canvas">{node.canvasName}</span>{/if}
           </button>
         {:else}
@@ -1271,6 +1289,42 @@
 
   .pp-title::placeholder {
     color: var(--mf-text-3);
+  }
+
+  .pp-id-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .pp-id-row .pp-id:first-child {
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+
+  .pp-copy-link {
+    flex-shrink: 0;
+    margin-left: auto !important;
+    font-family: inherit !important;
+  }
+
+  .pp-locked {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 4px 8px;
+    border-radius: 5px;
+    background: rgba(245, 158, 11, 0.12);
+    color: #f5b041;
+    font-size: 11px;
+  }
+
+  .properties-panel.readonly :global(.panel-content :is(input, select, textarea, .seg, .pp-control, .tag-remove, [contenteditable])),
+  .properties-panel.readonly .pp-title {
+    pointer-events: none;
+    opacity: 0.6;
   }
 
   .pp-id {
