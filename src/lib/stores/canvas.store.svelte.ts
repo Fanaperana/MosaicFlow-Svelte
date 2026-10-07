@@ -33,7 +33,7 @@ interface CanvasStoreState {
 
 function createCanvasStore() {
   // Reactive state
-  let state = $state<CanvasStoreState>({
+  const state = $state<CanvasStoreState>({
     current: null,
     uiState: null,
     isLoading: false,

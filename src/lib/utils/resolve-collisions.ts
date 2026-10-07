@@ -166,7 +166,7 @@ export function findNonOverlappingPosition<T extends Node>(
   existingNodes: T[],
   margin = 20
 ): { x: number; y: number } {
-  let position = { ...newPosition };
+  const position = { ...newPosition };
   let attempts = 0;
   const maxAttempts = 100;
   let lastCollisionNode: T | null = null;

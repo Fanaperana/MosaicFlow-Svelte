@@ -442,7 +442,8 @@ export function importMermaid(source: string): ImportResult {
       node.data.title = label.split('\n')[0];
       node.data.content = label;
     }
-    stack.at(-1)?.members.includes(key) || stack.at(-1)?.members.push(key);
+    const parent = stack.at(-1);
+    if (parent && !parent.members.includes(key)) parent.members.push(key);
     return key;
   };
 

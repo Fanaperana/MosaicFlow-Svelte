@@ -58,7 +58,7 @@ interface WorkspaceStoreState {
 
 function createWorkspaceStore() {
   // Reactive state
-  let state = $state<WorkspaceStoreState>({
+  const state = $state<WorkspaceStoreState>({
     nodes: [],
     edges: [],
     settings: { ...DEFAULT_SETTINGS },

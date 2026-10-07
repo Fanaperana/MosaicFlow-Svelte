@@ -25,7 +25,7 @@
 
   // Display options - defaults to compact view
   const showTitle = $derived(data.showHeader ?? false);
-  const multiLine = $derived((data as any).multiLine ?? false);
+  const multiLine = $derived((data as { multiLine?: boolean }).multiLine ?? false);
 
   // Date/time component toggles
   const showMonth = $derived(data.showMonth ?? true);

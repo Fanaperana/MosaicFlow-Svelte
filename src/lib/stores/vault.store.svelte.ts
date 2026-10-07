@@ -33,7 +33,7 @@ interface VaultStoreState {
 
 function createVaultStore() {
   // Reactive state
-  let state = $state<VaultStoreState>({
+  const state = $state<VaultStoreState>({
     current: null,
     canvases: [],
     isLoading: false,

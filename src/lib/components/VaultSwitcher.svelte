@@ -118,7 +118,6 @@
   </button>
 
   {#if isOpen}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="menu" role="menu" tabindex="-1" onkeydown={handleMenuKey}>
       {#if current}
         <div class="current">

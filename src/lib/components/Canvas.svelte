@@ -426,7 +426,7 @@
   // xyflow reports selection before the store has synced, so drive the panel from the store itself.
   const selectionKey = $derived(workspace.selectedNodeIds.join(','));
   $effect(() => {
-    selectionKey;
+    void selectionKey;
     untrack(() => workspace.syncPropertiesPanel());
   });
 

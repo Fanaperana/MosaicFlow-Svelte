@@ -133,7 +133,6 @@
   });
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 <div class="insert-overlay" role="presentation" onpointerdown={onClose} oncontextmenu={(e) => { e.preventDefault(); onClose(); }}></div>
 
 <div class="insert-menu" {style} role="dialog" aria-label={heading}>

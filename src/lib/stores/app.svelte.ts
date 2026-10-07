@@ -42,7 +42,7 @@ interface AppStoreState {
 
 function createAppStore() {
   // Reactive state using Svelte 5 runes
-  let state = $state<AppStoreState>({
+  const state = $state<AppStoreState>({
     appState: null,
     history: null,
     isInitialized: false,
