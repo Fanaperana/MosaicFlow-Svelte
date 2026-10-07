@@ -215,10 +215,11 @@
 
   .search {
     display: flex;
+    flex-shrink: 0;
     align-items: center;
     gap: 8px;
-    height: 36px;
-    padding: 0 10px;
+    height: 42px;
+    padding: 0 12px;
     border-bottom: 1px solid var(--mf-border);
     color: var(--mf-text-3);
   }
@@ -226,12 +227,13 @@
   .search input {
     flex: 1;
     min-width: 0;
-    height: 100%;
+    height: 28px;
     padding: 0;
     border: none;
     background: transparent;
     color: var(--mf-text);
-    font-size: 13px;
+    font-size: 13.5px;
+    line-height: 28px;
     outline: none;
   }
 
@@ -304,6 +306,7 @@
 
   footer {
     display: flex;
+    flex-shrink: 0;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
