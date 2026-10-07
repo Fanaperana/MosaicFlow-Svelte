@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
+  import { slide } from 'svelte/transition';
+  import { cubicOut } from 'svelte/easing';
   import Canvas from '$lib/components/Canvas.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import PropertiesPanel from '$lib/components/PropertiesPanel.svelte';
@@ -24,6 +26,8 @@
   
   let showSearch = $state(false);
   let showNodeList = $state(false);
+
+  const PANEL_TRANSITION = { axis: 'x', duration: 200, easing: cubicOut } as const;
   
   // Track the current canvas ID to detect changes
   let currentCanvasId = $state<string | null>(null);
@@ -217,7 +221,9 @@
     
     <div class="main-content">
       {#if pageNav.sidebarOpen}
-        <PagesSidebar onSearch={handleSearch} onNewCanvas={handleNewCanvas} onAllPages={handleHome} />
+        <div class="panel-slot" transition:slide={PANEL_TRANSITION}>
+          <PagesSidebar onSearch={handleSearch} onNewCanvas={handleNewCanvas} onAllPages={handleHome} />
+        </div>
       {/if}
       <div class="canvas-container">
         <CanvasHeader onToggleNodeList={() => showNodeList = !showNodeList} />
@@ -226,7 +232,9 @@
       </div>
       
       {#if workspace.propertiesPanelOpen}
-        <PropertiesPanel onClose={() => workspace.propertiesPanelOpen = false} />
+        <div class="panel-slot right" transition:slide={PANEL_TRANSITION}>
+          <PropertiesPanel onClose={() => workspace.propertiesPanelOpen = false} />
+        </div>
       {/if}
     </div>
     
@@ -301,6 +309,17 @@
     flex: 1;
     position: relative;
     overflow: hidden;
+  }
+
+  /* Fixed-width panels are clipped while the slot's width animates */
+  .panel-slot {
+    display: flex;
+    flex-shrink: 0;
+    height: 100vh;
+  }
+
+  .panel-slot.right {
+    justify-content: flex-end;
   }
   
   /* Global scrollbar styles */
