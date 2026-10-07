@@ -15,6 +15,8 @@
   let { data, selected, id }: NodeProps<IframeNodeType> = $props();
   
   let iframeRef: HTMLIFrameElement | null = $state(null);
+  // Same-origin or file-like URLs would defeat the sandbox (allow-same-origin + allow-scripts).
+  let safeUrl = $derived(/^https?:\/\//i.test(data.url ?? '') ? data.url : null);
 
   function handleUrlChange(value: string) {
     workspace.updateNodeData(id, { url: value });
@@ -59,14 +61,16 @@
   />
   
   <div class="iframe-container">
-    {#if data.url}
+    {#if safeUrl}
       <iframe
         bind:this={iframeRef}
-        src={data.url}
+        src={safeUrl}
         title={data.title}
         sandbox="allow-scripts allow-same-origin allow-forms"
         loading="lazy"
       ></iframe>
+    {:else if data.url}
+      <div class="placeholder">Only http(s) URLs can be embedded</div>
     {:else}
       <div class="placeholder">Enter a URL to embed content</div>
     {/if}
