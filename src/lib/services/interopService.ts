@@ -19,7 +19,7 @@ import { vaultStore } from '$lib/stores/vault.svelte';
 import { workspace } from '$lib/stores/workspace.svelte';
 import { nodeRegistry } from '$lib/kernel/registries/node-registry';
 import { tauriFsAdapter } from './tauriFsAdapter';
-import { importPackageFile } from './packageService';
+import { packageDialogs } from '$lib/stores/packages.svelte';
 
 const MAX_TEXT_BYTES = 5 * 1024 * 1024;
 const MAX_MARKDOWN_FILES = 300;
@@ -71,20 +71,14 @@ async function finish(name: string, warnings: string[]) {
   if (canvas) await vaultStore.openCanvas(canvas);
 }
 
-/** Imports one file of any supported format. Returns the new canvas name (or null). */
+/** Imports one file of any supported format. Returns the new canvas name (or null). Packages open a preview instead. */
 export async function importPath(path: string): Promise<string | null> {
   const ext = path.split('.').pop()?.toLowerCase() ?? '';
   const name = baseName(path);
 
   if (ext === 'mosaic' || ext === 'zip') {
-    const { names, warnings } = await importPackageFile(path);
-    if (names.length === 1) {
-      await finish(names[0], warnings);
-    } else {
-      await vaultStore.refreshCanvases();
-      toast.success(`Imported ${names.length} canvases`, { description: names.join(', ') });
-    }
-    return names[0];
+    await packageDialogs.openImport(path);
+    return null;
   }
 
   const text = await readText(path);

@@ -17,7 +17,9 @@
   import { workspace } from '$lib/stores/workspace.svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
   import { loadWorkspace, exportAsPng, exportAsSvg, exportAsJson } from '$lib/services/fileOperations';
-  import { exportCanvasPackage } from '$lib/services/packageService';
+  import { packageDialogs } from '$lib/stores/packages.svelte';
+  import PackageImportDialog from '$lib/components/PackageImportDialog.svelte';
+  import PackageExportDialog from '$lib/components/PackageExportDialog.svelte';
   import { knowledge } from '$lib/stores/knowledge.svelte';
   import { consumePendingFocus, openWikilink } from '$lib/services/navigation';
   import { initOpenFiles, processOpenFiles } from '$lib/services/openFiles';
@@ -38,6 +40,8 @@
   $effect(() => {
     const canvas = vaultStore.currentCanvas;
     if (canvas) untrack(() => pageNav.visit(canvas.id));
+    // Closing a canvas forgets it, so reopening the same one (e.g. after it was replaced) reloads it.
+    if (!canvas) currentCanvasId = null;
     if (canvas && canvas.id !== currentCanvasId) {
       currentCanvasId = canvas.id;
       loadCurrentCanvas();
@@ -216,7 +220,7 @@
     <Sidebar 
       onSearch={handleSearch}
       onExport={handleExport}
-      onExportPackage={exportCanvasPackage}
+      onExportPackage={() => packageDialogs.openExport('current')}
       onExportPng={handleExportPng}
       onExportSvg={handleExportSvg}
       onPlugins={() => (showPlugins = true)}
@@ -253,6 +257,13 @@
   </div>
 {:else}
   <VaultPicker />
+{/if}
+
+{#if packageDialogs.importPreview}
+  <PackageImportDialog preview={packageDialogs.importPreview} onClose={() => (packageDialogs.importPreview = null)} />
+{/if}
+{#if packageDialogs.exportPreselect && vaultStore.currentVault}
+  <PackageExportDialog preselect={packageDialogs.exportPreselect} onClose={() => (packageDialogs.exportPreselect = null)} />
 {/if}
 
 <style lang="postcss">

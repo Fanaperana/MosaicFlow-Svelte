@@ -7,6 +7,7 @@
 // A hand-made zip of a canvas folder (no manifest) is accepted too.
 
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
+import { parseFrontmatter, stringifyFrontmatter } from './frontmatter';
 
 export const PACKAGE_EXTENSION = 'mosaic';
 export const PACKAGE_MIMETYPE = 'application/vnd.mosaicflow+zip';
@@ -16,9 +17,12 @@ export const PACKAGE_FORMAT_VERSION = 1;
 export interface PackageManifest {
   format: typeof PACKAGE_FORMAT;
   formatVersion: number;
-  kind: 'canvas' | 'vault';
+  /** canvas: one page, pages: a selection, vault: every page of a vault. */
+  kind: 'canvas' | 'pages' | 'vault';
   app: string;
   createdAt: string;
+  /** Vault the pages were exported from. */
+  vault?: { name: string };
   canvases: { name: string; folder: string }[];
   /** sha256 (hex) of every packaged file, keyed by its path inside the zip. */
   files?: Record<string, string>;
@@ -28,6 +32,12 @@ export interface PackCanvasInput {
   name: string;
   /** Files relative to the canvas folder, using '/' separators. */
   files: Record<string, Uint8Array>;
+  app?: string;
+}
+
+export interface PackOptions {
+  kind?: PackageManifest['kind'];
+  vaultName?: string;
   app?: string;
 }
 
@@ -86,16 +96,19 @@ async function sha256Hex(data: Uint8Array): Promise<string | null> {
 }
 
 export async function packCanvas(input: PackCanvasInput): Promise<Uint8Array> {
-  return packCanvases([input], 'canvas', input.app);
+  return packPages([input], { kind: 'canvas', app: input.app });
 }
 
 /** Packs every canvas of a vault (kind "vault"); importing it adds all of them. */
-export async function packVault(canvases: PackCanvasInput[], app?: string): Promise<Uint8Array> {
+export async function packVault(canvases: PackCanvasInput[], app?: string, vaultName?: string): Promise<Uint8Array> {
   if (canvases.length === 0) throw new Error('The vault has no canvases to export');
-  return packCanvases(canvases, 'vault', app);
+  return packPages(canvases, { kind: 'vault', app, vaultName });
 }
 
-async function packCanvases(inputs: PackCanvasInput[], kind: PackageManifest['kind'], app?: string): Promise<Uint8Array> {
+/** Packs any set of canvases; kind defaults to "canvas" for one page and "pages" otherwise. */
+export async function packPages(inputs: PackCanvasInput[], options: PackOptions = {}): Promise<Uint8Array> {
+  if (inputs.length === 0) throw new Error('Nothing to export');
+  const kind = options.kind ?? (inputs.length === 1 ? 'canvas' : 'pages');
   const entries: Record<string, Uint8Array> = {};
   const listed: PackageManifest['canvases'] = [];
   const usedFolders = new Set<string>();
@@ -119,8 +132,9 @@ async function packCanvases(inputs: PackCanvasInput[], kind: PackageManifest['ki
     format: PACKAGE_FORMAT,
     formatVersion: PACKAGE_FORMAT_VERSION,
     kind,
-    app: app ?? 'MosaicFlow',
+    app: options.app ?? 'MosaicFlow',
     createdAt: new Date().toISOString(),
+    ...(options.vaultName ? { vault: { name: options.vaultName } } : {}),
     canvases: listed,
     ...(Object.keys(hashes).length ? { files: hashes } : {}),
   };
@@ -219,4 +233,70 @@ export async function unpackPackage(bytes: Uint8Array, limits: UnpackLimits = DE
   });
 
   return { manifest, canvases, warnings };
+}
+
+export interface LinkRewrite {
+  /** Old page name -> new page name (pages renamed on import). */
+  names: Map<string, string>;
+  /** Old page id -> new page id (used by Page link blocks). */
+  ids: Map<string, string>;
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Repoints links inside node files after pages were renamed or got new ids:
+ * `[[Old#Node]]` / `[[Old]]` wikilinks (body and text fields), embed `ref: Old#Node`,
+ * and Page link `canvasId`/`page`. Returns the files that changed (path -> new content).
+ */
+export function rewritePackageLinks(files: Map<string, Uint8Array>, rewrite: LinkRewrite): Map<string, Uint8Array> {
+  const changed = new Map<string, Uint8Array>();
+  const renames = [...rewrite.names].filter(([from, to]) => from.toLowerCase() !== to.toLowerCase());
+  const ids = new Map([...rewrite.ids].filter(([from, to]) => from && from !== to));
+  if (renames.length === 0 && ids.size === 0) return changed;
+
+  const patterns = renames.map(([from, to]) => ({
+    link: new RegExp(`\\[\\[\\s*${escapeRegExp(from)}\\s*(?=[#|\\]])`, 'gi'),
+    ref: new RegExp(`^\\s*${escapeRegExp(from)}\\s*(?=#|$)`, 'i'),
+    from: from.toLowerCase(),
+    to,
+  }));
+  const relink = (text: string) => patterns.reduce((t, p) => t.replace(p.link, `[[${p.to}`), text);
+  const deep = (value: unknown): unknown => {
+    if (typeof value === 'string') return relink(value);
+    if (Array.isArray(value)) return value.map(deep);
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, deep(v)]));
+    }
+    return value;
+  };
+
+  for (const [path, bytes] of files) {
+    if (!/^nodes\/[^/]+\.md$/.test(path)) continue;
+    let parsed: ReturnType<typeof parseFrontmatter>;
+    try {
+      parsed = parseFrontmatter(strFromU8(bytes));
+    } catch {
+      continue;
+    }
+    const attributes = parsed.attributes as Record<string, unknown>;
+    const data = (attributes.data as Record<string, unknown>) ?? {};
+    const nextData = deep(data) as Record<string, unknown>;
+    if (typeof nextData.ref === 'string') {
+      for (const p of patterns) nextData.ref = (nextData.ref as string).replace(p.ref, p.to);
+    }
+    if (typeof nextData.page === 'string') {
+      const hit = patterns.find((p) => p.from === (nextData.page as string).trim().toLowerCase());
+      if (hit) nextData.page = hit.to;
+    }
+    if (typeof nextData.canvasId === 'string' && ids.has(nextData.canvasId)) {
+      nextData.canvasId = ids.get(nextData.canvasId);
+    }
+    const body = relink(parsed.body);
+    if (body === parsed.body && JSON.stringify(nextData) === JSON.stringify(data)) continue;
+    changed.set(path, strToU8(stringifyFrontmatter({ ...attributes, data: nextData }, body)));
+  }
+  return changed;
 }

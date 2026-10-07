@@ -16,7 +16,7 @@
     Search,
   } from 'lucide-svelte';
   import { importDropped, importFileDialog, importMarkdownFolderDialog } from '$lib/services/interopService';
-  import { exportVaultPackage } from '$lib/services/packageService';
+  import { packageDialogs } from '$lib/stores/packages.svelte';
   import VaultSwitcher from './VaultSwitcher.svelte';
 
   type SortMode = 'recent' | 'name';
@@ -135,7 +135,7 @@
       </button>
       <VaultSwitcher />
       <div class="cl-spacer"></div>
-      <button class="ghost-btn" onclick={() => runImport(exportVaultPackage)} disabled={isImporting || vaultStore.canvases.length === 0} title="Export every canvas in this vault as one .mosaic package">
+      <button class="ghost-btn" onclick={() => packageDialogs.openExport('all')} disabled={isImporting || vaultStore.canvases.length === 0} title="Export pages or the whole vault as a .mosaic package">
         <Archive size={14} /><span>Export</span>
       </button>
       <button class="ghost-btn" onclick={() => runImport(importMarkdownFolderDialog)} disabled={isImporting} title="Import a folder of markdown notes (e.g. an Obsidian vault); [[wikilinks]] become edges">

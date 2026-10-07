@@ -73,7 +73,9 @@ export async function saveAppConfig(config: AppConfig): Promise<boolean> {
  */
 export async function createVault(path: string, name: string): Promise<VaultOperationResult> {
   try {
-    return await invoke<VaultOperationResult>('create_vault', { path, name });
+    // The command returns the new VaultInfo and rejects on failure.
+    const vault = await invoke<VaultInfo>('create_vault', { path, name });
+    return { success: true, message: 'Vault created', data: vault };
   } catch (error) {
     console.error('Failed to create vault:', error);
     return { success: false, message: String(error) };
@@ -196,8 +198,9 @@ export async function renameCanvas(canvasPath: string, newName: string): Promise
  */
 export async function deleteCanvas(canvasPath: string): Promise<boolean> {
   try {
-    const result = await invoke<VaultOperationResult>('delete_canvas', { canvasPath });
-    return result.success;
+    // The command returns nothing on success and rejects on failure.
+    await invoke('delete_canvas', { canvasPath });
+    return true;
   } catch (error) {
     console.error('Failed to delete canvas:', error);
     return false;
