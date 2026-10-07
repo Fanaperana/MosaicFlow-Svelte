@@ -19,6 +19,7 @@
   import { Button } from '$lib/components/ui/button';
   import { importDropped, importFileDialog, importMarkdownFolderDialog } from '$lib/services/interopService';
   import { exportVaultPackage } from '$lib/services/packageService';
+  import VaultSwitcher from './VaultSwitcher.svelte';
 
   let isImporting = $state(false);
   let dropActive = $state(false);
@@ -132,11 +133,11 @@
   {/if}
   <div class="canvas-list-content">
     <header class="list-header">
-      <button class="back-btn" onclick={() => vaultStore.closeVault()}>
+      <button class="back-btn" onclick={() => vaultStore.closeVault()} title="All vaults">
         <ArrowLeft size={20} />
       </button>
       <div class="vault-info">
-        <h1>{vaultStore.currentVault?.name || 'Vault'}</h1>
+        <VaultSwitcher size="lg" />
         <p class="canvas-count">{vaultStore.canvases.length} canvas{vaultStore.canvases.length !== 1 ? 'es' : ''}</p>
       </div>
       <Button onclick={() => runImport(exportVaultPackage)} disabled={isImporting || vaultStore.canvases.length === 0} variant="ghost" size="sm" class="px-3" title="Export every canvas in this vault as one .mosaic package">
@@ -322,18 +323,13 @@
 
   .vault-info {
     flex: 1;
-  }
-
-  .vault-info h1 {
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin: 0;
+    margin-left: -6px;
   }
 
   .canvas-count {
     font-size: 0.875rem;
     color: #666;
-    margin: 0.25rem 0 0 0;
+    margin: 0.125rem 0 0 6px;
   }
 
   .create-input-row {

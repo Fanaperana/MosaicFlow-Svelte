@@ -19,9 +19,29 @@ import {
   renameVault as renameVaultApi,
   formatRelativeTime,
 } from '$lib/services/vaultService';
+import { flushPendingSaves as flushNodeSaves } from '$lib/services/nodeFileService';
+import { flushPendingSaves as flushEdgeSaves } from '$lib/services/edgeFileService';
 
 // App view states
 export type AppView = 'vault-picker' | 'canvas-list' | 'canvas';
+
+const LAST_CANVAS_KEY = 'mosaicflow:last-canvas-by-vault';
+
+function readLastCanvases(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(LAST_CANVAS_KEY) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+
+function rememberLastCanvas(vaultPath: string, canvasPath: string): void {
+  try {
+    localStorage.setItem(LAST_CANVAS_KEY, JSON.stringify({ ...readLastCanvases(), [vaultPath]: canvasPath }));
+  } catch {
+    // Storage unavailable; switching still works, it just opens the canvas list.
+  }
+}
 
 /**
  * Generate a unique canvas name based on existing canvases
@@ -254,38 +274,12 @@ class VaultStore {
     
     try {
       const vault = await openVaultApi(path);
-      
-      if (vault) {
-        this.currentVault = vault;
-        this._config.current_vault_path = vault.path;
-        this.addToRecent(vault);
-        
-        // Load canvases
-        this.canvases = await listCanvasesApi(vault.path);
-        
-        // If there's only one canvas, open it directly
-        if (this.canvases.length === 1) {
-          this.currentCanvas = this.canvases[0];
-          this.appView = 'canvas';
-        } else if (this.canvases.length > 0) {
-          // Show canvas list if multiple canvases
-          this.appView = 'canvas-list';
-        } else {
-          // Create a default canvas with unique name
-          const canvasName = generateUniqueCanvasName(this.canvases);
-          const newCanvas = await createCanvasApi(vault.path, vault.id, canvasName);
-          if (newCanvas) {
-            this.canvases = [newCanvas];
-            this.currentCanvas = newCanvas;
-            this.appView = 'canvas';
-          }
-        }
-        
-        return vault;
-      } else {
+      if (!vault) {
         this.error = 'Failed to open vault';
         return null;
       }
+      await this.activateVault(vault);
+      return vault;
     } catch (err) {
       this.error = String(err);
       console.error('Failed to open vault:', err);
@@ -296,18 +290,81 @@ class VaultStore {
   }
 
   /**
+   * Make an opened vault current and pick a canvas: the one last used there,
+   * the only one, or a fresh one if the vault is empty.
+   */
+  private async activateVault(vault: VaultInfo): Promise<void> {
+    const canvases = await listCanvasesApi(vault.path);
+    const lastPath = readLastCanvases()[vault.path];
+    let next = canvases.find((c) => c.path === lastPath) ?? (canvases.length === 1 ? canvases[0] : undefined);
+
+    if (canvases.length === 0) {
+      const created = await createCanvasApi(vault.path, vault.id, generateUniqueCanvasName(canvases));
+      if (created) {
+        canvases.push(created);
+        next = created;
+      }
+    }
+
+    this.currentVault = vault;
+    this.canvases = canvases;
+    this._config.current_vault_path = vault.path;
+    this.addToRecent(vault);
+
+    if (next) {
+      this.openCanvas(next);
+    } else {
+      this.currentCanvas = null;
+      this._config.current_canvas_path = null;
+      this.appView = 'canvas-list';
+      this.saveConfig();
+    }
+  }
+
+  /**
    * Close current vault and go back to vault picker
    */
   closeVault(): void {
-    if (this.currentVault) {
-      closeVaultApi(this.currentVault.id, this.currentVault.path, this.currentVault.name);
-    }
+    this.releaseCurrent();
     this.currentVault = null;
     this.currentCanvas = null;
     this.canvases = [];
     this._config.current_vault_path = null;
     this.appView = 'vault-picker';
     this.saveConfig();
+  }
+
+  /**
+   * Switch to another vault in place (no loading screen); the current vault
+   * stays open if the target can't be opened.
+   */
+  async switchVault(path: string): Promise<VaultInfo | null> {
+    if (this.currentVault?.path === path) return this.currentVault;
+    this.error = null;
+
+    try {
+      await Promise.all([flushNodeSaves(), flushEdgeSaves()]);
+      const vault = await openVaultApi(path);
+      if (!vault) {
+        this.error = `Couldn't open the vault at ${path}`;
+        return null;
+      }
+      this.releaseCurrent();
+      await this.activateVault(vault);
+      return vault;
+    } catch (err) {
+      this.error = String(err);
+      console.error('Failed to switch vault:', err);
+      return null;
+    }
+  }
+
+  private releaseCurrent(): void {
+    if (!this.currentVault) return;
+    if (this.currentCanvas) {
+      closeCanvasApi(this.currentCanvas.id, this.currentCanvas.path, this.currentCanvas.name, this.currentVault.id);
+    }
+    closeVaultApi(this.currentVault.id, this.currentVault.path, this.currentVault.name);
   }
 
   /**
@@ -330,10 +387,7 @@ class VaultStore {
       
       if (canvas) {
         this.canvases = [...this.canvases, canvas];
-        this.currentCanvas = canvas;
-        this._config.current_canvas_path = canvas.path;
-        this.saveConfig();
-        this.appView = 'canvas';
+        this.openCanvas(canvas);
         return canvas;
       } else {
         this.error = 'Failed to create canvas';
@@ -354,6 +408,7 @@ class VaultStore {
   openCanvas(canvas: CanvasInfo): void {
     this.currentCanvas = canvas;
     this._config.current_canvas_path = canvas.path;
+    if (this.currentVault) rememberLastCanvas(this.currentVault.path, canvas.path);
     this.saveConfig();
     this.appView = 'canvas';
   }

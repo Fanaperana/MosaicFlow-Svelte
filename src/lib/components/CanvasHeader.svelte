@@ -4,6 +4,7 @@
   import { flushPendingSaves as flushNodeSaves } from '$lib/services/nodeFileService';
   import { flushPendingSaves as flushEdgeSaves } from '$lib/services/edgeFileService';
   import { Pencil, Check, X, ChevronRight, Loader2, List } from 'lucide-svelte';
+  import VaultSwitcher from './VaultSwitcher.svelte';
 
   interface Props {
     onToggleNodeList?: () => void;
@@ -59,7 +60,7 @@
 
 <div class="canvas-header">
   <div class="breadcrumb">
-    <span class="vault-name">{vaultStore.currentVault?.name || 'Vault'}</span>
+    <VaultSwitcher />
     <ChevronRight size={14} class="separator" />
     {#if isEditing}
       <div class="edit-container">
@@ -146,11 +147,6 @@
     gap: 4px;
     font-size: 13px;
     pointer-events: auto;
-  }
-
-  .vault-name {
-    color: var(--mf-text-3);
-    padding: 2px 4px;
   }
 
   .breadcrumb :global(.separator) {
