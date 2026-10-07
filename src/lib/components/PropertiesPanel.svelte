@@ -1,14 +1,16 @@
 <script lang="ts">
   import { workspace } from '$lib/stores/workspace.svelte';
-  import type { NodeType, MosaicEdge, MarkerShape, EdgeStrokeStyle } from '$lib/types';
+  import type { MosaicEdge, MarkerShape, EdgeStrokeStyle } from '$lib/types';
   import { nodeRegistry, getIconByName } from '$lib/kernel/registries/node-registry';
   import { MarkerType } from '@xyflow/svelte';
-  import { X, Copy, Trash2, StickyNote, Link2 as Link, ExternalLink, ChevronDown, ChevronRight, Lock, Unlock, Eye, Pencil, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Type, Palette, Settings2, Move, Maximize2, Square, Minus, Circle, SquareRoundCorner } from 'lucide-svelte';
+  import {
+    X, Copy, Check, Trash2, StickyNote, Link2, ExternalLink, Lock, Unlock, Eye, Pencil,
+    AlignLeft, AlignCenter, AlignRight, Bold, Italic, Type, Baseline, Square, SquareRoundCorner,
+    PaintBucket, Spline, Sparkles, MoveHorizontal, ArrowUpRight, CornerDownLeft, Tags, Text, Hash,
+    List, Calendar, FileText, SquareCheck, RotateCw, FlipHorizontal2, FlipVertical2, Clock, Scan, Ungroup
+  } from 'lucide-svelte';
   import { ColorInput } from '$lib/components/ui/color-picker';
-  import { IconButton } from '$lib/components/ui/icon-button';
   import { PropertyGroup } from '$lib/components/ui/property-group';
-  import { PropertyRow } from '$lib/components/ui/property-row';
-  import { NumberInput } from '$lib/components/ui/number-input';
   import FixedTooltip from '$lib/components/ui/FixedTooltip.svelte';
   import { openExternal } from '$lib/utils';
   import { knowledge } from '$lib/stores/knowledge.svelte';
@@ -50,12 +52,24 @@
 
   // Accordion states for PropertyGroup
   let generalOpen = $state(true);
+  let labelOpen = $state(true);
   let nodeSettingsOpen = $state(false);
   let appearanceOpen = $state(true);
   let optionsOpen = $state(true);
-  let actionsOpen = $state(true);
+  let lookupOpen = $state(true);
   let fieldsOpen = $state(true);
   let linksOpen = $state(true);
+
+  let tagDraft = $state('');
+  let idCopied = $state(false);
+
+  const STROKES: EdgeStrokeStyle[] = ['solid', 'dashed', 'dotted'];
+  const MARKERS: MarkerShape[] = ['none', 'arrow', 'arrowclosed'];
+  const MARKER_LABELS: Record<MarkerShape, string> = { none: 'None', arrow: 'Arrow', arrowclosed: 'Filled arrow' };
+  const TIME_PARTS: [key: string, label: string, fallback: boolean][] = [
+    ['showMonth', 'Month', true], ['showDay', 'Day', true], ['showYear', 'Year', false], ['showDayOfWeek', 'Weekday', false],
+    ['showHour', 'Hour', true], ['showMinute', 'Min', true], ['showSecond', 'Sec', false], ['showMillisecond', 'Ms', false],
+  ];
 
   let selectedNode = $derived(
     workspace.selectedNodeIds.length === 1
@@ -84,12 +98,60 @@
   let outgoing = $derived(selectedNode ? knowledge.index.outgoing(canvasId, selectedNode.id) : []);
   let backlinks = $derived(selectedNode ? knowledge.index.backlinks(canvasId, selectedNode.id) : []);
   let explicitTags = $derived(
-    selectedNode && Array.isArray(selectedNode.data.tags) ? (selectedNode.data.tags as string[]).join(', ') : ''
+    selectedNode && Array.isArray(selectedNode.data.tags) ? (selectedNode.data.tags as string[]) : []
   );
+
+  function normalizeTag(tag: string): string {
+    return tag.trim().replace(/^#/, '').toLowerCase();
+  }
+
+  function isExplicitTag(tag: string): boolean {
+    return explicitTags.some((t) => normalizeTag(t) === tag);
+  }
+
+  function commitTagDraft() {
+    const existing = new Set(explicitTags.map(normalizeTag));
+    const added = tagDraft.split(/[,\s]+/).map(normalizeTag).filter((t) => t && !existing.has(t));
+    tagDraft = '';
+    if (added.length > 0) updateNodeData('tags', [...explicitTags, ...new Set(added)]);
+  }
+
+  function removeTag(tag: string) {
+    updateNodeData('tags', explicitTags.filter((t) => normalizeTag(t) !== tag));
+  }
+
+  function handleTagKey(e: KeyboardEvent) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      commitTagDraft();
+    } else if (e.key === 'Backspace' && tagDraft === '' && explicitTags.length > 0) {
+      updateNodeData('tags', explicitTags.slice(0, -1));
+    }
+  }
+
+  async function copyNodeId() {
+    if (!selectedNode) return;
+    await navigator.clipboard.writeText(selectedNode.id);
+    idCopied = true;
+    setTimeout(() => (idCopied = false), 1200);
+  }
 
   function fieldLabel(key: string): string {
     const words = key.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
     return words.charAt(0).toUpperCase() + words.slice(1);
+  }
+
+  function fieldIcon(type: string) {
+    switch (type) {
+      case 'number': return Hash;
+      case 'enum': return List;
+      case 'date': return Calendar;
+      case 'url': return Link2;
+      case 'boolean': return SquareCheck;
+      case 'string[]': return Tags;
+      case 'markdown': return FileText;
+      default: return Text;
+    }
   }
 
   // Use centralized icon registry
@@ -288,6 +350,34 @@
   }
 </script>
 
+{#snippet strokeGlyph(style: string)}
+  <svg width="22" height="10" viewBox="0 0 22 10" aria-hidden="true">
+    <line
+      x1="2" y1="5" x2="20" y2="5"
+      stroke="currentColor"
+      stroke-width="1.75"
+      stroke-linecap={style === 'dotted' ? 'round' : 'butt'}
+      stroke-dasharray={style === 'dashed' ? '4 3' : style === 'dotted' ? '0.01 3.5' : undefined}
+    />
+  </svg>
+{/snippet}
+
+{#snippet markerGlyph(kind: MarkerShape, start: boolean)}
+  <svg
+    class={start ? 'flip' : ''}
+    width="22" height="10" viewBox="0 0 22 10"
+    fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <line x1="2" y1="5" x2={kind === 'none' ? 20 : 17} y2="5" />
+    {#if kind === 'arrow'}
+      <polyline points="14,1.5 19,5 14,8.5" />
+    {:else if kind === 'arrowclosed'}
+      <polygon points="14,1.5 20,5 14,8.5" fill="currentColor" />
+    {/if}
+  </svg>
+{/snippet}
+
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div 
   class="properties-panel"
@@ -296,52 +386,76 @@
   onmousedown={handlePanelEvent}
   onpointerdown={handlePanelEvent}
 >
-  <div class="panel-header">
+  <header class="pp-header">
+    <div class="pp-bar">
+      {#if selectedEdge}
+        <span class="pp-kind edge"><span class="pp-kind-icon"><Spline size={12} /></span>Edge</span>
+      {:else if selectedNode}
+        {@const info = getNodeTypeInfo(selectedNode.type)}
+        {@const KindIcon = info ? getIconComponent(info.iconName) : StickyNote}
+        <span class="pp-kind"><span class="pp-kind-icon"><KindIcon size={12} /></span>{info?.label || selectedNode.type}</span>
+      {:else}
+        <span class="pp-kind muted">Properties</span>
+      {/if}
+
+      <div class="pp-bar-actions">
+        {#if selectedNode}
+          <FixedTooltip text="Duplicate" position="bottom">
+            <button class="icon-btn" onclick={duplicateNode} aria-label="Duplicate node"><Copy size={14} /></button>
+          </FixedTooltip>
+          <FixedTooltip text="Delete" position="bottom">
+            <button class="icon-btn danger" onclick={deleteNode} aria-label="Delete node"><Trash2 size={14} /></button>
+          </FixedTooltip>
+        {:else if selectedEdge}
+          <FixedTooltip text="Delete edge" position="bottom">
+            <button class="icon-btn danger" onclick={deleteEdge} aria-label="Delete edge"><Trash2 size={14} /></button>
+          </FixedTooltip>
+        {/if}
+        <FixedTooltip text="Close" position="left">
+          <button class="icon-btn" onclick={onClose} aria-label="Close properties"><X size={14} /></button>
+        </FixedTooltip>
+      </div>
+    </div>
+
     {#if selectedEdge}
-      <span class="header-title"><span class="header-icon edge"><Link size={13} /></span>Edge</span>
+      <input
+        class="pp-title"
+        type="text"
+        value={selectedEdge.label || ''}
+        placeholder="Untitled edge"
+        oninput={(e) => {
+          const label = (e.target as HTMLInputElement).value;
+          updateEdge({ label: label || undefined });
+        }}
+      />
     {:else if selectedNode}
-      {@const info = getNodeTypeInfo(selectedNode.type)}
-      {@const HeaderIcon = info ? getIconComponent(info.iconName) : StickyNote}
-      <span class="header-title"><span class="header-icon"><HeaderIcon size={13} /></span>{info?.label || selectedNode.type}</span>
-    {:else}
-      <span class="header-title">Properties</span>
-    {/if}
-    <FixedTooltip text="Close" position="left">
-      <button class="close-btn" onclick={onClose}>
-        <X size={14} />
+      <input
+        class="pp-title"
+        type="text"
+        value={selectedNode.data.title || ''}
+        placeholder="Untitled"
+        oninput={(e) => updateNodeData('title', (e.target as HTMLInputElement).value)}
+      />
+      <button class="pp-id" onclick={copyNodeId} title="Copy node ID">
+        {#if idCopied}<Check size={11} />{:else}<Copy size={11} />{/if}
+        <span>{selectedNode.id}</span>
       </button>
-    </FixedTooltip>
-  </div>
+    {/if}
+  </header>
 
   {#if selectedEdge}
-    <!-- Edge Properties -->
     <div class="panel-content">
-      <div class="section">
-        <div class="section-header">General</div>
-        
-        <div class="field">
-          <span>Label</span>
-          <input 
-            type="text" 
-            value={selectedEdge.label || ''}
-            oninput={(e) => {
-              const label = (e.target as HTMLInputElement).value;
-              updateEdge({ label: label || undefined });
-            }}
-            placeholder="Edge label..."
-          />
-        </div>
-
-        <div class="field">
-          <span>Edge Type</span>
-          <select 
+      <PropertyGroup title="Connection" bind:open={generalOpen}>
+        <div class="prop">
+          <span class="prop-label"><Spline size={14} />Path</span>
+          <select
+            class="pp-control"
             value={selectedEdge.type || 'default'}
             onchange={(e) => {
               const edgeType = (e.target as HTMLSelectElement).value;
               // Map edge type to path type for GlowEdge
               const pathType = edgeType === 'default' ? 'bezier' : edgeType;
-              // Use updateEdgeWithRefresh for immediate visual update
-              workspace.updateEdgeWithRefresh(selectedEdge.id, { 
+              workspace.updateEdgeWithRefresh(selectedEdge.id, {
                 type: edgeType as any,
                 data: { ...selectedEdge.data, pathType: pathType as any }
               });
@@ -350,210 +464,162 @@
             <option value="default">Bezier</option>
             <option value="straight">Straight</option>
             <option value="step">Step</option>
-            <option value="smoothstep">Smooth Step</option>
+            <option value="smoothstep">Smooth step</option>
           </select>
         </div>
 
-        <label class="checkbox-row">
-          <input 
-            type="checkbox" 
-            checked={selectedEdge.animated ?? false}
-            onchange={(e) => updateEdge({ animated: (e.target as HTMLInputElement).checked })}
-          />
-          <span>Animated</span>
+        <div class="prop">
+          <span class="prop-label"><MoveHorizontal size={14} />Start</span>
+          <div class="seg">
+            {#each MARKERS as m (m)}
+              <button
+                type="button"
+                class="seg-btn"
+                class:active={(selectedEdge.data?.markerStart || 'none') === m}
+                onclick={() => applyMarkers(m, selectedEdge.data?.markerEnd || 'none')}
+                title={MARKER_LABELS[m]}
+              >{@render markerGlyph(m, true)}</button>
+            {/each}
+          </div>
+        </div>
+
+        <div class="prop">
+          <span class="prop-label"><MoveHorizontal size={14} />End</span>
+          <div class="seg">
+            {#each MARKERS as m (m)}
+              <button
+                type="button"
+                class="seg-btn"
+                class:active={(selectedEdge.data?.markerEnd || 'none') === m}
+                onclick={() => applyMarkers(selectedEdge.data?.markerStart || 'none', m)}
+                title={MARKER_LABELS[m]}
+              >{@render markerGlyph(m, false)}</button>
+            {/each}
+          </div>
+        </div>
+
+        <label class="prop">
+          <span class="prop-label"><Sparkles size={14} />Animated</span>
+          <span class="prop-value">
+            <input
+              type="checkbox"
+              class="switch"
+              checked={selectedEdge.animated ?? false}
+              onchange={(e) => updateEdge({ animated: (e.target as HTMLInputElement).checked })}
+            />
+          </span>
         </label>
-      </div>
+      </PropertyGroup>
 
-      <div class="section">
-        <div class="section-header">Markers</div>
-        
-        <div class="field">
-          <span>Start Marker</span>
-          <select 
-            value={selectedEdge.data?.markerStart || 'none'}
-            onchange={(e) => {
-              const value = (e.target as HTMLSelectElement).value as 'none' | 'arrow' | 'arrowclosed';
-              applyMarkers(value, selectedEdge.data?.markerEnd || 'none');
-            }}
-          >
-            <option value="none">None</option>
-            <option value="arrow">Arrow</option>
-            <option value="arrowclosed">Arrow (Filled)</option>
-          </select>
+      <PropertyGroup title="Stroke" bind:open={appearanceOpen}>
+        <div class="prop">
+          <span class="prop-label"><PaintBucket size={14} />Color</span>
+          <span class="prop-value">
+            <ColorInput value={selectedEdge.data?.color || '#555555'} onchange={(color) => updateEdgeAppearance({ color })} size="sm" />
+          </span>
         </div>
-
-        <div class="field">
-          <span>End Marker</span>
-          <select 
-            value={selectedEdge.data?.markerEnd || 'none'}
-            onchange={(e) => {
-              const value = (e.target as HTMLSelectElement).value as 'none' | 'arrow' | 'arrowclosed';
-              applyMarkers(selectedEdge.data?.markerStart || 'none', value);
-            }}
-          >
-            <option value="none">None</option>
-            <option value="arrow">Arrow</option>
-            <option value="arrowclosed">Arrow (Filled)</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="section-header">Appearance</div>
-        
-        <!-- Notion-like Color Toolbar for Edge -->
-        <div class="notion-toolbar">
-          <FixedTooltip text="Line color" position="top">
-            <div class="toolbar-group">
-              <span class="toolbar-label">Line</span>
-              <ColorInput 
-              value={selectedEdge.data?.color || '#555555'}
-              onchange={(color) => updateEdgeAppearance({ color })}
-              size="sm"
+        <div class="prop">
+          <span class="prop-label"><Baseline size={14} />Width</span>
+          <span class="prop-value">
+            <label class="num">
+              <input
+                type="number"
+                min="1"
+                max="10"
+                value={selectedEdge.data?.strokeWidth || 2}
+                oninput={(e) => updateEdgeAppearance({ strokeWidth: parseInt((e.target as HTMLInputElement).value) || 2 })}
               />
-            </div>
-          </FixedTooltip>
-          <div class="toolbar-divider"></div>
-          <FixedTooltip text="Line width (1-10px)" position="top">
-            <div class="toolbar-group compact">
-              <span class="toolbar-label">W</span>
-            <input 
-              type="number" 
-              class="toolbar-input"
-              value={selectedEdge.data?.strokeWidth || 2}
-              oninput={(e) => {
-                updateEdgeAppearance({ strokeWidth: parseInt((e.target as HTMLInputElement).value) || 2 });
-              }}
-              min="1"
-              max="10"
-            />
-            </div>
-          </FixedTooltip>
-          <div class="toolbar-divider"></div>
-          <FixedTooltip text="Line style" position="top">
-            <div class="toolbar-group">
-              <select 
-              class="toolbar-select"
-              value={selectedEdge.data?.strokeStyle || 'solid'}
-              onchange={(e) => {
-                updateEdgeAppearance({ strokeStyle: (e.target as HTMLSelectElement).value as EdgeStrokeStyle });
-              }}
-            >
-              <option value="solid">━</option>
-              <option value="dashed">┅</option>
-              <option value="dotted">┈</option>
-            </select>
-            </div>
-          </FixedTooltip>
+              <span class="unit">px</span>
+            </label>
+          </span>
         </div>
-
-        <!-- Label Styling Toolbar -->
-        <div class="notion-toolbar">
-          <FixedTooltip text="Label text color" position="top">
-            <div class="toolbar-group">
-              <Type size={14} class="toolbar-icon" />
-            <ColorInput 
-              value={selectedEdge.data?.labelColor || '#ffffff'}
-              onchange={(color) => updateEdgeData('labelColor', color)}
-              size="sm"
-            />
-            </div>
-          </FixedTooltip>
-          <div class="toolbar-divider"></div>
-          <FixedTooltip text="Label background color" position="top">
-            <div class="toolbar-group">
-              <span class="toolbar-label">BG</span>
-            <ColorInput 
-              value={selectedEdge.data?.labelBgColor || '#1a1d21'}
-              onchange={(color) => updateEdgeData('labelBgColor', color)}
-              size="sm"
-            />
-            </div>
-          </FixedTooltip>
-          <div class="toolbar-divider"></div>
-          <FixedTooltip text="Label font size (8-24px)" position="top">
-            <div class="toolbar-group compact">
-              <span class="toolbar-label">Sz</span>
-              <input 
-                type="number" 
-                class="toolbar-input"
-                value={selectedEdge.data?.labelFontSize || 12}
-                oninput={(e) => updateEdgeData('labelFontSize', parseInt((e.target as HTMLInputElement).value))}
-                min="8"
-                max="24"
-              />
-            </div>
-          </FixedTooltip>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="section-header">Actions</div>
-        <div class="action-buttons">
-          <button class="action-btn danger full-width" onclick={deleteEdge}>
-            <Trash2 size={14} />
-            <span>Delete Edge</span>
-          </button>
-        </div>
-      </div>
-    </div>
-
-  {:else if selectedNode}
-    <div class="panel-content">
-      <!-- General Section -->
-      <PropertyGroup title="General" bind:open={generalOpen}>
-        <div class="field">
-          <span>Title</span>
-          <input 
-            type="text" 
-            value={selectedNode.data.title || ''}
-            oninput={(e) => updateNodeData('title', (e.target as HTMLInputElement).value)}
-          />
-        </div>
-
-        <div class="field">
-          <span class="muted">ID</span>
-          <input 
-            type="text" 
-            value={selectedNode.id}
-            readonly
-            class="readonly"
-          />
+        <div class="prop">
+          <span class="prop-label"><Scan size={14} />Style</span>
+          <div class="seg">
+            {#each STROKES as s (s)}
+              <button
+                type="button"
+                class="seg-btn"
+                class:active={(selectedEdge.data?.strokeStyle || 'solid') === s}
+                onclick={() => updateEdgeAppearance({ strokeStyle: s })}
+                title={s}
+              >{@render strokeGlyph(s)}</button>
+            {/each}
+          </div>
         </div>
       </PropertyGroup>
 
+      <PropertyGroup title="Label" bind:open={labelOpen}>
+        <div class="prop">
+          <span class="prop-label"><Baseline size={14} />Text</span>
+          <span class="prop-value">
+            <ColorInput value={selectedEdge.data?.labelColor || '#ffffff'} onchange={(color) => updateEdgeData('labelColor', color)} size="sm" />
+          </span>
+        </div>
+        <div class="prop">
+          <span class="prop-label"><PaintBucket size={14} />Background</span>
+          <span class="prop-value">
+            <ColorInput value={selectedEdge.data?.labelBgColor || '#1a1d21'} onchange={(color) => updateEdgeData('labelBgColor', color)} size="sm" />
+          </span>
+        </div>
+        <div class="prop">
+          <span class="prop-label"><Type size={14} />Size</span>
+          <span class="prop-value">
+            <label class="num">
+              <input
+                type="number"
+                min="8"
+                max="24"
+                value={selectedEdge.data?.labelFontSize || 12}
+                oninput={(e) => updateEdgeData('labelFontSize', parseInt((e.target as HTMLInputElement).value))}
+              />
+              <span class="unit">px</span>
+            </label>
+          </span>
+        </div>
+      </PropertyGroup>
+    </div>
+
+  {:else if selectedNode}
+    {@const data = selectedNode.data as Record<string, any>}
+    <div class="panel-content">
       <!-- Type-specific fields, generated from the node plugin's schema -->
       {#if schemaFields.length > 0}
         <PropertyGroup title="Properties" bind:open={fieldsOpen}>
           {#each schemaFields as [key, field] (key)}
-            {@const value = selectedNode.data[key]}
+            {@const value = data[key]}
+            {@const FieldIcon = fieldIcon(field.type)}
             {#if field.type === 'boolean'}
-              <label class="checkbox-row" title={field.description}>
-                <input type="checkbox" checked={!!value} onchange={(e) => updateNodeData(key, (e.target as HTMLInputElement).checked)} />
-                <span>{fieldLabel(key)}</span>
+              <label class="prop" title={field.description}>
+                <span class="prop-label"><FieldIcon size={14} />{fieldLabel(key)}</span>
+                <span class="prop-value">
+                  <input type="checkbox" class="switch" checked={!!value} onchange={(e) => updateNodeData(key, (e.target as HTMLInputElement).checked)} />
+                </span>
               </label>
             {:else if field.type === 'markdown' || key === bodyField}
-              <div class="field field-block" title={field.description}>
-                <span>{fieldLabel(key)}</span>
+              <div class="prop prop-block" title={field.description}>
+                <span class="prop-label"><FieldIcon size={14} />{fieldLabel(key)}</span>
                 <textarea
+                  class="pp-textarea"
                   rows="3"
                   value={typeof value === 'string' ? value : ''}
-                  placeholder={field.description}
+                  placeholder={field.description || 'Empty'}
                   oninput={(e) => updateNodeData(key, (e.target as HTMLTextAreaElement).value)}
                 ></textarea>
               </div>
             {:else}
-              <div class="field" title={field.description}>
-                <span>{fieldLabel(key)}</span>
+              <div class="prop" title={field.description}>
+                <span class="prop-label"><FieldIcon size={14} />{fieldLabel(key)}</span>
                 {#if field.type === 'enum'}
-                  <select value={typeof value === 'string' ? value : ''} onchange={(e) => updateNodeData(key, (e.target as HTMLSelectElement).value)}>
-                    <option value="">—</option>
+                  <select class="pp-control" value={typeof value === 'string' ? value : ''} onchange={(e) => updateNodeData(key, (e.target as HTMLSelectElement).value)}>
+                    <option value="">Empty</option>
                     {#each field.values ?? [] as option}
                       <option value={option}>{option}</option>
                     {/each}
                   </select>
                 {:else if field.type === 'number'}
                   <input
+                    class="pp-control"
                     type="number"
                     step="any"
                     value={typeof value === 'number' ? value : ''}
@@ -565,13 +631,15 @@
                   />
                 {:else if field.type === 'string[]'}
                   <input
+                    class="pp-control"
                     type="text"
                     value={Array.isArray(value) ? value.join(', ') : ''}
-                    placeholder="a, b, c"
+                    placeholder="Empty"
                     oninput={(e) => updateNodeData(key, (e.target as HTMLInputElement).value.split(',').map(s => s.trim()).filter(Boolean))}
                   />
                 {:else}
                   <input
+                    class="pp-control"
                     type="text"
                     value={typeof value === 'string' || typeof value === 'number' ? String(value) : ''}
                     placeholder={field.type === 'date' ? 'YYYY-MM-DD' : field.type === 'url' ? 'https://' : 'Empty'}
@@ -586,640 +654,443 @@
 
       <!-- Knowledge: tags, [[wikilinks]] and backlinks across the vault -->
       <PropertyGroup title="Links & Tags" bind:open={linksOpen}>
-        <div class="field" title="Comma-separated tags; #tags written in the text are added automatically">
-          <span>Tags</span>
-          <input
-            type="text"
-            value={explicitTags}
-            placeholder="idea, todo"
-            onchange={(e) => updateNodeData('tags', (e.target as HTMLInputElement).value.split(',').map(s => s.trim().replace(/^#/, '')).filter(Boolean))}
-          />
-        </div>
-        {#if nodeTags.length > 0}
-          <div class="tag-list">
+        <div class="prop prop-top">
+          <span class="prop-label"><Tags size={14} />Tags</span>
+          <div class="tag-field" title="Enter to add. #tags written in the text are picked up automatically.">
             {#each nodeTags as tag (tag)}
-              <button class="tag-pill" class:active={knowledge.activeTag === tag} onclick={() => knowledge.toggleTag(tag)} title="Highlight nodes tagged #{tag}">#{tag}</button>
+              <span class="tag-pill" class:active={knowledge.activeTag === tag}>
+                <button type="button" class="tag-name" onclick={() => knowledge.toggleTag(tag)} title="Highlight nodes tagged #{tag}">#{tag}</button>
+                {#if isExplicitTag(tag)}
+                  <button type="button" class="tag-x" onclick={() => removeTag(tag)} aria-label="Remove #{tag}"><X size={10} /></button>
+                {/if}
+              </span>
             {/each}
+            <input
+              class="tag-input"
+              type="text"
+              bind:value={tagDraft}
+              placeholder={nodeTags.length ? 'Add…' : 'Empty'}
+              onkeydown={handleTagKey}
+              onblur={commitTagDraft}
+            />
+          </div>
+        </div>
+
+        <div class="sub-heading"><span>Links</span><span class="count">{outgoing.length}</span></div>
+        {#each outgoing as { link, node } (link.raw)}
+          <button
+            class="link-row"
+            class:unresolved={!node}
+            onclick={() => openWikilink(link.canvas ? `${link.canvas}#${link.target}` : link.target)}
+            title={node ? `${node.canvasName} › ${node.title}` : 'No node with this title yet'}
+          >
+            <ArrowUpRight size={13} />
+            <span class="link-title">{link.alias ?? link.target}</span>
+            {#if node && node.canvasId !== canvasId}<span class="link-canvas">{node.canvasName}</span>{/if}
+          </button>
+        {:else}
+          <p class="hint">Write [[Node title]] in the text to link nodes.</p>
+        {/each}
+
+        <div class="sub-heading"><span>Backlinks</span><span class="count">{backlinks.length}</span></div>
+        {#each backlinks as source (source.canvasId + source.id)}
+          <button class="link-row" onclick={() => openNode(source.canvasId, source.id)} title="{source.canvasName} › {source.title}">
+            <CornerDownLeft size={13} />
+            <span class="link-title">{source.title || source.id}</span>
+            {#if source.canvasId !== canvasId}<span class="link-canvas">{source.canvasName}</span>{/if}
+          </button>
+        {:else}
+          <p class="hint">No other node links here yet.</p>
+        {/each}
+      </PropertyGroup>
+
+      <PropertyGroup title="Appearance" bind:open={appearanceOpen}>
+        <div class="prop">
+          <span class="prop-label"><PaintBucket size={14} />Fill</span>
+          <span class="prop-value">
+            <ColorInput
+              value={
+                selectedNode.type === 'simpleText'
+                  ? hexToRgba(data.color || '#1a1d21', (data.bgOpacity as number) ?? 0)
+                  : data.color || (selectedNode.type === 'group' ? 'rgba(59, 130, 246, 0.05)' : '#1e1e1e')
+              }
+              onchange={(color, rgba) => {
+                if (selectedNode.type === 'simpleText' && rgba) {
+                  // SimpleText stores hex and alpha separately
+                  const parsed = parseRgba(color);
+                  updateNodeData('color', parsed.hex);
+                  updateNodeData('bgOpacity', parsed.alpha);
+                } else {
+                  updateNodeData('color', color);
+                }
+              }}
+              size="sm"
+            />
+          </span>
+        </div>
+
+        {#if selectedNode.type === 'group'}
+          <div class="prop">
+            <span class="prop-label"><Baseline size={14} />Label</span>
+            <span class="prop-value">
+              <ColorInput value={data.labelColor || data.borderColor || '#3b82f6'} onchange={(color) => updateNodeData('labelColor', color)} size="sm" />
+            </span>
+          </div>
+        {:else if selectedNode.type !== 'image' && selectedNode.type !== 'annotation'}
+          <div class="prop">
+            <span class="prop-label"><Baseline size={14} />Text</span>
+            <span class="prop-value">
+              <ColorInput value={data.textColor || '#e0e0e0'} onchange={(color) => updateNodeData('textColor', color)} size="sm" />
+            </span>
           </div>
         {/if}
 
-        <div class="link-section">
-          <div class="link-heading">Links <span class="count">{outgoing.length}</span></div>
-          {#each outgoing as { link, node } (link.raw)}
-            <button class="link-row" class:unresolved={!node} onclick={() => openWikilink(link.canvas ? `${link.canvas}#${link.target}` : link.target)} title={node ? `${node.canvasName} › ${node.title}` : 'No node with this title yet'}>
-              <span class="link-title">{link.alias ?? link.target}</span>
-              {#if node && node.canvasId !== canvasId}<span class="link-canvas">{node.canvasName}</span>{/if}
-            </button>
-          {:else}
-            <p class="link-empty">Write [[Node title]] in the text to link nodes.</p>
-          {/each}
-        </div>
-
-        <div class="link-section">
-          <div class="link-heading">Backlinks <span class="count">{backlinks.length}</span></div>
-          {#each backlinks as source (source.canvasId + source.id)}
-            <button class="link-row" onclick={() => openNode(source.canvasId, source.id)} title="{source.canvasName} › {source.title}">
-              <span class="link-title">{source.title || source.id}</span>
-              {#if source.canvasId !== canvasId}<span class="link-canvas">{source.canvasName}</span>{/if}
-            </button>
-          {:else}
-            <p class="link-empty">No other node links here yet.</p>
-          {/each}
-        </div>
-      </PropertyGroup>
-
-      <!-- Appearance Section -->
-      <PropertyGroup title="Appearance" bind:open={appearanceOpen}>
-        <!-- Notion-like Color Toolbar -->
-        <div class="notion-toolbar">
-          <FixedTooltip text="Background color" position="top">
-            <div class="toolbar-group">
-              <span class="toolbar-label">BG</span>
-              <ColorInput 
-                value={
-                  selectedNode.type === 'simpleText' 
-                    ? hexToRgba(
-                        selectedNode.data.color || '#1a1d21', 
-                        (selectedNode.data.bgOpacity as number) ?? 0
-                      )
-                    : selectedNode.data.color || (selectedNode.type === 'group' ? 'rgba(59, 130, 246, 0.05)' : '#1e1e1e')
-                }
-                onchange={(color, rgba) => {
-                  if (selectedNode.type === 'simpleText' && rgba) {
-                    // For SimpleText, extract hex and alpha separately
-                    const parsed = parseRgba(color);
-                    updateNodeData('color', parsed.hex);
-                    updateNodeData('bgOpacity', parsed.alpha);
-                  } else {
-                    updateNodeData('color', color);
-                  }
-                }}
-                size="sm"
-              />
-            </div>
-          </FixedTooltip>
-          <div class="toolbar-divider"></div>
-          <FixedTooltip text="Border color" position="top">
-            <div class="toolbar-group">
-              <Square size={14} />
-              <ColorInput 
-              value={selectedNode.data.borderColor || (selectedNode.type === 'group' ? '#3b82f6' : '#333333')}
+        <div class="prop">
+          <span class="prop-label"><Square size={14} />Border</span>
+          <span class="prop-value">
+            <ColorInput
+              value={data.borderColor || (selectedNode.type === 'group' ? '#3b82f6' : '#333333')}
               onchange={(color) => updateNodeData('borderColor', color)}
               size="sm"
             />
-            </div>
-          </FixedTooltip>
-          {#if selectedNode.type === 'group'}
-          <div class="toolbar-divider"></div>
-          <FixedTooltip text="Label text color" position="top">
-            <div class="toolbar-group">
-              <Type size={14} />
-            <ColorInput 
-              value={(selectedNode.data as any).labelColor || selectedNode.data.borderColor || '#3b82f6'}
-              onchange={(color) => updateNodeData('labelColor', color)}
-              size="sm"
-            />
-            </div>
-          </FixedTooltip>
-          {:else if selectedNode.type !== 'image' && selectedNode.type !== 'annotation'}
-          <div class="toolbar-divider"></div>
-          <FixedTooltip text="Text color" position="top">
-            <div class="toolbar-group">
-              <Type size={14} />
-            <ColorInput 
-              value={selectedNode.data.textColor || '#e0e0e0'}
-              onchange={(color) => updateNodeData('textColor', color)}
-              size="sm"
-            />
-            </div>
-          </FixedTooltip>
-          {/if}
-        </div>
-
-        <!-- Border Settings Toolbar -->
-        <div class="notion-toolbar">
-          <FixedTooltip text="Border width (0-10px)" position="top">
-            <div class="toolbar-group compact">
-              <span class="toolbar-label">W</span>
-            <input 
-              type="number" 
-              class="toolbar-input"
-              value={(selectedNode.data.borderWidth as number) ?? 1}
-              oninput={(e) => updateNodeData('borderWidth', parseInt((e.target as HTMLInputElement).value) || 1)}
-              min="0"
-              max="10"
-            />
-            </div>
-          </FixedTooltip>
-          <div class="toolbar-divider"></div>
-          <FixedTooltip text="Border radius (0-50px)" position="top">
-            <div class="toolbar-group compact">
-              <SquareRoundCorner size={14} />
-            <input 
-              type="number" 
-              class="toolbar-input"
-              value={(selectedNode.data.borderRadius as number) ?? 4}
-              oninput={(e) => updateNodeData('borderRadius', parseInt((e.target as HTMLInputElement).value) || 0)}
-              min="0"
-              max="50"
-            />
-            </div>
-          </FixedTooltip>
-          <div class="toolbar-divider"></div>
-          <FixedTooltip text="Border style" position="top">
-            <div class="toolbar-group">
-              <select 
-              class="toolbar-select"
-              value={(selectedNode.data.borderStyle as string) || 'solid'}
-              onchange={(e) => updateNodeData('borderStyle', (e.target as HTMLSelectElement).value)}
-            >
-              <option value="solid">━</option>
-              <option value="dashed">┅</option>
-              <option value="dotted">┈</option>
-              <option value="none">✕</option>
-            </select>
-            </div>
-          </FixedTooltip>
-        </div>
-
-        <!-- Text Settings Toolbar (SimpleText only) -->
-        {#if selectedNode.type === 'simpleText'}
-        <div class="notion-toolbar">
-          <FixedTooltip text="Font size" position="top">
-            <div class="toolbar-group compact">
-              <span class="toolbar-label">Aa</span>
-              <input 
-                type="number" 
-                class="toolbar-input"
-                value={(selectedNode.data.fontSize as number) ?? 14}
-                oninput={(e) => updateNodeData('fontSize', parseInt((e.target as HTMLInputElement).value) || 14)}
-                min="8"
-                max="72"
+            <label class="num" title="Border width">
+              <input
+                type="number"
+                min="0"
+                max="10"
+                value={(data.borderWidth as number) ?? 1}
+                oninput={(e) => updateNodeData('borderWidth', parseInt((e.target as HTMLInputElement).value) || 1)}
               />
-            </div>
-          </FixedTooltip>
-          <div class="toolbar-divider"></div>
-          <FixedTooltip text="Text alignment" position="top">
-            <div class="toolbar-group">
-              <button 
-                class="mode-btn"
-                class:active={(selectedNode.data.textAlign as string) === 'left' || !(selectedNode.data.textAlign as string)}
-                onclick={() => updateNodeData('textAlign', 'left')}
-                type="button"
-              >
-                <AlignLeft size={14} />
-              </button>
-              <button 
-                class="mode-btn"
-                class:active={(selectedNode.data.textAlign as string) === 'center'}
-                onclick={() => updateNodeData('textAlign', 'center')}
-                type="button"
-              >
-                <AlignCenter size={14} />
-              </button>
-              <button 
-                class="mode-btn"
-                class:active={(selectedNode.data.textAlign as string) === 'right'}
-                onclick={() => updateNodeData('textAlign', 'right')}
-                type="button"
-              >
-                <AlignRight size={14} />
-              </button>
-            </div>
-          </FixedTooltip>
+              <span class="unit">px</span>
+            </label>
+          </span>
         </div>
+
+        <div class="prop">
+          <span class="prop-label"><Scan size={14} />Style</span>
+          <div class="seg">
+            {#each STROKES as s (s)}
+              <button
+                type="button"
+                class="seg-btn"
+                class:active={(data.borderStyle || 'solid') === s}
+                onclick={() => updateNodeData('borderStyle', s)}
+                title={s}
+              >{@render strokeGlyph(s)}</button>
+            {/each}
+            <button type="button" class="seg-btn" class:active={data.borderStyle === 'none'} onclick={() => updateNodeData('borderStyle', 'none')} title="No border">
+              <X size={12} />
+            </button>
+          </div>
+        </div>
+
+        <div class="prop">
+          <span class="prop-label"><SquareRoundCorner size={14} />Radius</span>
+          <span class="prop-value">
+            <label class="num">
+              <input
+                type="number"
+                min="0"
+                max="50"
+                value={(data.borderRadius as number) ?? 4}
+                oninput={(e) => updateNodeData('borderRadius', parseInt((e.target as HTMLInputElement).value) || 0)}
+              />
+              <span class="unit">px</span>
+            </label>
+          </span>
+        </div>
+
+        {#if selectedNode.type === 'simpleText'}
+          <div class="prop">
+            <span class="prop-label"><Type size={14} />Font size</span>
+            <span class="prop-value">
+              <label class="num">
+                <input
+                  type="number"
+                  min="8"
+                  max="72"
+                  value={(data.fontSize as number) ?? 14}
+                  oninput={(e) => updateNodeData('fontSize', parseInt((e.target as HTMLInputElement).value) || 14)}
+                />
+                <span class="unit">px</span>
+              </label>
+            </span>
+          </div>
+          <div class="prop">
+            <span class="prop-label"><AlignLeft size={14} />Align</span>
+            <div class="seg">
+              <button type="button" class="seg-btn" class:active={!data.textAlign || data.textAlign === 'left'} onclick={() => updateNodeData('textAlign', 'left')} title="Left"><AlignLeft size={13} /></button>
+              <button type="button" class="seg-btn" class:active={data.textAlign === 'center'} onclick={() => updateNodeData('textAlign', 'center')} title="Center"><AlignCenter size={13} /></button>
+              <button type="button" class="seg-btn" class:active={data.textAlign === 'right'} onclick={() => updateNodeData('textAlign', 'right')} title="Right"><AlignRight size={13} /></button>
+            </div>
+          </div>
         {/if}
+
+        <label class="prop">
+          <span class="prop-label"><Eye size={14} />Show header</span>
+          <span class="prop-value">
+            <input
+              type="checkbox"
+              class="switch"
+              checked={data.showHeader ?? false}
+              onchange={(e) => updateNodeData('showHeader', (e.target as HTMLInputElement).checked)}
+            />
+          </span>
+        </label>
 
         {#if selectedNode.parentId}
-          <label class="checkbox-row">
-            <input 
-              type="checkbox" 
-              checked={selectedNode.extent === 'parent'}
-              onchange={(e) => updateNodeExtent((e.target as HTMLInputElement).checked)}
-            />
-            <span>Contain within Group</span>
+          <label class="prop">
+            <span class="prop-label"><Lock size={14} />Keep in group</span>
+            <span class="prop-value">
+              <input
+                type="checkbox"
+                class="switch"
+                checked={selectedNode.extent === 'parent'}
+                onchange={(e) => updateNodeExtent((e.target as HTMLInputElement).checked)}
+              />
+            </span>
           </label>
         {/if}
-
-        <label class="checkbox-row">
-          <input 
-            type="checkbox" 
-            checked={selectedNode.data.showHeader ?? false}
-            onchange={(e) => updateNodeData('showHeader', (e.target as HTMLInputElement).checked)}
-          />
-          <span>Show Header</span>
-        </label>
       </PropertyGroup>
 
-      <!-- Layout & Position Section -->
       <PropertyGroup title="Layout" bind:open={nodeSettingsOpen}>
-        <div class="field-with-lock">
-          <div class="field-row">
-            <div class="field">
-              <span class="muted">X</span>
-              <input 
-                type="number" 
-                value={Math.round(selectedNode.position.x)}
-                oninput={(e) => updateNodePosition('x', parseInt((e.target as HTMLInputElement).value))}
-                disabled={selectedNode.data.locked}
-              />
-            </div>
-            <div class="field">
-              <span class="muted">Y</span>
-              <input 
-                type="number" 
-                value={Math.round(selectedNode.position.y)}
-                oninput={(e) => updateNodePosition('y', parseInt((e.target as HTMLInputElement).value))}
-                disabled={selectedNode.data.locked}
-              />
-            </div>
-          </div>
-          <button 
-            class="lock-btn" 
-            onclick={() => updateNodeData('locked', !selectedNode.data.locked)}
-            title={selectedNode.data.locked ? 'Unlock position' : 'Lock position'}
+        <div class="xy-grid">
+          <label class="num field" class:disabled={data.locked}>
+            <span class="prefix">X</span>
+            <input
+              type="number"
+              value={Math.round(selectedNode.position.x)}
+              oninput={(e) => updateNodePosition('x', parseInt((e.target as HTMLInputElement).value))}
+              disabled={data.locked}
+            />
+          </label>
+          <label class="num field" class:disabled={data.locked}>
+            <span class="prefix">Y</span>
+            <input
+              type="number"
+              value={Math.round(selectedNode.position.y)}
+              oninput={(e) => updateNodePosition('y', parseInt((e.target as HTMLInputElement).value))}
+              disabled={data.locked}
+            />
+          </label>
+          <button
+            class="icon-btn"
+            class:on={data.locked}
+            onclick={() => updateNodeData('locked', !data.locked)}
+            title={data.locked ? 'Unlock position' : 'Lock position'}
+            aria-label={data.locked ? 'Unlock position' : 'Lock position'}
           >
-            {#if selectedNode.data.locked}
-              <Lock size={14} />
-            {:else}
-              <Unlock size={14} />
-            {/if}
+            {#if data.locked}<Lock size={13} />{:else}<Unlock size={13} />{/if}
           </button>
-        </div>
 
-        <div class="field-with-lock">
-          <div class="field-row">
-            <div class="field">
-              <span class="muted">W</span>
-              <input 
-                type="number" 
-                value={selectedNode.width || 200}
-                oninput={(e) => updateNodeSize('width', parseInt((e.target as HTMLInputElement).value))}
-                disabled={selectedNode.data.sizeLocked}
-                min="50"
-              />
-            </div>
-            <div class="field">
-              <span class="muted">H</span>
-              <input 
-                type="number" 
-                value={selectedNode.height || 100}
-                oninput={(e) => updateNodeSize('height', parseInt((e.target as HTMLInputElement).value))}
-                disabled={selectedNode.data.sizeLocked}
-                min="50"
-              />
-            </div>
-          </div>
-          <button 
-            class="lock-btn" 
-            onclick={() => updateNodeData('sizeLocked', !selectedNode.data.sizeLocked)}
-            title={selectedNode.data.sizeLocked ? 'Unlock size' : 'Lock size'}
+          <label class="num field" class:disabled={data.sizeLocked}>
+            <span class="prefix">W</span>
+            <input
+              type="number"
+              min="50"
+              value={selectedNode.width || 200}
+              oninput={(e) => updateNodeSize('width', parseInt((e.target as HTMLInputElement).value))}
+              disabled={data.sizeLocked}
+            />
+          </label>
+          <label class="num field" class:disabled={data.sizeLocked}>
+            <span class="prefix">H</span>
+            <input
+              type="number"
+              min="50"
+              value={selectedNode.height || 100}
+              oninput={(e) => updateNodeSize('height', parseInt((e.target as HTMLInputElement).value))}
+              disabled={data.sizeLocked}
+            />
+          </label>
+          <button
+            class="icon-btn"
+            class:on={data.sizeLocked}
+            onclick={() => updateNodeData('sizeLocked', !data.sizeLocked)}
+            title={data.sizeLocked ? 'Unlock size' : 'Lock size'}
+            aria-label={data.sizeLocked ? 'Unlock size' : 'Lock size'}
           >
-            {#if selectedNode.data.sizeLocked}
-              <Lock size={14} />
-            {:else}
-              <Unlock size={14} />
-            {/if}
+            {#if data.sizeLocked}<Lock size={13} />{:else}<Unlock size={13} />{/if}
           </button>
         </div>
       </PropertyGroup>
 
-      <!-- Note-specific Options -->
       {#if selectedNode.type === 'note'}
-        <PropertyGroup title="Note Options" bind:open={optionsOpen}>
-          <div class="field">
-            <span>Mode</span>
-            <div class="mode-toggle">
-              <button 
-                class="mode-btn" 
-                class:active={(selectedNode.data as any).viewMode !== 'view'}
-                onclick={() => updateNodeData('viewMode', 'edit')}
-              >
-                <Pencil size={14} />
-                <span>Edit</span>
+        <PropertyGroup title="Note" bind:open={optionsOpen}>
+          <div class="prop">
+            <span class="prop-label"><Pencil size={14} />Mode</span>
+            <div class="seg">
+              <button type="button" class="seg-btn wide" class:active={data.viewMode !== 'view'} onclick={() => updateNodeData('viewMode', 'edit')}>
+                <Pencil size={12} />Edit
               </button>
-              <button 
-                class="mode-btn"
-                class:active={(selectedNode.data as any).viewMode === 'view'}
-                onclick={() => updateNodeData('viewMode', 'view')}
-              >
-                <Eye size={14} />
-                <span>View</span>
+              <button type="button" class="seg-btn wide" class:active={data.viewMode === 'view'} onclick={() => updateNodeData('viewMode', 'view')}>
+                <Eye size={12} />View
               </button>
             </div>
           </div>
         </PropertyGroup>
       {/if}
 
-      <!-- Timestamp-specific Options -->
       {#if selectedNode.type === 'timestamp'}
-        <PropertyGroup title="Display Options" bind:open={optionsOpen}>
-          <!-- Custom Timestamp Picker -->
-          <div class="input-group">
-            <span class="input-label">Custom Date/Time</span>
-            <input 
-              type="datetime-local" 
-              class="datetime-input nodrag"
-              value={(selectedNode.data as any).customTimestamp ? new Date((selectedNode.data as any).customTimestamp).toISOString().slice(0, 16) : ''}
+        <PropertyGroup title="Timestamp" bind:open={optionsOpen}>
+          <div class="prop">
+            <span class="prop-label"><Calendar size={14} />Date</span>
+            <input
+              type="datetime-local"
+              class="pp-control nodrag"
+              value={data.customTimestamp ? new Date(data.customTimestamp).toISOString().slice(0, 16) : ''}
               onchange={(e) => {
                 const value = (e.target as HTMLInputElement).value;
                 updateNodeData('customTimestamp', value ? new Date(value).toISOString() : null);
               }}
             />
-            <span class="input-hint">Leave empty for live time</span>
-            {#if (selectedNode.data as any).customTimestamp}
-              <button 
-                class="clear-btn"
-                onclick={() => updateNodeData('customTimestamp', null)}
-              >
-                Use Live Time
-              </button>
+          </div>
+          <p class="prop-hint">
+            {#if data.customTimestamp}
+              Fixed time · <button type="button" class="link-btn" onclick={() => updateNodeData('customTimestamp', null)}>Use live time</button>
+            {:else}
+              Showing live time
             {/if}
-          </div>
+          </p>
 
-          <div class="section-divider"></div>
-
-          <label class="checkbox-row">
-            <input 
-              type="checkbox" 
-              checked={(selectedNode.data as any).showHeader ?? false}
-              onchange={(e) => updateNodeData('showHeader', (e.target as HTMLInputElement).checked)}
-            />
-            <span>Show Title</span>
-          </label>
-
-          <label class="checkbox-row">
-            <input 
-              type="checkbox" 
-              checked={(selectedNode.data as any).multiLine ?? false}
-              onchange={(e) => updateNodeData('multiLine', (e.target as HTMLInputElement).checked)}
-            />
-            <span>Multi-line Display</span>
-          </label>
-
-          <div class="section-divider"></div>
-
-          <div class="checkbox-group">
-            <label class="checkbox-row">
-              <input 
-                type="checkbox" 
-                checked={(selectedNode.data as any).showMonth ?? true}
-                onchange={(e) => updateNodeData('showMonth', (e.target as HTMLInputElement).checked)}
-              />
-              <span>Month</span>
-            </label>
-            <label class="checkbox-row">
-              <input 
-                type="checkbox" 
-                checked={(selectedNode.data as any).showDay ?? true}
-                onchange={(e) => updateNodeData('showDay', (e.target as HTMLInputElement).checked)}
-              />
-              <span>Day</span>
-            </label>
-            <label class="checkbox-row">
-              <input 
-                type="checkbox" 
-                checked={(selectedNode.data as any).showYear ?? false}
-                onchange={(e) => updateNodeData('showYear', (e.target as HTMLInputElement).checked)}
-              />
-              <span>Year</span>
-            </label>
-            <label class="checkbox-row">
-              <input 
-                type="checkbox" 
-                checked={(selectedNode.data as any).showDayOfWeek ?? false}
-                onchange={(e) => updateNodeData('showDayOfWeek', (e.target as HTMLInputElement).checked)}
-              />
-              <span>Day of Week</span>
-            </label>
-            <label class="checkbox-row">
-              <input 
-                type="checkbox" 
-                checked={(selectedNode.data as any).showHour ?? true}
-                onchange={(e) => updateNodeData('showHour', (e.target as HTMLInputElement).checked)}
-              />
-              <span>Hour</span>
-            </label>
-            <label class="checkbox-row">
-              <input 
-                type="checkbox" 
-                checked={(selectedNode.data as any).showMinute ?? true}
-                onchange={(e) => updateNodeData('showMinute', (e.target as HTMLInputElement).checked)}
-              />
-              <span>Minute</span>
-            </label>
-            <label class="checkbox-row">
-              <input 
-                type="checkbox" 
-                checked={(selectedNode.data as any).showSecond ?? false}
-                onchange={(e) => updateNodeData('showSecond', (e.target as HTMLInputElement).checked)}
-              />
-              <span>Second</span>
-            </label>
-            <label class="checkbox-row">
-              <input 
-                type="checkbox" 
-                checked={(selectedNode.data as any).showMillisecond ?? false}
-                onchange={(e) => updateNodeData('showMillisecond', (e.target as HTMLInputElement).checked)}
-              />
-              <span>Millisecond</span>
-            </label>
-          </div>
-
-          <!-- Time Format -->
-          <div class="checkbox-group" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #333;">
-            <label class="checkbox-row">
-              <input 
-                type="checkbox" 
-                checked={(selectedNode.data as any).use24HourFormat ?? false}
-                onchange={(e) => updateNodeData('use24HourFormat', (e.target as HTMLInputElement).checked)}
-              />
-              <span>24-Hour Format (Military Time)</span>
-            </label>
-            <div class="hint" style="font-size: 10px; color: #666; margin-left: 22px;">
-              {(selectedNode.data as any).use24HourFormat ? 'Shows 13:00, 14:30, etc.' : 'Shows 1:00 PM, 2:30 PM, etc.'}
+          <div class="prop prop-top">
+            <span class="prop-label"><Clock size={14} />Show</span>
+            <div class="chips">
+              {#each TIME_PARTS as [key, label, fallback] (key)}
+                {@const on = (data[key] as boolean | undefined) ?? fallback}
+                <button type="button" class="chip" class:active={on} aria-pressed={on} onclick={() => updateNodeData(key, !on)}>{label}</button>
+              {/each}
             </div>
           </div>
+
+          <label class="prop" title={data.use24HourFormat ? 'Shows 13:00, 14:30…' : 'Shows 1:00 PM, 2:30 PM…'}>
+            <span class="prop-label"><Hash size={14} />24-hour clock</span>
+            <span class="prop-value">
+              <input
+                type="checkbox"
+                class="switch"
+                checked={data.use24HourFormat ?? false}
+                onchange={(e) => updateNodeData('use24HourFormat', (e.target as HTMLInputElement).checked)}
+              />
+            </span>
+          </label>
+
+          <label class="prop">
+            <span class="prop-label"><AlignLeft size={14} />Multi-line</span>
+            <span class="prop-value">
+              <input
+                type="checkbox"
+                class="switch"
+                checked={data.multiLine ?? false}
+                onchange={(e) => updateNodeData('multiLine', (e.target as HTMLInputElement).checked)}
+              />
+            </span>
+          </label>
         </PropertyGroup>
       {/if}
 
-      <!-- Annotation-specific Options -->
       {#if selectedNode.type === 'annotation'}
-        <PropertyGroup title="Annotation Options" bind:open={optionsOpen}>
-          <!-- Text Color -->
-          <div class="field">
-            <span>Text Color</span>
-            <ColorInput 
-              value={(selectedNode.data as any).textColor || '#999999'}
-              onchange={(color) => updateNodeData('textColor', color)}
-            />
+        <PropertyGroup title="Annotation" bind:open={optionsOpen}>
+          <div class="prop">
+            <span class="prop-label"><Baseline size={14} />Text</span>
+            <span class="prop-value">
+              <ColorInput value={data.textColor || '#999999'} onchange={(color) => updateNodeData('textColor', color)} size="sm" />
+            </span>
           </div>
 
-          <div class="section-divider"></div>
-
-          <!-- Arrow Position -->
-          <div class="field">
-            <span>Arrow Position</span>
-            <select 
-              class="select-input"
-              value={(selectedNode.data as any).arrowPosition || 'bottom-left'}
-              onchange={(e) => updateNodeData('arrowPosition', (e.target as HTMLSelectElement).value)}
-            >
-              <option value="none">No Arrow</option>
-              <option value="top-left">Top Left ↖</option>
-              <option value="top-right">Top Right ↗</option>
-              <option value="bottom-left">Bottom Left ↙</option>
-              <option value="bottom-right">Bottom Right ↘</option>
+          <div class="prop">
+            <span class="prop-label"><ArrowUpRight size={14} />Arrow</span>
+            <select class="pp-control" value={data.arrowPosition || 'bottom-left'} onchange={(e) => updateNodeData('arrowPosition', (e.target as HTMLSelectElement).value)}>
+              <option value="none">None</option>
+              <option value="top-left">Top left ↖</option>
+              <option value="top-right">Top right ↗</option>
+              <option value="bottom-left">Bottom left ↙</option>
+              <option value="bottom-right">Bottom right ↘</option>
               <option value="left">Left ←</option>
               <option value="right">Right →</option>
             </select>
           </div>
 
-          <!-- Arrow Rotation -->
-          <div class="field">
-            <span>Arrow Rotation</span>
-            <select 
-              class="select-input"
-              value={(selectedNode.data as any).arrowRotation || 0}
-              onchange={(e) => updateNodeData('arrowRotation', parseInt((e.target as HTMLSelectElement).value))}
-            >
-              <option value={0}>0°</option>
-              <option value={45}>45°</option>
-              <option value={90}>90°</option>
-              <option value={135}>135°</option>
-              <option value={180}>180°</option>
-              <option value={225}>225°</option>
-              <option value={270}>270°</option>
-              <option value={315}>315°</option>
+          <div class="prop">
+            <span class="prop-label"><RotateCw size={14} />Rotation</span>
+            <select class="pp-control" value={data.arrowRotation || 0} onchange={(e) => updateNodeData('arrowRotation', parseInt((e.target as HTMLSelectElement).value))}>
+              {#each [0, 45, 90, 135, 180, 225, 270, 315] as deg (deg)}
+                <option value={deg}>{deg}°</option>
+              {/each}
             </select>
           </div>
 
-          <!-- Arrow Flip -->
-          <div class="field">
-            <span>Arrow Flip</span>
-            <div class="mode-toggle">
-              <button 
-                class="mode-btn" 
-                class:active={(selectedNode.data as any).arrowFlipX}
-                onclick={() => updateNodeData('arrowFlipX', !(selectedNode.data as any).arrowFlipX)}
-              >
-                <span>Flip X</span>
-              </button>
-              <button 
-                class="mode-btn"
-                class:active={(selectedNode.data as any).arrowFlipY}
-                onclick={() => updateNodeData('arrowFlipY', !(selectedNode.data as any).arrowFlipY)}
-              >
-                <span>Flip Y</span>
-              </button>
+          <div class="prop">
+            <span class="prop-label"><FlipHorizontal2 size={14} />Flip</span>
+            <div class="seg">
+              <button type="button" class="seg-btn" class:active={data.arrowFlipX} onclick={() => updateNodeData('arrowFlipX', !data.arrowFlipX)} title="Flip horizontally"><FlipHorizontal2 size={13} /></button>
+              <button type="button" class="seg-btn" class:active={data.arrowFlipY} onclick={() => updateNodeData('arrowFlipY', !data.arrowFlipY)} title="Flip vertically"><FlipVertical2 size={13} /></button>
             </div>
           </div>
 
-          <div class="section-divider"></div>
-
-          <!-- Font Style -->
-          <div class="field">
-            <span>Font Weight</span>
-            <select 
-              class="select-input"
-              value={(selectedNode.data as any).fontWeight || '400'}
-              onchange={(e) => updateNodeData('fontWeight', (e.target as HTMLSelectElement).value)}
-            >
+          <div class="prop">
+            <span class="prop-label"><Bold size={14} />Weight</span>
+            <select class="pp-control" value={data.fontWeight || '400'} onchange={(e) => updateNodeData('fontWeight', (e.target as HTMLSelectElement).value)}>
               <option value="300">Light</option>
               <option value="400">Normal</option>
               <option value="500">Medium</option>
-              <option value="600">Semi Bold</option>
+              <option value="600">Semibold</option>
               <option value="700">Bold</option>
             </select>
           </div>
 
-          <div class="field">
-            <span>Font Style</span>
-            <div class="mode-toggle">
-              <button 
-                class="mode-btn" 
-                class:active={(selectedNode.data as any).fontStyle !== 'italic'}
-                onclick={() => updateNodeData('fontStyle', 'normal')}
-              >
-                <span>Normal</span>
-              </button>
-              <button 
-                class="mode-btn"
-                class:active={(selectedNode.data as any).fontStyle === 'italic'}
-                onclick={() => updateNodeData('fontStyle', 'italic')}
-              >
-                <span style="font-style: italic;">Italic</span>
-              </button>
+          <div class="prop">
+            <span class="prop-label"><Italic size={14} />Style</span>
+            <div class="seg">
+              <button type="button" class="seg-btn wide" class:active={data.fontStyle !== 'italic'} onclick={() => updateNodeData('fontStyle', 'normal')}>Normal</button>
+              <button type="button" class="seg-btn wide" class:active={data.fontStyle === 'italic'} onclick={() => updateNodeData('fontStyle', 'italic')}><em>Italic</em></button>
             </div>
           </div>
 
-          <!-- Text Align -->
-          <div class="field">
-            <span>Text Align</span>
-            <div class="mode-toggle">
-              <button 
-                class="mode-btn" 
-                class:active={(selectedNode.data as any).textAlign === 'left' || !(selectedNode.data as any).textAlign}
-                onclick={() => updateNodeData('textAlign', 'left')}
-              >
-                <span>Left</span>
-              </button>
-              <button 
-                class="mode-btn"
-                class:active={(selectedNode.data as any).textAlign === 'center'}
-                onclick={() => updateNodeData('textAlign', 'center')}
-              >
-                <span>Center</span>
-              </button>
-              <button 
-                class="mode-btn"
-                class:active={(selectedNode.data as any).textAlign === 'right'}
-                onclick={() => updateNodeData('textAlign', 'right')}
-              >
-                <span>Right</span>
-              </button>
+          <div class="prop">
+            <span class="prop-label"><AlignLeft size={14} />Align</span>
+            <div class="seg">
+              <button type="button" class="seg-btn" class:active={!data.textAlign || data.textAlign === 'left'} onclick={() => updateNodeData('textAlign', 'left')} title="Left"><AlignLeft size={13} /></button>
+              <button type="button" class="seg-btn" class:active={data.textAlign === 'center'} onclick={() => updateNodeData('textAlign', 'center')} title="Center"><AlignCenter size={13} /></button>
+              <button type="button" class="seg-btn" class:active={data.textAlign === 'right'} onclick={() => updateNodeData('textAlign', 'right')} title="Right"><AlignRight size={13} /></button>
             </div>
           </div>
         </PropertyGroup>
       {/if}
 
-      <!-- Group-specific Options -->
       {#if selectedNode.type === 'group'}
-        <PropertyGroup title="Group Options" bind:open={optionsOpen}>
-          <!-- Label -->
-          <div class="input-group">
-            <span class="input-label">Label</span>
-            <input 
-              type="text" 
-              class="text-input"
-              value={(selectedNode.data as any).label || 'Group'}
-              oninput={(e) => updateNodeData('label', (e.target as HTMLInputElement).value)}
+        <PropertyGroup title="Group" bind:open={optionsOpen}>
+          {@const childNodes = workspace.getChildNodes(selectedNode.id)}
+          <div class="prop">
+            <span class="prop-label"><Text size={14} />Label</span>
+            <input
+              type="text"
+              class="pp-control"
+              value={data.label || 'Group'}
               placeholder="Group label"
+              oninput={(e) => updateNodeData('label', (e.target as HTMLInputElement).value)}
             />
           </div>
 
-          <!-- Font Settings -->
-          <div class="subsection-header">Label Settings</div>
-
-          <div class="input-group">
-            <span class="input-label">Font Size</span>
-            <input 
-              type="number" 
-              class="text-input"
-              value={(selectedNode.data as any).fontSize ?? 14}
-              oninput={(e) => updateNodeData('fontSize', parseInt((e.target as HTMLInputElement).value) || 14)}
-              min="10"
-              max="32"
-            />
+          <div class="prop">
+            <span class="prop-label"><Type size={14} />Font size</span>
+            <span class="prop-value">
+              <label class="num">
+                <input
+                  type="number"
+                  min="10"
+                  max="32"
+                  value={data.fontSize ?? 14}
+                  oninput={(e) => updateNodeData('fontSize', parseInt((e.target as HTMLInputElement).value) || 14)}
+                />
+                <span class="unit">px</span>
+              </label>
+            </span>
           </div>
 
-          <div class="input-group">
-            <span class="input-label">Font Weight</span>
-            <select 
-              class="select-input"
-              value={(selectedNode.data as any).fontWeight || 'semibold'}
-              onchange={(e) => updateNodeData('fontWeight', (e.target as HTMLSelectElement).value)}
-            >
+          <div class="prop">
+            <span class="prop-label"><Bold size={14} />Weight</span>
+            <select class="pp-control" value={data.fontWeight || 'semibold'} onchange={(e) => updateNodeData('fontWeight', (e.target as HTMLSelectElement).value)}>
               <option value="normal">Normal</option>
               <option value="medium">Medium</option>
               <option value="semibold">Semibold</option>
@@ -1227,124 +1098,58 @@
             </select>
           </div>
 
-          <div class="input-group">
-            <span class="input-label">Font Style</span>
-            <select 
-              class="select-input"
-              value={(selectedNode.data as any).fontStyle || 'normal'}
-              onchange={(e) => updateNodeData('fontStyle', (e.target as HTMLSelectElement).value)}
-            >
-              <option value="normal">Normal</option>
-              <option value="italic">Italic</option>
-            </select>
+          <div class="prop">
+            <span class="prop-label"><Italic size={14} />Style</span>
+            <div class="seg">
+              <button type="button" class="seg-btn wide" class:active={data.fontStyle !== 'italic'} onclick={() => updateNodeData('fontStyle', 'normal')}>Normal</button>
+              <button type="button" class="seg-btn wide" class:active={data.fontStyle === 'italic'} onclick={() => updateNodeData('fontStyle', 'italic')}><em>Italic</em></button>
+            </div>
           </div>
 
-          <div class="section-divider"></div>
-
-          <!-- Contained Child Nodes -->
-          {#if true}
-            {@const childNodes = workspace.getChildNodes(selectedNode.id)}
-            <div class="input-group">
-              <span class="input-label">Contained Nodes ({childNodes.length})</span>
-              {#if childNodes.length > 0}
-                <div class="child-nodes-list">
-                  {#each childNodes as childNode (childNode.id)}
-                    <div class="child-node-item">
-                      <label class="child-node-checkbox">
-                        <input 
-                          type="checkbox" 
-                          checked={childNode.extent === 'parent'}
-                          onchange={(e) => workspace.setNodeContained(childNode.id, (e.target as HTMLInputElement).checked)}
-                        />
-                        <span class="child-node-label" title={String(childNode.data?.label || childNode.id)}>
-                          {childNode.data?.label || childNode.type || childNode.id}
-                        </span>
-                      </label>
-                    </div>
-                  {/each}
-                </div>
-                <div class="info-text" style="margin-top: 6px; font-size: 10px;">
-                  Checked nodes stay within group bounds
-                </div>
-              {:else}
-                <div class="info-text">No child nodes</div>
-              {/if}
-            </div>
-
-            <!-- Ungroup Button -->
-            {#if childNodes.length > 0}
-              <button 
-                class="action-btn secondary"
-                onclick={() => workspace.ungroupNode(selectedNode.id)}
-                style="width: 100%; margin-top: 8px;"
-              >
-                <span>Ungroup Nodes</span>
-              </button>
-            {/if}
+          <div class="sub-heading"><span>Contained nodes</span><span class="count">{childNodes.length}</span></div>
+          {#each childNodes as child (child.id)}
+            <label class="child-row" title="Keep inside the group bounds">
+              <input
+                type="checkbox"
+                class="check"
+                checked={child.extent === 'parent'}
+                onchange={(e) => workspace.setNodeContained(child.id, (e.target as HTMLInputElement).checked)}
+              />
+              <span class="child-label">{String(child.data?.title || child.data?.label || child.type || child.id)}</span>
+            </label>
+          {:else}
+            <p class="hint">No nodes inside this group.</p>
+          {/each}
+          {#if childNodes.length > 0}
+            <p class="hint">Checked nodes stay within the group bounds.</p>
+            <button class="row-btn" onclick={() => workspace.ungroupNode(selectedNode.id)}>
+              <Ungroup size={14} />Ungroup nodes
+            </button>
           {/if}
         </PropertyGroup>
       {/if}
 
-      <!-- Quick Actions -->
       {#if selectedNode.type === 'hash' || selectedNode.type === 'credential' || selectedNode.type === 'domain'}
-        <div class="section">
-          <div class="section-header">Quick Actions</div>
-          <div class="quick-actions">
-            {#if selectedNode.type === 'hash'}
-              <button 
-                class="quick-action-btn"
-                onclick={() => {
-                  const hash = (selectedNode.data as any).hash;
-                  if (hash) openExternal(`https://www.virustotal.com/gui/search/${encodeURIComponent(hash)}`);
-                }}
-              >
-                <ExternalLink size={14} /> VirusTotal Lookup
-              </button>
-            {/if}
-            {#if selectedNode.type === 'credential'}
-              <button 
-                class="quick-action-btn"
-                onclick={() => {
-                  const email = (selectedNode.data as any).email;
-                  if (email) openExternal(`https://haveibeenpwned.com/account/${encodeURIComponent(email)}`);
-                }}
-              >
-                <ExternalLink size={14} /> HIBP Check
-              </button>
-            {/if}
-            {#if selectedNode.type === 'domain'}
-              <button 
-                class="quick-action-btn"
-                onclick={() => {
-                  const domain = (selectedNode.data as any).domain;
-                  if (domain) openExternal(`https://who.is/whois/${encodeURIComponent(domain)}`);
-                }}
-              >
-                <ExternalLink size={14} /> WHOIS Lookup
-              </button>
-            {/if}
-          </div>
-        </div>
+        <PropertyGroup title="Lookup" bind:open={lookupOpen}>
+          {#if selectedNode.type === 'hash'}
+            <button class="row-btn" onclick={() => { if (data.hash) openExternal(`https://www.virustotal.com/gui/search/${encodeURIComponent(data.hash)}`); }}>
+              <ExternalLink size={14} />VirusTotal
+            </button>
+          {:else if selectedNode.type === 'credential'}
+            <button class="row-btn" onclick={() => { if (data.email) openExternal(`https://haveibeenpwned.com/account/${encodeURIComponent(data.email)}`); }}>
+              <ExternalLink size={14} />Have I Been Pwned
+            </button>
+          {:else}
+            <button class="row-btn" onclick={() => { if (data.domain) openExternal(`https://who.is/whois/${encodeURIComponent(data.domain)}`); }}>
+              <ExternalLink size={14} />WHOIS
+            </button>
+          {/if}
+        </PropertyGroup>
       {/if}
-
-      <!-- Actions -->
-      <div class="section">
-        <div class="section-header">Actions</div>
-        <div class="action-buttons">
-          <button class="action-btn secondary" onclick={duplicateNode}>
-            <Copy size={14} />
-            <span>Duplicate</span>
-          </button>
-          <button class="action-btn danger" onclick={deleteNode}>
-            <Trash2 size={14} />
-            <span>Delete</span>
-          </button>
-        </div>
-      </div>
     </div>
   {:else}
     <div class="empty-state">
-      <StickyNote size={40} strokeWidth={1} />
+      <StickyNote size={32} strokeWidth={1.25} />
       <p>Select a node or edge to view its properties</p>
     </div>
   {/if}
@@ -1352,7 +1157,8 @@
 
 <style>
   .properties-panel {
-    width: 264px;
+    --label-w: 96px;
+    width: 272px;
     height: 100vh;
     background: var(--mf-surface);
     border-left: 1px solid var(--mf-border);
@@ -1364,283 +1170,405 @@
     font-size: 12.5px;
   }
 
-  .panel-header {
+  /* Header: type crumb + actions, then a page-style title */
+  .pp-header {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 36px;
-    padding: 0 8px 0 12px;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 10px 8px;
     border-bottom: 1px solid var(--mf-border);
   }
 
-  .header-title {
+  .pp-bar {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--mf-text);
+    justify-content: space-between;
+    height: 28px;
   }
 
-  .header-icon {
-    display: flex;
+  .pp-kind {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--mf-text-2);
+  }
+
+  .pp-kind.muted {
+    color: var(--mf-text-3);
+  }
+
+  .pp-kind-icon {
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
     border-radius: 5px;
     background: var(--mf-accent-soft);
     color: var(--mf-accent);
   }
 
-  .header-icon.edge {
+  .pp-kind.edge .pp-kind-icon {
     background: rgba(163, 113, 247, 0.16);
     color: #b48cf7;
   }
 
-  .close-btn {
+  .pp-bar-actions {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 1px;
+  }
+
+  .icon-btn {
+    display: grid;
+    place-items: center;
     width: 24px;
     height: 24px;
     padding: 0;
-    background: transparent;
     border: none;
     border-radius: var(--mf-radius);
+    background: transparent;
     color: var(--mf-text-3);
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+
+  .icon-btn:hover {
+    background: var(--mf-hover);
+    color: var(--mf-text);
+  }
+
+  .icon-btn.danger:hover {
+    background: var(--mf-danger-soft);
+    color: var(--mf-danger);
+  }
+
+  .icon-btn.on {
+    color: var(--mf-accent);
+  }
+
+  .pp-title {
+    width: 100%;
+    margin: 0;
+    padding: 2px 0;
+    border: none;
+    background: transparent;
+    outline: none;
+    color: var(--mf-text);
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .pp-title::placeholder {
+    color: var(--mf-text-3);
+  }
+
+  .pp-id {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: calc(100% + 6px);
+    height: 20px;
+    margin-left: -6px;
+    padding: 0 6px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--mf-text-3);
+    font-family: var(--mf-font-mono);
+    font-size: 10.5px;
     cursor: pointer;
   }
 
-  .close-btn:hover {
+  .pp-id span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pp-id:hover {
     background: var(--mf-hover);
-    color: var(--mf-text);
+    color: var(--mf-text-2);
   }
 
   .panel-content {
     flex: 1;
     overflow-y: auto;
-    padding: 4px 6px 12px;
+    padding: 2px 6px 16px;
     display: flex;
     flex-direction: column;
+    scrollbar-width: thin;
   }
 
-  .section {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 6px 0;
-    border-top: 1px solid var(--mf-border);
-  }
-
-  .section:first-child {
-    border-top: none;
-  }
-
-  .section-header {
-    display: flex;
-    align-items: center;
-    height: 24px;
-    padding: 0 6px;
-    font-size: 11.5px;
-    font-weight: 500;
-    color: var(--mf-text-3);
-  }
-
-  /* Notion-style property rows: label left, value right */
-  .field,
-  .input-group {
+  /* Property rows: icon + label on the left, value on the right */
+  .prop {
     display: grid;
-    grid-template-columns: 76px minmax(0, 1fr);
+    grid-template-columns: var(--label-w) minmax(0, 1fr);
     align-items: center;
-    column-gap: 6px;
+    column-gap: 4px;
     min-height: var(--mf-row);
-    padding: 0 6px;
-    border-radius: 4px;
+    padding: 0 4px;
+    border-radius: var(--mf-radius);
   }
 
-  .input-group > :nth-child(n + 3) {
-    grid-column: 1 / -1;
-  }
-
-  .field:hover,
-  .input-group:hover {
+  .prop:hover {
     background: var(--mf-hover);
   }
 
-  .field > span,
-  .input-label {
+  label.prop {
+    cursor: pointer;
+  }
+
+  .prop-top {
+    align-items: start;
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  .prop-block {
+    grid-template-columns: 1fr;
+    row-gap: 2px;
+    padding-bottom: 4px;
+  }
+
+  .prop-label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    height: 24px;
     font-size: 12px;
     color: var(--mf-text-2);
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
 
-  .field > span.muted {
+  .prop-label :global(svg) {
+    flex-shrink: 0;
     color: var(--mf-text-3);
   }
 
-  .field input[type="text"],
-  .field input[type="number"],
-  .field select,
-  .select-input,
-  .text-input,
-  .datetime-input {
+  .prop-value {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding-left: 2px;
+  }
+
+  /* Borderless inputs that reveal themselves on hover/focus */
+  .pp-control {
     width: 100%;
     height: 24px;
     padding: 0 6px;
-    background: transparent;
     border: 1px solid transparent;
     border-radius: 4px;
+    background-color: transparent;
     color: var(--mf-text);
     font-family: inherit;
     font-size: 12.5px;
     font-variant-numeric: tabular-nums;
     outline: none;
     box-sizing: border-box;
+    transition: background-color 0.12s, border-color 0.12s;
   }
 
-  .field select,
-  .select-input {
+  .pp-control::placeholder,
+  .pp-textarea::placeholder,
+  .tag-input::placeholder {
+    color: var(--mf-text-3);
+  }
+
+  select.pp-control {
+    appearance: none;
+    padding-right: 20px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236e6e76' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
     cursor: pointer;
   }
 
-  .field input:hover,
-  .field select:hover,
-  .select-input:hover,
-  .text-input:hover,
-  .datetime-input:hover {
-    background: var(--mf-surface-2);
+  .pp-control:hover {
+    background-color: var(--mf-active);
   }
 
-  .field input:focus,
-  .field select:focus,
-  .select-input:focus,
-  .text-input:focus,
-  .datetime-input:focus {
-    background: var(--mf-surface-2);
+  .pp-control:focus {
+    background-color: var(--mf-surface-2);
     border-color: var(--mf-accent);
   }
 
-  .field input.readonly {
-    font-family: var(--mf-font-mono);
-    font-size: 10.5px;
-    color: var(--mf-text-3);
-    cursor: text;
+  .pp-control::-webkit-calendar-picker-indicator {
+    filter: invert(0.7);
+    cursor: pointer;
   }
 
-  .field input:disabled {
-    color: var(--mf-text-3);
-    cursor: not-allowed;
-  }
-
-  .field-block {
-    grid-template-columns: 1fr;
-    row-gap: 2px;
-    padding-top: 4px;
-    padding-bottom: 4px;
-  }
-
-  .field-block textarea {
+  .pp-textarea {
     width: 100%;
-    min-height: 56px;
-    padding: 4px 6px;
-    background: transparent;
+    min-height: 60px;
+    padding: 6px 8px;
     border: 1px solid var(--mf-border);
-    border-radius: 4px;
+    border-radius: var(--mf-radius);
+    background: var(--mf-surface-2);
     color: var(--mf-text);
     font-family: inherit;
     font-size: 12.5px;
-    line-height: 1.45;
+    line-height: 1.5;
     resize: vertical;
     outline: none;
+    box-sizing: border-box;
   }
 
-  .field-block textarea:focus {
-    background: var(--mf-surface-2);
+  .pp-textarea:focus {
     border-color: var(--mf-accent);
   }
 
-  .field-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2px;
-  }
-
-  .field-row .field {
-    grid-template-columns: 14px minmax(0, 1fr);
-    padding: 0 2px 0 6px;
-  }
-
-  .field-with-lock {
-    display: flex;
+  /* Compact numeric chip with unit/prefix */
+  .num {
+    display: inline-flex;
     align-items: center;
-    gap: 2px;
+    gap: 3px;
+    width: 58px;
+    height: 24px;
+    padding: 0 6px;
+    border: 1px solid var(--mf-border);
+    border-radius: 4px;
+    background: var(--mf-surface-2);
+    box-sizing: border-box;
+    cursor: text;
+    transition: border-color 0.12s;
   }
 
-  .field-with-lock .field-row {
+  .num:hover {
+    border-color: var(--mf-border-strong);
+  }
+
+  .num:focus-within {
+    border-color: var(--mf-accent);
+  }
+
+  .num.field {
+    width: 100%;
+  }
+
+  .num.disabled {
+    opacity: 0.5;
+  }
+
+  .num input {
     flex: 1;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--mf-text);
+    font-family: inherit;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    outline: none;
+    appearance: textfield;
+    -moz-appearance: textfield;
   }
 
-  .lock-btn {
-    display: flex;
+  .num input:disabled {
+    cursor: not-allowed;
+  }
+
+  .num input::-webkit-inner-spin-button,
+  .num input::-webkit-outer-spin-button,
+  .pp-control::-webkit-inner-spin-button,
+  .pp-control::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .num .unit,
+  .num .prefix {
+    flex-shrink: 0;
+    font-size: 10.5px;
+    color: var(--mf-text-3);
+  }
+
+  .num .prefix {
+    width: 11px;
+    font-weight: 500;
+  }
+
+  .xy-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 24px;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px;
+  }
+
+  /* Segmented control */
+  .seg {
+    display: inline-flex;
+    justify-self: start;
+    gap: 1px;
+    padding: 2px;
+    border: 1px solid var(--mf-border);
+    border-radius: var(--mf-radius);
+    background: var(--mf-surface-2);
+  }
+
+  .seg-btn {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    background: transparent;
+    gap: 4px;
+    min-width: 26px;
+    height: 20px;
+    padding: 0 4px;
     border: none;
     border-radius: 4px;
+    background: transparent;
     color: var(--mf-text-3);
+    font-family: inherit;
+    font-size: 11.5px;
     cursor: pointer;
-    flex-shrink: 0;
+    transition: background 0.12s, color 0.12s;
   }
 
-  .lock-btn:hover {
-    background: var(--mf-hover);
+  .seg-btn:hover {
     color: var(--mf-text);
   }
 
-  /* Toggle rows: label left, switch right */
-  .checkbox-row {
-    display: flex;
-    flex-direction: row-reverse;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    min-height: var(--mf-row);
-    padding: 0 6px;
-    border-radius: 4px;
-    font-size: 12px;
-    color: var(--mf-text-2);
-    cursor: pointer;
-  }
-
-  .checkbox-row:hover {
-    background: var(--mf-hover);
+  .seg-btn.active {
+    background: var(--mf-active);
     color: var(--mf-text);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   }
 
-  .checkbox-row input[type="checkbox"],
-  .child-node-checkbox input[type="checkbox"] {
+  .seg-btn.wide {
+    padding: 0 8px;
+  }
+
+  .seg :global(svg.flip) {
+    transform: scaleX(-1);
+  }
+
+  /* Toggle switch */
+  .switch {
     appearance: none;
     position: relative;
+    flex-shrink: 0;
     width: 26px;
     height: 15px;
     margin: 0;
-    padding: 0;
-    border: none;
     border-radius: 999px;
     background: var(--mf-active);
     cursor: pointer;
-    flex-shrink: 0;
     transition: background 0.15s;
   }
 
-  .checkbox-row input[type="checkbox"]::before,
-  .child-node-checkbox input[type="checkbox"]::before {
+  .switch::before {
     content: '';
     position: absolute;
     top: 2px;
@@ -1652,98 +1580,278 @@
     transition: transform 0.15s;
   }
 
-  .checkbox-row input[type="checkbox"]:checked,
-  .child-node-checkbox input[type="checkbox"]:checked {
+  .switch:checked {
     background: var(--mf-accent);
   }
 
-  .checkbox-row input[type="checkbox"]:checked::before,
-  .child-node-checkbox input[type="checkbox"]:checked::before {
+  .switch:checked::before {
     transform: translateX(11px);
     background: #fff;
   }
 
-  .checkbox-group {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0 2px;
+  .switch:focus-visible,
+  .check:focus-visible {
+    outline: 2px solid var(--mf-accent);
+    outline-offset: 2px;
   }
 
-  .mode-toggle {
+  /* Toggle chips */
+  .chips {
     display: flex;
-    gap: 2px;
-    padding: 2px;
-    background: var(--mf-surface-2);
-    border-radius: var(--mf-radius);
-  }
-
-  .mode-btn {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-wrap: wrap;
     gap: 4px;
+    padding: 2px 0;
+  }
+
+  .chip {
     height: 22px;
-    padding: 0 6px;
+    padding: 0 8px;
+    border: 1px solid var(--mf-border);
+    border-radius: 999px;
     background: transparent;
-    border: none;
-    border-radius: 4px;
     color: var(--mf-text-3);
+    font-family: inherit;
     font-size: 11.5px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+
+  .chip:hover {
+    border-color: var(--mf-border-strong);
+    color: var(--mf-text);
+  }
+
+  .chip.active {
+    border-color: transparent;
+    background: var(--mf-accent-soft);
+    color: var(--mf-accent);
+  }
+
+  /* Tags */
+  .tag-field {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    min-height: 24px;
+    padding: 2px 0 2px 2px;
+  }
+
+  .tag-pill {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    border-radius: 4px;
+    background: var(--mf-active);
+    color: var(--mf-text-2);
+    font-size: 11.5px;
+    overflow: hidden;
+  }
+
+  .tag-pill.active {
+    background: var(--mf-accent-soft);
+    color: var(--mf-accent);
+  }
+
+  .tag-name {
+    height: 100%;
+    padding: 0 6px;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
     cursor: pointer;
   }
 
-  .mode-btn:hover {
+  .tag-x {
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 100%;
+    margin-left: -4px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    opacity: 0.55;
+    cursor: pointer;
+  }
+
+  .tag-x:hover {
+    opacity: 1;
+  }
+
+  .tag-input {
+    flex: 1;
+    min-width: 48px;
+    height: 20px;
+    padding: 0 2px;
+    border: none;
+    background: transparent;
     color: var(--mf-text);
+    font-family: inherit;
+    font-size: 12px;
+    outline: none;
   }
 
-  .mode-btn.active {
-    background: var(--mf-active);
-    color: var(--mf-text);
-  }
-
-  .quick-actions,
-  .action-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
-
-  .quick-action-btn,
-  .action-btn {
+  .sub-heading {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    height: 24px;
+    margin-top: 4px;
+    padding: 0 4px;
+    font-size: 11px;
+    color: var(--mf-text-3);
+  }
+
+  .sub-heading .count {
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--mf-active);
+    color: var(--mf-text-2);
+    font-size: 10px;
+    line-height: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* List rows */
+  .link-row,
+  .row-btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
     width: 100%;
     height: var(--mf-row);
-    padding: 0 6px;
-    background: transparent;
+    padding: 0 4px;
     border: none;
-    border-radius: 4px;
-    color: var(--mf-text-2);
+    border-radius: var(--mf-radius);
+    background: transparent;
+    color: var(--mf-text);
+    font-family: inherit;
     font-size: 12.5px;
     text-align: left;
     cursor: pointer;
   }
 
-  .quick-action-btn :global(svg),
-  .action-btn :global(svg) {
-    color: var(--mf-text-3);
+  .row-btn {
+    color: var(--mf-text-2);
   }
 
-  .quick-action-btn:hover,
-  .action-btn:hover {
+  .link-row:hover,
+  .row-btn:hover {
     background: var(--mf-hover);
     color: var(--mf-text);
   }
 
-  .action-btn.danger,
-  .action-btn.danger :global(svg) {
-    color: var(--mf-danger);
+  .link-row :global(svg),
+  .row-btn :global(svg) {
+    flex-shrink: 0;
+    color: var(--mf-text-3);
   }
 
-  .action-btn.danger:hover {
-    background: var(--mf-danger-soft);
+  .link-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .link-row.unresolved .link-title {
+    color: var(--mf-text-3);
+    text-decoration: underline dashed;
+    text-underline-offset: 3px;
+  }
+
+  .link-canvas {
+    flex-shrink: 0;
+    max-width: 45%;
+    margin-left: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+    color: var(--mf-text-3);
+  }
+
+  .hint,
+  .prop-hint {
+    margin: 0;
+    padding: 2px 4px 4px;
+    font-size: 11.5px;
+    line-height: 1.4;
+    color: var(--mf-text-3);
+  }
+
+  .prop-hint {
+    padding-left: calc(var(--label-w) + 10px);
+  }
+
+  .link-btn {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--mf-accent);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .link-btn:hover {
+    text-decoration: underline;
+  }
+
+  /* Group children */
+  .child-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 26px;
+    padding: 0 4px;
+    border-radius: var(--mf-radius);
+    font-size: 12px;
+    color: var(--mf-text-2);
+    cursor: pointer;
+  }
+
+  .child-row:hover {
+    background: var(--mf-hover);
+    color: var(--mf-text);
+  }
+
+  .child-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .check {
+    appearance: none;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    border: 1px solid var(--mf-border-strong);
+    border-radius: 3px;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .check:checked {
+    border-color: var(--mf-accent);
+    background: var(--mf-accent);
+  }
+
+  .check:checked::after {
+    content: '';
+    width: 7px;
+    height: 4px;
+    border-left: 1.5px solid #fff;
+    border-bottom: 1.5px solid #fff;
+    transform: translateY(-1px) rotate(-45deg);
   }
 
   .empty-state {
@@ -1752,10 +1860,10 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 10px;
+    padding: 32px;
     color: var(--mf-text-3);
     text-align: center;
-    padding: 32px;
-    gap: 10px;
   }
 
   .empty-state p {
@@ -1763,245 +1871,14 @@
     font-size: 12.5px;
   }
 
-  .section-divider {
-    height: 1px;
-    background: var(--mf-border);
-    margin: 4px 6px;
-  }
-
-  .datetime-input::-webkit-calendar-picker-indicator {
-    filter: invert(0.8);
-    cursor: pointer;
-  }
-
-  .input-hint,
-  .hint {
-    font-size: 11px;
-    color: var(--mf-text-3);
-    padding: 0 6px;
-  }
-
-  .clear-btn {
-    justify-self: start;
-    height: 22px;
-    padding: 0 8px;
-    background: var(--mf-accent-soft);
-    border: none;
-    border-radius: 4px;
-    color: var(--mf-accent);
-    font-size: 11.5px;
-    cursor: pointer;
-  }
-
-  .clear-btn:hover {
-    filter: brightness(1.15);
-  }
-
-  .subsection-header {
-    padding: 6px 6px 2px;
-    font-size: 11px;
-    color: var(--mf-text-3);
-  }
-
-  .child-nodes-list {
-    grid-column: 1 / -1;
-    max-height: 140px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .child-node-checkbox {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 26px;
-    padding: 0 4px;
-    border-radius: 4px;
-    font-size: 12px;
-    color: var(--mf-text-2);
-    cursor: pointer;
-  }
-
-  .child-node-checkbox:hover {
-    background: var(--mf-hover);
-    color: var(--mf-text);
-  }
-
-  .child-node-label {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex: 1;
-  }
-
-  .info-text {
-    grid-column: 1 / -1;
-    font-size: 11.5px;
-    color: var(--mf-text-3);
-    padding: 2px 6px;
-  }
-
-  /* Notion-like Toolbar Styles */
-  .notion-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 2px;
-    min-height: var(--mf-row);
-    padding: 0 6px;
-    border-radius: 4px;
-  }
-
-  .notion-toolbar:hover {
-    background: var(--mf-hover);
-  }
-
-  .toolbar-group {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
-
-  .toolbar-group.compact {
-    gap: 3px;
-  }
-
-  .toolbar-label {
-    font-size: 11px;
-    color: var(--mf-text-3);
-    min-width: 14px;
-  }
-
-  .toolbar-group :global(svg) {
-    color: var(--mf-text-3);
-    flex-shrink: 0;
-  }
-
-  .toolbar-divider {
-    width: 1px;
-    height: 14px;
-    background: var(--mf-border-strong);
-    margin: 0 5px;
-  }
-
-  .tag-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 2px 0 6px;
-  }
-
-  .link-section {
-    padding: 4px 0;
-  }
-
-  .link-heading {
-    font-size: 11px;
-    color: var(--mf-text-3);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 2px 0 4px;
-  }
-
-  .link-heading .count {
-    margin-left: 4px;
-    color: var(--mf-text-2);
-  }
-
-  .link-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    width: 100%;
-    height: var(--mf-row);
-    padding: 0 6px;
-    border-radius: var(--mf-radius);
-    background: transparent;
-    border: none;
-    color: var(--mf-text);
-    font-size: 12.5px;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .link-row:hover {
-    background: var(--mf-hover);
-  }
-
-  .link-row.unresolved .link-title {
-    color: var(--mf-text-3);
-    text-decoration: underline dashed;
-  }
-
-  .link-title {
-    flex-shrink: 0;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .link-canvas {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 11px;
-    color: var(--mf-text-3);
-  }
-
-  .link-empty {
-    font-size: 11.5px;
-    color: var(--mf-text-3);
-    padding: 2px 6px 4px;
-  }
-
-  .toolbar-input {
-    width: 34px;
-    height: 22px;
-    padding: 0 4px;
-    background: transparent;
-    border: 1px solid var(--mf-border);
-    border-radius: 4px;
-    color: var(--mf-text);
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
-    text-align: center;
-    outline: none;
-  }
-
-  .toolbar-input:focus {
-    border-color: var(--mf-accent);
-  }
-
-  .toolbar-input::-webkit-inner-spin-button,
-  .toolbar-input::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-
-  .toolbar-input[type=number] {
-    -moz-appearance: textfield;
-    appearance: textfield;
-  }
-
-  .toolbar-select {
-    height: 22px;
-    padding: 0 4px;
-    background: transparent;
-    border: 1px solid var(--mf-border);
-    border-radius: 4px;
-    color: var(--mf-text);
-    font-size: 12px;
-    outline: none;
-    cursor: pointer;
-    min-width: 34px;
-  }
-
-  .toolbar-select:focus {
-    border-color: var(--mf-accent);
+  /* Smaller, rounder colour swatches than the picker's default */
+  .properties-panel :global(.color-swatch-btn) {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    min-height: 18px;
+    border-radius: 5px;
+    border-color: var(--mf-border-strong);
   }
 
   .properties-panel :global(option) {

@@ -40,7 +40,7 @@
 
 <style>
   .group {
-    padding: 6px 0;
+    padding: 4px 0 6px;
     border-top: 1px solid var(--mf-border);
   }
 
@@ -53,14 +53,16 @@
     align-items: center;
     gap: 4px;
     width: 100%;
-    height: 24px;
-    padding: 0 6px;
+    height: 26px;
+    padding: 0 4px;
     background: transparent;
     border: none;
     border-radius: 4px;
     color: var(--mf-text-3);
-    font-size: 11.5px;
-    font-weight: 500;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
     text-align: left;
     cursor: default;
   }
@@ -96,7 +98,6 @@
   .group-body {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding-top: 2px;
+    gap: 1px;
   }
 </style>
