@@ -123,13 +123,6 @@
     vaultStore.closeCanvas();
   }
 
-  async function handleOpen() {
-    // Go to canvas list (auto-save handles persistence)
-    currentCanvasId = null;
-    workspace.clear();
-    vaultStore.closeCanvas();
-  }
-
   async function handleExport() {
     await exportAsJson();
   }
@@ -156,10 +149,6 @@
       console.error('Failed to export SVG:', err);
       await message('Failed to export canvas as SVG', { title: 'Error', kind: 'error' });
     }
-  }
-
-  function handleSettings() {
-    workspace.togglePropertiesPanel();
   }
 
   async function handleNewCanvas() {
@@ -219,17 +208,11 @@
 {:else if vaultStore.appView === 'canvas' && vaultStore.currentCanvas}
   <div class="app">
     <Sidebar 
-      onHome={handleHome}
-      onOpen={handleOpen}
+      onSearch={handleSearch}
       onExport={handleExport}
       onExportPackage={exportCanvasPackage}
       onExportPng={handleExportPng}
       onExportSvg={handleExportSvg}
-      onSettings={handleSettings}
-      onNewCanvas={handleNewCanvas}
-      onSearch={handleSearch}
-      canvasName={vaultStore.currentCanvas.name}
-      vaultName={vaultStore.currentVault?.name}
     />
     
     <div class="main-content">
