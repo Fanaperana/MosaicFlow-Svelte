@@ -1,4 +1,4 @@
-import type { FsAdapter } from '@mosaicflow/vault-core';
+import type { CanvasFiles, FsAdapter } from '@mosaicflow/vault-core';
 import { forgetContent, rememberContent } from './diskEcho';
 
 export const tauriFsAdapter: FsAdapter = {
@@ -30,5 +30,12 @@ export const tauriFsAdapter: FsAdapter = {
     const { readDir } = await import('@tauri-apps/plugin-fs');
     const entries = await readDir(path);
     return entries.map((e) => ({ name: e.name, isDirectory: e.isDirectory }));
+  },
+  async readCanvasFiles(root) {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const files = await invoke<CanvasFiles>('read_canvas_files', { canvasPath: root });
+    for (const { id, content } of files.nodes) rememberContent(`${root}/nodes/${id}.md`, content);
+    for (const { id, content } of files.edges) rememberContent(`${root}/edges/${id}/joined.json`, content);
+    return files;
   },
 };

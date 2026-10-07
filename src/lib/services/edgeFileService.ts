@@ -3,6 +3,7 @@
 // Each edge has its own folder with connection data
 
 import type { MosaicEdge } from '$lib/types';
+import type { StoredEdge } from '@mosaicflow/vault-core';
 import { MarkerType, type EdgeMarker } from '@xyflow/svelte';
 import { forgetContent, rememberContent } from './diskEcho';
 
@@ -248,47 +249,43 @@ export async function loadEdge(edgeId: string): Promise<MosaicEdge | null> {
     
     const content = await readTextFile(joinedPath);
     rememberContent(joinedPath, content);
-    const edgeData = JSON.parse(content);
-    
-    // Migrate old handle IDs to new format if needed
-    const migratedSourceHandle = migrateHandleId(edgeData.sourceHandle, 'source');
-    const migratedTargetHandle = migrateHandleId(edgeData.targetHandle, 'target');
-    
-    // Get edge color for markers
-    const edgeColor = edgeData.data?.color || '#555555';
-    
-    // Build markers
-    const markerStart = buildMarker(edgeData.data?.markerStart, edgeColor);
-    const markerEnd = buildMarker(edgeData.data?.markerEnd, edgeColor);
-    
-    // Reconstruct edge with proper style
-    const edge: MosaicEdge = {
-      id: edgeId,
-      source: edgeData.source,
-      target: edgeData.target,
-      sourceHandle: migratedSourceHandle,
-      targetHandle: migratedTargetHandle,
-      label: edgeData.label,
-      type: edgeData.type || 'default',
-      animated: edgeData.animated || false,
-      data: edgeData.data || {},
-      style: buildEdgeStyle(edgeData.data),
-      labelStyle: buildLabelStyle(edgeData.data),
-      labelBgStyle: buildLabelBgStyle(edgeData.data),
-      markerStart,
-      markerEnd,
-    };
-    
-    return edge;
+    return edgeFromData(edgeId, JSON.parse(content));
   } catch (error) {
     console.error(`Error loading edge ${edgeId}:`, error);
     return null;
   }
 }
 
-// Load all edges from the edges folder
-export async function loadAllEdges(): Promise<MosaicEdge[]> {
+function edgeFromData(edgeId: string, edgeData: Omit<StoredEdge, 'id'>): MosaicEdge {
+  const data = (edgeData.data ?? {}) as Record<string, string | number | undefined>;
+  const style = data as Parameters<typeof buildEdgeStyle>[0] &
+    Parameters<typeof buildLabelStyle>[0] &
+    Parameters<typeof buildLabelBgStyle>[0];
+  const edgeColor = (data.color as string) || '#555555';
+
+  return {
+    id: edgeId,
+    source: edgeData.source,
+    target: edgeData.target,
+    // Old files use bare handle ids ("left"); current ones are "left-source" / "left-target".
+    sourceHandle: migrateHandleId(edgeData.sourceHandle, 'source'),
+    targetHandle: migrateHandleId(edgeData.targetHandle, 'target'),
+    label: edgeData.label as MosaicEdge['label'],
+    type: (edgeData.type || 'default') as MosaicEdge['type'],
+    animated: edgeData.animated || false,
+    data: edgeData.data || {},
+    style: buildEdgeStyle(style),
+    labelStyle: buildLabelStyle(style),
+    labelBgStyle: buildLabelBgStyle(style),
+    markerStart: buildMarker(data.markerStart as string | undefined, edgeColor),
+    markerEnd: buildMarker(data.markerEnd as string | undefined, edgeColor),
+  };
+}
+
+// Load all edges from the edges folder (or from files already read in bulk)
+export async function loadAllEdges(preloaded?: StoredEdge[]): Promise<MosaicEdge[]> {
   if (!workspacePath) return [];
+  if (preloaded) return preloaded.map((e) => edgeFromData(e.id, e));
   
   try {
     const { readDir, exists } = await import('@tauri-apps/plugin-fs');

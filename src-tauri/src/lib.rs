@@ -73,6 +73,7 @@ pub fn run() {
             open_canvas,
             close_canvas,
             list_canvases,
+            read_canvas_files,
             rename_canvas,
             delete_canvas,
             update_canvas_tags,

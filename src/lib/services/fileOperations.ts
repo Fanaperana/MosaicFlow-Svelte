@@ -7,7 +7,7 @@ import type { WorkspaceData, UIState, NodeType } from '$lib/types';
 import { toPng, toSvg } from 'html-to-image';
 import { getNodesBounds, getViewportForBounds } from '@xyflow/svelte';
 import { toast } from 'svelte-sonner';
-import { loadAllNodes } from './nodeFileService';
+import { loadAllNodes, readCanvasFiles } from './nodeFileService';
 import { loadAllEdges } from './edgeFileService';
 import { buildNodeTypesDocument, NODE_TYPES_FILE } from '@mosaicflow/vault-core';
 import { nodeRegistry } from '$lib/kernel/registries/node-registry';
@@ -83,17 +83,17 @@ export async function loadWorkspace(path: string): Promise<boolean> {
         }
       }
       
-      // Load nodes from individual files
+      // One round-trip for every node and edge file
+      const files = await readCanvasFiles().catch((error) => {
+        console.warn('Bulk canvas read failed, reading files one by one:', error);
+        return null;
+      });
       const nodesManifest: Record<string, { type: NodeType }> = {};
       for (const [nodeId, nodeInfo] of nodeEntries) {
         nodesManifest[nodeId] = { type: nodeInfo.type as NodeType };
       }
-      const nodes = await loadAllNodes(nodesManifest);
-      workspace.nodes = nodes;
-      
-      // Load edges from individual files
-      const edges = await loadAllEdges();
-      workspace.edges = edges;
+      workspace.nodes = await loadAllNodes(nodesManifest, files?.nodes);
+      workspace.edges = await loadAllEdges(files?.edges);
     } else {
       // V1 format: Load from full workspace.json (backward compatibility)
       console.log('Loading workspace v1 format (legacy)...');

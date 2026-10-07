@@ -45,6 +45,8 @@ class KnowledgeStore {
   private disk = new Map<string, IndexCanvas>();
   private layouts = new Map<string, MiniNode[]>();
   private edges = new Map<string, { source: string; target: string }[]>();
+  /** updated_at of each canvas when it was last read, so unchanged canvases are not re-read. */
+  private readAt = new Map<string, string>();
   /** Canvas whose nodes are currently in the workspace (null while switching pages). */
   private liveCanvasId: string | null = null;
   private loadedKey = '';
@@ -52,39 +54,46 @@ class KnowledgeStore {
   /** Bumped on every rebuild so views (e.g. the graph) can react. */
   revision = $state(0);
 
-  /** (Re)reads every canvas from disk when the vault or its canvas list changed. */
+  /** Reads canvases whose updated_at changed since the last load (all of them when forced). */
   async loadVault(force = false) {
     const canvases = vaultStore.canvases;
     const key = canvases.map((c) => `${c.id}:${c.updated_at}`).join('|');
     if (!force && key === this.loadedKey) return this.compose();
     this.loadedKey = key;
     this.loading = true;
-    const next = new Map<string, IndexCanvas>();
-    const layouts = new Map<string, MiniNode[]>();
-    const edges = new Map<string, { source: string; target: string }[]>();
-    for (const c of canvases) {
+    const started = performance.now();
+    const stale = canvases.filter((c) => force || this.readAt.get(c.id) !== c.updated_at);
+    const alive = new Set(canvases.map((c) => c.id));
+    for (const map of [this.disk, this.layouts, this.edges, this.readAt]) {
+      for (const id of map.keys()) if (!alive.has(id)) map.delete(id);
+    }
+    let nodeCount = 0;
+    const readOne = async (c: (typeof canvases)[number]) => {
       try {
         const repo = new CanvasRepository(tauriFsAdapter, c.path, (type) => nodeRegistry.getBodyMapping(type));
-        const nodes = await repo.readAllNodes();
-        next.set(c.id, { id: c.id, name: c.name, nodes });
-        layouts.set(c.id, toMiniNodes(nodes));
-        edges.set(c.id, (await repo.readAllEdges().catch(() => [])).map((e) => ({ source: e.source, target: e.target })));
+        const { nodes, edges } = await repo.readAll();
+        nodeCount += nodes.length;
+        // The open page is newer in memory than on disk.
+        if (c.id === this.liveCanvasId) return;
+        this.disk.set(c.id, { id: c.id, name: c.name, nodes });
+        this.layouts.set(c.id, toMiniNodes(nodes));
+        this.edges.set(c.id, edges.map((e) => ({ source: e.source, target: e.target })));
+        this.readAt.set(c.id, c.updated_at);
       } catch (error) {
         console.warn(`[knowledge] Skipping canvas ${c.name}:`, error);
       }
-    }
-    // The open page is newer in memory than on disk.
-    if (this.liveCanvasId) {
-      next.delete(this.liveCanvasId);
-      layouts.delete(this.liveCanvasId);
-      edges.delete(this.liveCanvasId);
-    }
-    for (const [id, canvas] of this.disk) if (id === this.liveCanvasId) next.set(id, canvas);
-    this.disk = next;
-    this.layouts = layouts;
-    this.edges = edges;
+    };
+    const queue = [...stale];
+    const worker = async () => {
+      for (let c = queue.shift(); c; c = queue.shift()) await readOne(c);
+    };
+    await Promise.all(Array.from({ length: Math.min(8, queue.length) }, worker));
     this.loading = false;
     this.compose();
+    if (stale.length) {
+      const ms = Math.round(performance.now() - started);
+      console.info(`[knowledge] read ${stale.length}/${canvases.length} canvases (${nodeCount} nodes) in ${ms} ms`);
+    }
   }
 
   /** The workspace now holds this canvas's nodes. */

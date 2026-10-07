@@ -11,6 +11,13 @@ export interface FsAdapter {
   /** Recursive remove. */
   remove(path: string): Promise<void>;
   list(path: string): Promise<{ name: string; isDirectory: boolean }[]>;
+  /** Optional: every node and edge file of a canvas in one round-trip (ids are file/folder names). */
+  readCanvasFiles?(root: string): Promise<CanvasFiles>;
+}
+
+export interface CanvasFiles {
+  nodes: { id: string; content: string }[];
+  edges: { id: string; content: string }[];
 }
 
 const SAFE_ID = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
@@ -69,22 +76,53 @@ export class CanvasRepository {
   async readNode(id: string): Promise<StoredNode | null> {
     const path = this.nodePath(id);
     if (!(await this.fs.exists(path))) return null;
-    const node = markdownToNode(await this.fs.readText(path), this.resolveMapping);
+    return this.parseNode(id, await this.fs.readText(path));
+  }
+
+  private parseNode(id: string, content: string): StoredNode {
     // The file name is authoritative so a copied file cannot shadow another node.
-    return { ...node, id };
+    return { ...markdownToNode(content, this.resolveMapping), id };
+  }
+
+  private parseEdge(id: string, content: string): StoredEdge {
+    return { ...(JSON.parse(content) as Omit<StoredEdge, 'id'>), id };
+  }
+
+  /** Reads every node and edge, in one round-trip when the adapter supports it. */
+  async readAll(): Promise<{ nodes: StoredNode[]; edges: StoredEdge[] }> {
+    if (!this.fs.readCanvasFiles) {
+      const [nodes, edges] = await Promise.all([this.readAllNodes(), this.readAllEdges()]);
+      return { nodes, edges };
+    }
+    const files = await this.fs.readCanvasFiles(this.root);
+    const parse = <T>(kind: string, list: { id: string; content: string }[], fn: (id: string, c: string) => T): T[] =>
+      list.flatMap(({ id, content }) => {
+        if (!SAFE_ID.test(id)) return [];
+        try {
+          return [fn(id, content)];
+        } catch (error) {
+          console.error(`[vault-core] Skipping unreadable ${kind} ${id}:`, error);
+          return [];
+        }
+      });
+    return {
+      nodes: parse('node', files.nodes, (id, c) => this.parseNode(id, c)),
+      edges: parse('edge', files.edges, (id, c) => this.parseEdge(id, c)),
+    };
   }
 
   async readAllNodes(): Promise<StoredNode[]> {
-    const nodes: StoredNode[] = [];
-    for (const id of await this.listNodeIds()) {
-      try {
-        const node = await this.readNode(id);
-        if (node) nodes.push(node);
-      } catch (error) {
-        console.error(`[vault-core] Skipping unreadable node file ${id}.md:`, error);
-      }
-    }
-    return nodes;
+    const results = await Promise.all(
+      (await this.listNodeIds()).map(async (id) => {
+        try {
+          return this.parseNode(id, await this.fs.readText(this.nodePath(id)));
+        } catch (error) {
+          console.error(`[vault-core] Skipping unreadable node file ${id}.md:`, error);
+          return null;
+        }
+      })
+    );
+    return results.filter((n): n is StoredNode => n !== null);
   }
 
   async writeNode(node: StoredNode): Promise<void> {
@@ -114,21 +152,21 @@ export class CanvasRepository {
   async readEdge(id: string): Promise<StoredEdge | null> {
     const path = this.edgePath(id);
     if (!(await this.fs.exists(path))) return null;
-    const raw = JSON.parse(await this.fs.readText(path)) as Omit<StoredEdge, 'id'>;
-    return { ...raw, id };
+    return this.parseEdge(id, await this.fs.readText(path));
   }
 
   async readAllEdges(): Promise<StoredEdge[]> {
-    const edges: StoredEdge[] = [];
-    for (const id of await this.listEdgeIds()) {
-      try {
-        const edge = await this.readEdge(id);
-        if (edge) edges.push(edge);
-      } catch (error) {
-        console.error(`[vault-core] Skipping unreadable edge ${id}:`, error);
-      }
-    }
-    return edges;
+    const results = await Promise.all(
+      (await this.listEdgeIds()).map(async (id) => {
+        try {
+          return await this.readEdge(id);
+        } catch (error) {
+          console.error(`[vault-core] Skipping unreadable edge ${id}:`, error);
+          return null;
+        }
+      })
+    );
+    return results.filter((e): e is StoredEdge => e !== null);
   }
 
   async writeEdge(edge: StoredEdge): Promise<void> {

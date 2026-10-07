@@ -2,7 +2,7 @@
 // Real-time persistence of nodes as markdown files: <canvas>/nodes/<id>.md
 // The on-disk format lives in @mosaicflow/vault-core so external tools (e.g. an MCP server) share it.
 
-import { CanvasRepository, orderParentsFirst, type StoredNode } from '@mosaicflow/vault-core';
+import { CanvasRepository, orderParentsFirst, type StoredEdge, type StoredNode } from '@mosaicflow/vault-core';
 import type { MosaicNode, MosaicNodeData, NodeType } from '$lib/types';
 import { nodeRegistry } from '$lib/kernel/registries/node-registry';
 import { tauriFsAdapter } from './tauriFsAdapter';
@@ -111,15 +111,23 @@ export async function deleteNodeFolder(nodeId: string) {
   }
 }
 
+/** Every node and edge file of the open canvas, read in one round-trip. */
+export async function readCanvasFiles(): Promise<{ nodes: StoredNode[]; edges: StoredEdge[] } | null> {
+  return repository ? repository.readAll() : null;
+}
+
 /**
  * Loads every node file in the canvas. Nodes that only exist in the legacy
  * folder format (listed in the manifest) are migrated to markdown on the fly.
  */
-export async function loadAllNodes(nodesManifest: Record<string, { type: NodeType }>): Promise<MosaicNode[]> {
+export async function loadAllNodes(
+  nodesManifest: Record<string, { type: NodeType }>,
+  preloaded?: StoredNode[]
+): Promise<MosaicNode[]> {
   const repo = repository;
   if (!repo) return [];
 
-  const stored = await repo.readAllNodes();
+  const stored = preloaded ? [...preloaded] : await repo.readAllNodes();
   const seen = new Set(stored.map((n) => n.id));
 
   for (const [nodeId, { type }] of Object.entries(nodesManifest)) {
@@ -135,11 +143,8 @@ export async function loadAllNodes(nodesManifest: Record<string, { type: NodeTyp
     }
   }
 
-  const manifestOrder = Object.keys(nodesManifest);
-  const rank = (id: string) => {
-    const i = manifestOrder.indexOf(id);
-    return i === -1 ? manifestOrder.length : i;
-  };
+  const manifestOrder = new Map(Object.keys(nodesManifest).map((id, i) => [id, i]));
+  const rank = (id: string) => manifestOrder.get(id) ?? manifestOrder.size;
   stored.sort((a, b) => rank(a.id) - rank(b.id));
 
   return orderParentsFirst(stored.map(fromStored));
