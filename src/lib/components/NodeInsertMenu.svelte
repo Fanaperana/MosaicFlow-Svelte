@@ -24,8 +24,8 @@
   let { x, y, heading = 'Insert block', filter, onPick, onClose }: Props = $props();
 
   const RECENT_KEY = 'mosaicflow:recent-node-types';
-  const WIDTH = 320;
-  const MAX_HEIGHT = 400;
+  const WIDTH = 300;
+  const MAX_HEIGHT = 360;
   const SECTION_LABELS: Record<string, string> = {
     content: 'Basic blocks',
     entity: 'People & organizations',
@@ -164,13 +164,11 @@
         onpointerenter={() => (active = i)}
         onclick={() => pick(entry.reg.type)}
       >
-        <span class="tile">
-          {#if Icon}<Icon size={16} strokeWidth={1.6} />{:else}{entry.reg.colors.icon}{/if}
+        <span class="icon">
+          {#if Icon}<Icon size={15} strokeWidth={1.7} />{:else}{entry.reg.colors.icon}{/if}
         </span>
-        <span class="text">
-          <span class="label">{entry.reg.label}</span>
-          {#if entry.reg.description}<span class="desc">{entry.reg.description}</span>{/if}
-        </span>
+        <span class="label">{entry.reg.label}</span>
+        {#if entry.reg.description}<span class="desc">{entry.reg.description}</span>{/if}
       </button>
     {:else}
       <p class="empty">No blocks match "{query}"</p>
@@ -195,8 +193,8 @@
     z-index: 1000;
     display: flex;
     flex-direction: column;
-    width: 320px;
-    max-height: 400px;
+    width: 300px;
+    max-height: 360px;
     overflow: hidden;
     border: 1px solid var(--mf-border-strong);
     border-radius: 10px;
@@ -218,8 +216,8 @@
     flex-shrink: 0;
     align-items: center;
     gap: 8px;
-    height: 42px;
-    padding: 0 12px;
+    height: 38px;
+    padding: 0 10px;
     border-bottom: 1px solid var(--mf-border);
     color: var(--mf-text-3);
   }
@@ -227,39 +225,41 @@
   .search input {
     flex: 1;
     min-width: 0;
-    height: 28px;
+    height: 26px;
     padding: 0;
     border: none;
     background: transparent;
     color: var(--mf-text);
-    font-size: 13.5px;
-    line-height: 28px;
+    font-size: 13px;
+    line-height: 26px;
     outline: none;
   }
 
   .list {
     flex: 1;
     overflow-y: auto;
-    padding: 4px;
+    padding: 2px 4px 4px;
     scrollbar-width: thin;
   }
 
   .section {
-    padding: 8px 8px 4px;
+    padding: 6px 8px 2px;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--mf-text-3);
   }
 
   .item {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     width: 100%;
-    padding: 4px 6px;
-    border-radius: 6px;
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 5px;
     background: transparent;
     color: var(--mf-text);
+    font-size: 13px;
     text-align: left;
   }
 
@@ -267,34 +267,26 @@
     background: var(--mf-hover);
   }
 
-  .tile {
+  .icon {
     display: grid;
     place-items: center;
     flex-shrink: 0;
-    width: 34px;
-    height: 34px;
-    border: 1px solid var(--mf-border-strong);
-    border-radius: 6px;
-    background: var(--mf-surface);
+    width: 18px;
     color: var(--mf-text-2);
-    font-size: 16px;
-  }
-
-  .text {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
+    font-size: 14px;
   }
 
   .label {
-    font-size: 13px;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   .desc {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 11.5px;
+    font-size: 12px;
     color: var(--mf-text-3);
   }
 
