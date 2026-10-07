@@ -16,7 +16,6 @@
     Package,
     Shapes,
     PanelLeft,
-    PanelRight,
   } from 'lucide-svelte';
   import { exportJsonCanvasDialog } from '$lib/services/interopService';
   import { workspace } from '$lib/stores/workspace.svelte';
@@ -139,17 +138,6 @@
         </div>
       {/if}
     </div>
-
-    <SimpleTooltip text="Properties" position="right">
-      <button
-        class="ribbon-btn"
-        class:active={workspace.propertiesPanelOpen}
-        aria-pressed={workspace.propertiesPanelOpen}
-        onclick={(e) => { e.stopPropagation(); workspace.togglePropertiesPanel(); }}
-      >
-        <PanelRight size={17} strokeWidth={1.6} />
-      </button>
-    </SimpleTooltip>
   </div>
 </nav>
 

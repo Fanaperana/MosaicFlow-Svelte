@@ -3,7 +3,7 @@
   import { workspace } from '$lib/stores/workspace.svelte';
   import { flushPendingSaves as flushNodeSaves } from '$lib/services/nodeFileService';
   import { flushPendingSaves as flushEdgeSaves } from '$lib/services/edgeFileService';
-  import { Pencil, Check, X, ChevronRight, Loader2, List, ArrowLeft, ArrowRight, PanelLeft } from 'lucide-svelte';
+  import { Pencil, Check, X, ChevronRight, Loader2, List, ArrowLeft, ArrowRight, PanelRight } from 'lucide-svelte';
   import VaultSwitcher from './VaultSwitcher.svelte';
   import { pageNav } from '$lib/stores/pages.svelte';
 
@@ -61,11 +61,6 @@
 
 <div class="canvas-header">
   <div class="left-actions">
-    {#if !pageNav.sidebarOpen}
-      <button class="icon-btn" onclick={() => pageNav.toggleSidebar(true)} title="Show pages (Ctrl+\)" aria-label="Show pages">
-        <PanelLeft size={15} />
-      </button>
-    {/if}
     <button class="icon-btn" onclick={() => pageNav.goBack()} disabled={!pageNav.canGoBack} title="Back (Alt+←)" aria-label="Back">
       <ArrowLeft size={15} />
     </button>
@@ -112,6 +107,15 @@
     <button class="icon-btn" onclick={onToggleNodeList} title="Toggle Node List">
       <List size={16} />
     </button>
+    <button
+      class="icon-btn"
+      class:active={workspace.propertiesPanelOpen}
+      aria-pressed={workspace.propertiesPanelOpen}
+      onclick={() => workspace.togglePropertiesPanel()}
+      title="Properties"
+    >
+      <PanelRight size={16} />
+    </button>
   </div>
 </div>
 
@@ -138,6 +142,12 @@
     right: 10px;
     display: flex;
     align-items: center;
+    gap: 1px;
+  }
+
+  .icon-btn.active {
+    background: var(--mf-active);
+    color: var(--mf-text);
   }
 
   .left-actions {
