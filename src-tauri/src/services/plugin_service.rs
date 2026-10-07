@@ -3,13 +3,13 @@
 // Discovers user plugins in {APP_DATA}/plugins and serves their files to the frontend.
 // Every file read is confined to the plugin's own directory.
 
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
-use crate::core::{paths::get_plugins_dir, MosaicResult, MosaicError};
 use crate::core::error::ErrorCode;
+use crate::core::{paths::get_plugins_dir, MosaicError, MosaicResult};
 
 /// Plugin manifest structure (matches frontend plugin.json)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,9 +86,14 @@ impl PluginService {
             if manifest.core {
                 continue;
             }
-            let file_url = |rel: &str| Self::resolve_inside(&dir, rel).map(|p| format!("file://{}", p.to_string_lossy()));
+            let file_url = |rel: &str| {
+                Self::resolve_inside(&dir, rel).map(|p| format!("file://{}", p.to_string_lossy()))
+            };
             let main_url = manifest.frontend.as_ref().and_then(|f| file_url(&f.main));
-            let styles_url = manifest.frontend.as_ref().and_then(|f| f.styles.as_deref().and_then(file_url));
+            let styles_url = manifest
+                .frontend
+                .as_ref()
+                .and_then(|f| f.styles.as_deref().and_then(file_url));
 
             discovered.push(DiscoveredPlugin {
                 path: dir.to_string_lossy().to_string(),
@@ -105,13 +110,20 @@ impl PluginService {
     pub fn read_plugin_module(app_handle: &AppHandle, plugin_id: &str) -> MosaicResult<String> {
         let (dir, manifest) = Self::find_plugin(app_handle, plugin_id)?;
         let main = manifest.frontend.map(|f| f.main).ok_or_else(|| {
-            MosaicError::new(ErrorCode::NotFound, format!("Plugin {} has no frontend module", plugin_id))
+            MosaicError::new(
+                ErrorCode::NotFound,
+                format!("Plugin {} has no frontend module", plugin_id),
+            )
         })?;
         Self::read_inside(&dir, &main, plugin_id)
     }
 
     /// Read any text file that belongs to a plugin (e.g. its stylesheet)
-    pub fn read_plugin_file(app_handle: &AppHandle, plugin_id: &str, file: &str) -> MosaicResult<String> {
+    pub fn read_plugin_file(
+        app_handle: &AppHandle,
+        plugin_id: &str,
+        file: &str,
+    ) -> MosaicResult<String> {
         let (dir, _) = Self::find_plugin(app_handle, plugin_id)?;
         Self::read_inside(&dir, file, plugin_id)
     }
@@ -129,17 +141,28 @@ impl PluginService {
             }
             match Self::read_manifest(&manifest_path) {
                 Ok(manifest) => out.push((path, manifest)),
-                Err(e) => eprintln!("Failed to read plugin manifest at {:?}: {}", manifest_path, e),
+                Err(e) => eprintln!(
+                    "Failed to read plugin manifest at {:?}: {}",
+                    manifest_path, e
+                ),
             }
         }
         Ok(out)
     }
 
-    fn find_plugin(app_handle: &AppHandle, plugin_id: &str) -> MosaicResult<(PathBuf, PluginManifest)> {
+    fn find_plugin(
+        app_handle: &AppHandle,
+        plugin_id: &str,
+    ) -> MosaicResult<(PathBuf, PluginManifest)> {
         Self::plugin_dirs(app_handle)?
             .into_iter()
             .find(|(_, m)| m.id == plugin_id && !m.core)
-            .ok_or_else(|| MosaicError::new(ErrorCode::NotFound, format!("Plugin not found: {}", plugin_id)))
+            .ok_or_else(|| {
+                MosaicError::new(
+                    ErrorCode::NotFound,
+                    format!("Plugin not found: {}", plugin_id),
+                )
+            })
     }
 
     /// Resolves `rel` against `dir`, refusing anything that escapes the plugin directory.
@@ -154,7 +177,10 @@ impl PluginService {
         let path = Self::resolve_inside(dir, rel).ok_or_else(|| {
             MosaicError::new(
                 ErrorCode::PermissionDenied,
-                format!("Plugin {} file {:?} is missing or outside its directory", plugin_id, rel),
+                format!(
+                    "Plugin {} file {:?} is missing or outside its directory",
+                    plugin_id, rel
+                ),
             )
         })?;
         fs::read_to_string(&path).map_err(MosaicError::io_error)

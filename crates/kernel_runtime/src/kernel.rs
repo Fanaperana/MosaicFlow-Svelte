@@ -2,19 +2,17 @@
 //!
 //! The main kernel that ties together all runtime components.
 
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
-use kernel_api::{
-    KernelRequest, KernelResponse, KernelEvent, EventTopic,
-    PluginInfo, BuiltinPluginRegistration, KernelResult,
-};
-use tracing::{info, warn, error, debug, instrument};
 use crate::{
-    plugin_registry::PluginRegistry,
-    dispatcher::CommandDispatcher,
-    event_bus::EventBus,
+    dispatcher::CommandDispatcher, event_bus::EventBus, plugin_registry::PluginRegistry,
     policy::PolicyChecker,
 };
+use kernel_api::{
+    BuiltinPluginRegistration, EventTopic, KernelEvent, KernelRequest, KernelResponse,
+    KernelResult, PluginInfo,
+};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use tracing::{debug, error, info, instrument, warn};
 
 /// Runtime metrics for observability
 #[derive(Debug, Default)]
@@ -53,19 +51,19 @@ pub struct MetricsSnapshot {
 pub struct Kernel {
     /// Plugin registry
     pub registry: Arc<PluginRegistry>,
-    
+
     /// Command dispatcher
     pub dispatcher: CommandDispatcher,
-    
+
     /// Event bus
     pub event_bus: Arc<EventBus>,
-    
+
     /// Policy checker
     pub policy: Arc<PolicyChecker>,
-    
+
     /// Runtime metrics
     pub metrics: Arc<KernelMetrics>,
-    
+
     /// Whether kernel is initialized
     initialized: bool,
 }
@@ -77,10 +75,7 @@ impl Kernel {
         let event_bus = Arc::new(EventBus::default());
         let policy = Arc::new(PolicyChecker::default());
         let metrics = Arc::new(KernelMetrics::default());
-        let dispatcher = CommandDispatcher::new(
-            Arc::clone(&registry),
-            Arc::clone(&metrics),
-        );
+        let dispatcher = CommandDispatcher::new(Arc::clone(&registry), Arc::clone(&metrics));
 
         Self {
             registry,
@@ -129,9 +124,9 @@ impl Kernel {
                     error!(plugin_id = %id, error = %e, "Failed to load builtin plugin");
                     self.emit_kernel(
                         EventTopic::PluginError,
-                        serde_json::json!({ 
-                            "pluginId": id, 
-                            "error": format!("{}", e) 
+                        serde_json::json!({
+                            "pluginId": id,
+                            "error": format!("{}", e)
                         }),
                     );
                 }
@@ -276,10 +271,6 @@ pub fn init_kernel() -> KernelResult<()> {
 }
 
 /// Invoke a command on the global kernel
-pub fn kernel_invoke(
-    plugin_id: &str,
-    command: &str,
-    payload: serde_json::Value,
-) -> KernelResponse {
+pub fn kernel_invoke(plugin_id: &str, command: &str, payload: serde_json::Value) -> KernelResponse {
     get_kernel().read().invoke_raw(plugin_id, command, payload)
 }

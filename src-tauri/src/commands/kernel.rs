@@ -84,5 +84,7 @@ pub fn kernel_is_initialized() -> bool {
 #[tauri::command]
 pub fn kernel_emit_event(topic: String, payload: serde_json::Value) {
     use kernel_api::EventTopic;
-    get_kernel().read().emit_kernel(EventTopic::Custom(topic), payload);
+    get_kernel()
+        .read()
+        .emit_kernel(EventTopic::Custom(topic), payload);
 }

@@ -20,13 +20,18 @@ pub fn accept_paths(app: &AppHandle, args: impl IntoIterator<Item = PathBuf>) ->
         .filter_map(|p| {
             let path = p.canonicalize().unwrap_or(p);
             let _ = app.fs_scope().allow_file(&path);
-            path.to_str().map(|s| s.trim_start_matches(r"\\?\").to_string())
+            path.to_str()
+                .map(|s| s.trim_start_matches(r"\\?\").to_string())
         })
         .collect()
 }
 
 pub fn paths_from_args(args: &[String]) -> Vec<PathBuf> {
-    args.iter().skip(1).filter(|a| !a.starts_with('-')).map(PathBuf::from).collect()
+    args.iter()
+        .skip(1)
+        .filter(|a| !a.starts_with('-'))
+        .map(PathBuf::from)
+        .collect()
 }
 
 /// Queues files for the frontend and notifies it (it may not be listening yet at startup).

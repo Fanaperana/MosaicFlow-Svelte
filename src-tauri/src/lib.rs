@@ -19,8 +19,8 @@ pub mod models;
 pub mod services;
 
 // Re-export commands for Tauri registration
-use commands::*;
 use commands::open_files::{accept_paths, paths_from_args, queue_open_files, PendingOpenFiles};
+use commands::*;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

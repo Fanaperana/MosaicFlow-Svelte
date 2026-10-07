@@ -233,7 +233,10 @@ impl PluginManifest {
 
         // Validate plugin ID format (reverse domain notation for non-core)
         if !self.id.contains('.') && !self.core {
-            errors.push("Plugin ID should use reverse domain notation (e.g., com.example.plugin)".to_string());
+            errors.push(
+                "Plugin ID should use reverse domain notation (e.g., com.example.plugin)"
+                    .to_string(),
+            );
         }
 
         // Validate dependency version requirements
@@ -267,17 +270,15 @@ impl PluginManifest {
 
     /// Check if this plugin provides a specific capability type
     pub fn has_capability(&self, cap_type: &str) -> bool {
-        self.capabilities.iter().any(|cap| {
-            match cap {
-                PluginCapability::NodeTypes { .. } => cap_type == "nodeTypes",
-                PluginCapability::Panels { .. } => cap_type == "panels",
-                PluginCapability::Commands { .. } => cap_type == "commands",
-                PluginCapability::ContextMenus { .. } => cap_type == "contextMenus",
-                PluginCapability::EdgeTypes { .. } => cap_type == "edgeTypes",
-                PluginCapability::Themes { .. } => cap_type == "themes",
-                PluginCapability::Formats { .. } => cap_type == "formats",
-                PluginCapability::Custom { name, .. } => name == cap_type,
-            }
+        self.capabilities.iter().any(|cap| match cap {
+            PluginCapability::NodeTypes { .. } => cap_type == "nodeTypes",
+            PluginCapability::Panels { .. } => cap_type == "panels",
+            PluginCapability::Commands { .. } => cap_type == "commands",
+            PluginCapability::ContextMenus { .. } => cap_type == "contextMenus",
+            PluginCapability::EdgeTypes { .. } => cap_type == "edgeTypes",
+            PluginCapability::Themes { .. } => cap_type == "themes",
+            PluginCapability::Formats { .. } => cap_type == "formats",
+            PluginCapability::Custom { name, .. } => name == cap_type,
         })
     }
 

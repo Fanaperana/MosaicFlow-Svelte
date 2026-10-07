@@ -2,12 +2,12 @@
 //!
 //! Pub/sub event system for kernel and plugin communication.
 
+use kernel_api::{event::EventFilter, EventTopic, KernelEvent};
+use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use parking_lot::RwLock;
 use tokio::sync::broadcast;
 use tracing::{debug, trace, warn};
-use kernel_api::{KernelEvent, EventTopic, event::EventFilter};
 
 /// Subscription ID
 pub type SubscriptionId = u64;
@@ -16,16 +16,16 @@ pub type SubscriptionId = u64;
 pub struct EventBus {
     /// Broadcast sender for events
     sender: broadcast::Sender<KernelEvent>,
-    
+
     /// Subscription counter
     next_subscription_id: AtomicU64,
-    
+
     /// Active subscriptions (id -> filter)
     subscriptions: RwLock<HashMap<SubscriptionId, EventFilter>>,
-    
+
     /// Total events emitted (for diagnostics)
     total_emitted: AtomicU64,
-    
+
     /// Channel capacity
     capacity: usize,
 }
@@ -68,7 +68,10 @@ impl EventBus {
     }
 
     /// Subscribe to events
-    pub fn subscribe(&self, filter: EventFilter) -> (SubscriptionId, broadcast::Receiver<KernelEvent>) {
+    pub fn subscribe(
+        &self,
+        filter: EventFilter,
+    ) -> (SubscriptionId, broadcast::Receiver<KernelEvent>) {
         let id = self.next_subscription_id.fetch_add(1, Ordering::SeqCst);
         debug!(subscription_id = id, "New event subscription");
         self.subscriptions.write().insert(id, filter);
@@ -81,7 +84,10 @@ impl EventBus {
     }
 
     /// Subscribe to specific topics
-    pub fn subscribe_topics(&self, topics: Vec<EventTopic>) -> (SubscriptionId, broadcast::Receiver<KernelEvent>) {
+    pub fn subscribe_topics(
+        &self,
+        topics: Vec<EventTopic>,
+    ) -> (SubscriptionId, broadcast::Receiver<KernelEvent>) {
         self.subscribe(EventFilter::topics(topics))
     }
 
@@ -141,7 +147,10 @@ impl FilteredEventStream {
                 }
                 Err(broadcast::error::RecvError::Closed) => return None,
                 Err(broadcast::error::RecvError::Lagged(count)) => {
-                    warn!(missed = count, "Event subscriber lagged, some events were missed");
+                    warn!(
+                        missed = count,
+                        "Event subscriber lagged, some events were missed"
+                    );
                     continue;
                 }
             }

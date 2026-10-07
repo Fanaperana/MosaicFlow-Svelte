@@ -123,19 +123,31 @@ impl<'a> EventEmitter<'a> {
     }
 
     pub fn vault_created(&self, vault_id: &str, path: &str, name: &str) {
-        self.emit_event(event_names::VAULT_CREATED, Self::vault_event(vault_id, path, name));
+        self.emit_event(
+            event_names::VAULT_CREATED,
+            Self::vault_event(vault_id, path, name),
+        );
     }
 
     pub fn vault_opened(&self, vault_id: &str, path: &str, name: &str) {
-        self.emit_event(event_names::VAULT_OPENED, Self::vault_event(vault_id, path, name));
+        self.emit_event(
+            event_names::VAULT_OPENED,
+            Self::vault_event(vault_id, path, name),
+        );
     }
 
     pub fn vault_updated(&self, vault_id: &str, path: &str, name: &str) {
-        self.emit_event(event_names::VAULT_UPDATED, Self::vault_event(vault_id, path, name));
+        self.emit_event(
+            event_names::VAULT_UPDATED,
+            Self::vault_event(vault_id, path, name),
+        );
     }
 
     pub fn vault_closed(&self, vault_id: &str, path: &str, name: &str) {
-        self.emit_event(event_names::VAULT_CLOSED, Self::vault_event(vault_id, path, name));
+        self.emit_event(
+            event_names::VAULT_CLOSED,
+            Self::vault_event(vault_id, path, name),
+        );
     }
 
     // -- Canvas events --------------------------------------------------------

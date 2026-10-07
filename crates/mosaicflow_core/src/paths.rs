@@ -30,9 +30,8 @@ pub fn sanitize_name(name: &str) -> String {
     // Prevent Windows reserved filenames
     let upper = sanitized.to_uppercase();
     let reserved = [
-        "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7",
-        "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8",
-        "LPT9",
+        "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+        "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
     ];
     if reserved.contains(&upper.as_str()) {
         return format!("{}_", sanitized);

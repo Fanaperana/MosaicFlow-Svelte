@@ -2,16 +2,16 @@
 //!
 //! Validates plugin permissions and enforces security policies.
 
-use std::collections::HashSet;
+use kernel_api::{KernelError, KernelResult, PluginPermission};
 use parking_lot::RwLock;
+use std::collections::HashSet;
 use tracing::{debug, warn};
-use kernel_api::{PluginPermission, KernelError, KernelResult};
 
 /// Policy checker for plugin permissions
 pub struct PolicyChecker {
     /// Granted permissions per plugin
     granted_permissions: RwLock<std::collections::HashMap<String, HashSet<PluginPermission>>>,
-    
+
     /// Global policy settings
     policy: RwLock<Policy>,
 }
@@ -21,13 +21,13 @@ pub struct PolicyChecker {
 pub struct Policy {
     /// Whether to allow network access by default
     pub allow_network: bool,
-    
+
     /// Whether to allow file system access by default
     pub allow_filesystem: bool,
-    
+
     /// Whether to allow shell access (dangerous)
     pub allow_shell: bool,
-    
+
     /// Whether core plugins bypass permission checks
     pub core_bypass_checks: bool,
 }

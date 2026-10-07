@@ -19,14 +19,12 @@ pub mod policy;
 // Re-export main types
 pub use dispatcher::CommandDispatcher;
 pub use event_bus::EventBus;
-pub use kernel::{Kernel, KernelMetrics, MetricsSnapshot, get_kernel, init_kernel, kernel_invoke};
+pub use kernel::{get_kernel, init_kernel, kernel_invoke, Kernel, KernelMetrics, MetricsSnapshot};
 pub use plugin_registry::PluginRegistry;
 pub use policy::PolicyChecker;
 
 // Re-export kernel_api types for convenience
 pub use kernel_api::{
-    KernelError, KernelResult, KernelEvent, EventTopic,
-    PluginManifest, PluginCapability, PluginPermission,
-    PluginId, PluginInfo, PluginState, Plugin,
-    KernelRequest, KernelResponse,
+    EventTopic, KernelError, KernelEvent, KernelRequest, KernelResponse, KernelResult, Plugin,
+    PluginCapability, PluginId, PluginInfo, PluginManifest, PluginPermission, PluginState,
 };

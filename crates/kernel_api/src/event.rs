@@ -69,13 +69,13 @@ impl std::fmt::Display for EventTopic {
 pub struct KernelEvent {
     /// Event topic for filtering
     pub topic: EventTopic,
-    
+
     /// Source plugin ID (None for kernel events)
     pub source: Option<String>,
-    
+
     /// Event payload as JSON value
     pub payload: serde_json::Value,
-    
+
     /// Timestamp of the event (Unix milliseconds)
     pub timestamp: u64,
 }
@@ -100,7 +100,11 @@ impl KernelEvent {
     }
 
     /// Create a plugin-originated event
-    pub fn plugin(topic: EventTopic, plugin_id: impl Into<String>, payload: serde_json::Value) -> Self {
+    pub fn plugin(
+        topic: EventTopic,
+        plugin_id: impl Into<String>,
+        payload: serde_json::Value,
+    ) -> Self {
         Self::new(topic, Some(plugin_id.into()), payload)
     }
 }
@@ -110,7 +114,7 @@ impl KernelEvent {
 pub struct EventFilter {
     /// Topics to subscribe to (empty means all)
     pub topics: Vec<EventTopic>,
-    
+
     /// Source plugin IDs to filter (empty means all)
     pub sources: Vec<String>,
 }
@@ -150,7 +154,10 @@ impl EventFilter {
     pub fn matches(&self, event: &KernelEvent) -> bool {
         let topic_match = self.topics.is_empty() || self.topics.contains(&event.topic);
         let source_match = self.sources.is_empty()
-            || event.source.as_ref().map_or(true, |s| self.sources.contains(s));
+            || event
+                .source
+                .as_ref()
+                .map_or(true, |s| self.sources.contains(s));
         topic_match && source_match
     }
 }

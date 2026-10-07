@@ -61,9 +61,11 @@ pub mod response;
 
 // Re-exports for convenience
 pub use error::{KernelError, KernelResult};
-pub use event::{KernelEvent, EventTopic};
-pub use manifest::{PluginManifest, PluginCapability, PluginPermission};
-pub use plugin::{PluginId, PluginInfo, PluginState, Plugin, BuiltinPluginRegistration, PluginFactory};
+pub use event::{EventTopic, KernelEvent};
+pub use manifest::{PluginCapability, PluginManifest, PluginPermission};
+pub use plugin::{
+    BuiltinPluginRegistration, Plugin, PluginFactory, PluginId, PluginInfo, PluginState,
+};
 pub use request::KernelRequest;
 pub use response::KernelResponse;
 

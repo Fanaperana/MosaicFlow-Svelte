@@ -2,11 +2,11 @@
 //!
 //! Defines the core plugin abstraction and related types.
 
-use serde::{Deserialize, Serialize};
+use crate::error::KernelResult;
 use crate::manifest::PluginManifest;
 use crate::request::KernelRequest;
 use crate::response::KernelResponse;
-use crate::error::KernelResult;
+use serde::{Deserialize, Serialize};
 
 /// Unique plugin identifier
 pub type PluginId = String;
@@ -57,21 +57,21 @@ impl std::fmt::Display for PluginState {
 pub struct PluginInfo {
     /// Plugin manifest
     pub manifest: PluginManifest,
-    
+
     /// Current state
     pub state: PluginState,
-    
+
     /// Plugin directory path
     pub path: String,
-    
+
     /// Error message if in error state
     #[serde(default)]
     pub error: Option<String>,
-    
+
     /// Plugin configuration (user settings)
     #[serde(default)]
     pub config: serde_json::Value,
-    
+
     /// Load order (lower = earlier)
     #[serde(default)]
     pub load_order: i32,
@@ -114,7 +114,7 @@ impl PluginInfo {
 }
 
 /// Trait for backend plugins to implement
-/// 
+///
 /// This trait defines the interface that backend plugins must implement.
 /// Initially, plugins are "builtin modules" - Rust trait objects.
 /// In the future, WASM plugins will implement this via a WASM runtime adapter.

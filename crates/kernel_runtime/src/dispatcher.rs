@@ -3,16 +3,15 @@
 //! Routes kernel requests to the appropriate plugins.
 //! Includes panic safety so a misbehaving plugin cannot crash the kernel.
 
-use std::sync::Arc;
-use std::sync::atomic::Ordering;
-use std::time::Instant;
-use kernel_api::{
-    KernelRequest, KernelResponse, KernelError, KernelResult,
-    response::ResponseMetadata,
-};
-use tracing::{debug, error, warn, instrument};
-use crate::plugin_registry::PluginRegistry;
 use crate::kernel::KernelMetrics;
+use crate::plugin_registry::PluginRegistry;
+use kernel_api::{
+    response::ResponseMetadata, KernelError, KernelRequest, KernelResponse, KernelResult,
+};
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use std::time::Instant;
+use tracing::{debug, error, instrument, warn};
 
 /// Command dispatcher that routes requests to plugins
 pub struct CommandDispatcher {
@@ -42,9 +41,11 @@ impl CommandDispatcher {
         name = "dispatch"
     )]
     pub fn dispatch(&self, request: &KernelRequest) -> KernelResponse {
-        self.metrics.commands_dispatched.fetch_add(1, Ordering::Relaxed);
+        self.metrics
+            .commands_dispatched
+            .fetch_add(1, Ordering::Relaxed);
         let start = Instant::now();
-        
+
         // Get the plugin
         let plugin = match self.registry.get_plugin(&request.plugin_id) {
             Some(p) => p,
@@ -90,7 +91,9 @@ impl CommandDispatcher {
         match result {
             Ok(Ok(mut response)) => {
                 debug!(duration_ms = duration, "Command succeeded");
-                self.metrics.commands_succeeded.fetch_add(1, Ordering::Relaxed);
+                self.metrics
+                    .commands_succeeded
+                    .fetch_add(1, Ordering::Relaxed);
                 response.metadata = metadata;
                 response.with_request_id(request.request_id.clone())
             }

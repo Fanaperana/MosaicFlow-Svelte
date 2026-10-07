@@ -2,8 +2,8 @@
 //!
 //! Defines the response structure for kernel_invoke commands.
 
-use serde::{Deserialize, Serialize};
 use crate::error::KernelError;
+use serde::{Deserialize, Serialize};
 
 /// Response from a kernel command invocation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11,19 +11,19 @@ use crate::error::KernelError;
 pub struct KernelResponse {
     /// Whether the request succeeded
     pub success: bool,
-    
+
     /// Response data (present on success)
     #[serde(default)]
     pub data: Option<serde_json::Value>,
-    
+
     /// Error information (present on failure)
     #[serde(default)]
     pub error: Option<KernelError>,
-    
+
     /// Correlated request ID (if provided in request)
     #[serde(default)]
     pub request_id: Option<String>,
-    
+
     /// Response metadata
     #[serde(default)]
     pub metadata: ResponseMetadata,
@@ -102,11 +102,11 @@ pub struct ResponseMetadata {
     /// Time taken to process the request in milliseconds
     #[serde(default)]
     pub duration_ms: Option<u64>,
-    
+
     /// Plugin that handled the request
     #[serde(default)]
     pub handled_by: Option<String>,
-    
+
     /// Additional metadata
     #[serde(default)]
     pub extra: serde_json::Value,
