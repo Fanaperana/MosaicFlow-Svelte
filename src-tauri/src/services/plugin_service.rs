@@ -1,13 +1,15 @@
 // Plugin Service
 //
-// Discovers and manages external plugins from the app's plugins directory.
+// Discovers user plugins in {APP_DATA}/plugins and serves their files to the frontend.
+// Every file read is confined to the plugin's own directory.
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
 use crate::core::{paths::get_plugins_dir, MosaicResult, MosaicError};
+use crate::core::error::ErrorCode;
 
 /// Plugin manifest structure (matches frontend plugin.json)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,6 +24,8 @@ pub struct PluginManifest {
     pub author: String,
     #[serde(default)]
     pub license: String,
+    #[serde(default)]
+    pub homepage: String,
     #[serde(default)]
     pub api_version: String,
     #[serde(default)]
@@ -74,154 +78,91 @@ impl PluginService {
         get_plugins_dir(app_handle)
     }
 
-    /// Discover all plugins in the plugins directory
+    /// Discover all non-core plugins in the plugins directory
     pub fn discover_plugins(app_handle: &AppHandle) -> MosaicResult<Vec<DiscoveredPlugin>> {
-        let plugins_dir = get_plugins_dir(app_handle)?;
         let mut discovered = Vec::new();
 
-        // Read the plugins directory
-        let entries = fs::read_dir(&plugins_dir).map_err(|e| {
-            MosaicError::io_error(e)
-        })?;
-
-        for entry in entries {
-            let entry = match entry {
-                Ok(e) => e,
-                Err(_) => continue,
-            };
-
-            let path = entry.path();
-            
-            // Only process directories
-            if !path.is_dir() {
+        for (dir, manifest) in Self::plugin_dirs(app_handle)? {
+            if manifest.core {
                 continue;
             }
+            let file_url = |rel: &str| Self::resolve_inside(&dir, rel).map(|p| format!("file://{}", p.to_string_lossy()));
+            let main_url = manifest.frontend.as_ref().and_then(|f| file_url(&f.main));
+            let styles_url = manifest.frontend.as_ref().and_then(|f| f.styles.as_deref().and_then(file_url));
 
-            // Look for plugin.json
-            let manifest_path = path.join("plugin.json");
-            if !manifest_path.exists() {
-                continue;
-            }
-
-            // Read and parse the manifest
-            match Self::read_manifest(&manifest_path) {
-                Ok(manifest) => {
-                    // Skip core plugins (they're bundled)
-                    if manifest.core {
-                        continue;
-                    }
-
-                    // Build the plugin info
-                    let plugin_path = path.to_string_lossy().to_string();
-                    
-                    // Resolve and validate main URL (prevent path traversal)
-                    let main_url = manifest.frontend.as_ref().and_then(|f| {
-                        let resolved = path.join(&f.main);
-                        match resolved.canonicalize() {
-                            Ok(canonical) => {
-                                if canonical.starts_with(&path) {
-                                    Some(format!("file://{}", canonical.to_string_lossy()))
-                                } else {
-                                    eprintln!("Plugin {:?} main path escapes plugin directory: {:?}", manifest_path, f.main);
-                                    None
-                                }
-                            }
-                            Err(_) => None,
-                        }
-                    });
-                    
-                    // Resolve and validate styles URL (prevent path traversal)
-                    let styles_url = manifest.frontend.as_ref().and_then(|f| {
-                        f.styles.as_ref().and_then(|s| {
-                            let resolved = path.join(s);
-                            match resolved.canonicalize() {
-                                Ok(canonical) => {
-                                    if canonical.starts_with(&path) {
-                                        Some(format!("file://{}", canonical.to_string_lossy()))
-                                    } else {
-                                        eprintln!("Plugin {:?} styles path escapes plugin directory: {:?}", manifest_path, s);
-                                        None
-                                    }
-                                }
-                                Err(_) => None,
-                            }
-                        })
-                    });
-
-                    discovered.push(DiscoveredPlugin {
-                        manifest,
-                        path: plugin_path,
-                        main_url,
-                        styles_url,
-                    });
-                }
-                Err(e) => {
-                    eprintln!("Failed to read plugin manifest at {:?}: {}", manifest_path, e);
-                    continue;
-                }
-            }
+            discovered.push(DiscoveredPlugin {
+                path: dir.to_string_lossy().to_string(),
+                manifest,
+                main_url,
+                styles_url,
+            });
         }
 
         Ok(discovered)
     }
 
-    /// Read a plugin manifest from a path
-    fn read_manifest(path: &PathBuf) -> MosaicResult<PluginManifest> {
-        let content = fs::read_to_string(path).map_err(|e| MosaicError::io_error(e))?;
-        let manifest: PluginManifest = serde_json::from_str(&content).map_err(|e| {
-            MosaicError::json_error(format!("Invalid plugin.json: {}", e))
+    /// Read a plugin's main module (frontend.main)
+    pub fn read_plugin_module(app_handle: &AppHandle, plugin_id: &str) -> MosaicResult<String> {
+        let (dir, manifest) = Self::find_plugin(app_handle, plugin_id)?;
+        let main = manifest.frontend.map(|f| f.main).ok_or_else(|| {
+            MosaicError::new(ErrorCode::NotFound, format!("Plugin {} has no frontend module", plugin_id))
         })?;
-        Ok(manifest)
+        Self::read_inside(&dir, &main, plugin_id)
     }
 
-    /// Read a specific plugin's main module content
-    pub fn read_plugin_module(app_handle: &AppHandle, plugin_id: &str) -> MosaicResult<String> {
+    /// Read any text file that belongs to a plugin (e.g. its stylesheet)
+    pub fn read_plugin_file(app_handle: &AppHandle, plugin_id: &str, file: &str) -> MosaicResult<String> {
+        let (dir, _) = Self::find_plugin(app_handle, plugin_id)?;
+        Self::read_inside(&dir, file, plugin_id)
+    }
+
+    fn plugin_dirs(app_handle: &AppHandle) -> MosaicResult<Vec<(PathBuf, PluginManifest)>> {
         let plugins_dir = get_plugins_dir(app_handle)?;
-        
-        // Find the plugin directory by ID
-        let entries = fs::read_dir(&plugins_dir).map_err(|e| MosaicError::io_error(e))?;
-        
+        let entries = fs::read_dir(&plugins_dir).map_err(MosaicError::io_error)?;
+        let mut out = Vec::new();
+
         for entry in entries.flatten() {
             let path = entry.path();
-            if !path.is_dir() {
-                continue;
-            }
-
             let manifest_path = path.join("plugin.json");
-            if !manifest_path.exists() {
+            if !path.is_dir() || !manifest_path.exists() {
                 continue;
             }
-
-            if let Ok(manifest) = Self::read_manifest(&manifest_path) {
-                if manifest.id == plugin_id {
-                    // Found the plugin, read its main module
-                    if let Some(frontend) = manifest.frontend {
-                        let main_path = path.join(&frontend.main);
-                        // Validate path doesn't escape plugin directory
-                        let canonical = main_path.canonicalize()
-                            .map_err(|e| MosaicError::io_error(e))?;
-                        if !canonical.starts_with(&path) {
-                            return Err(MosaicError::new(
-                                crate::core::error::ErrorCode::PermissionDenied,
-                                format!("Plugin {} main path escapes plugin directory", plugin_id)
-                            ));
-                        }
-                        let content = fs::read_to_string(&canonical)
-                            .map_err(|e| MosaicError::io_error(e))?;
-                        return Ok(content);
-                    } else {
-                        return Err(MosaicError::new(
-                            crate::core::error::ErrorCode::NotFound,
-                            format!("Plugin {} has no frontend module", plugin_id)
-                        ));
-                    }
-                }
+            match Self::read_manifest(&manifest_path) {
+                Ok(manifest) => out.push((path, manifest)),
+                Err(e) => eprintln!("Failed to read plugin manifest at {:?}: {}", manifest_path, e),
             }
         }
+        Ok(out)
+    }
 
-        Err(MosaicError::new(
-            crate::core::error::ErrorCode::NotFound,
-            format!("Plugin not found: {}", plugin_id)
-        ))
+    fn find_plugin(app_handle: &AppHandle, plugin_id: &str) -> MosaicResult<(PathBuf, PluginManifest)> {
+        Self::plugin_dirs(app_handle)?
+            .into_iter()
+            .find(|(_, m)| m.id == plugin_id && !m.core)
+            .ok_or_else(|| MosaicError::new(ErrorCode::NotFound, format!("Plugin not found: {}", plugin_id)))
+    }
+
+    /// Resolves `rel` against `dir`, refusing anything that escapes the plugin directory.
+    fn resolve_inside(dir: &Path, rel: &str) -> Option<PathBuf> {
+        // Both sides are canonicalized so the comparison also holds for Windows `\\?\` paths.
+        let root = dir.canonicalize().ok()?;
+        let target = dir.join(rel).canonicalize().ok()?;
+        (target.starts_with(&root) && target.is_file()).then_some(target)
+    }
+
+    fn read_inside(dir: &Path, rel: &str, plugin_id: &str) -> MosaicResult<String> {
+        let path = Self::resolve_inside(dir, rel).ok_or_else(|| {
+            MosaicError::new(
+                ErrorCode::PermissionDenied,
+                format!("Plugin {} file {:?} is missing or outside its directory", plugin_id, rel),
+            )
+        })?;
+        fs::read_to_string(&path).map_err(MosaicError::io_error)
+    }
+
+    fn read_manifest(path: &Path) -> MosaicResult<PluginManifest> {
+        let content = fs::read_to_string(path).map_err(MosaicError::io_error)?;
+        serde_json::from_str(&content)
+            .map_err(|e| MosaicError::json_error(format!("Invalid plugin.json: {}", e)))
     }
 }

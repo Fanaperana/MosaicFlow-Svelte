@@ -1,0 +1,97 @@
+/* Prefix every class with your plugin name: plugin CSS is global. */
+
+.mf-flashcard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  font-size: 13px;
+}
+
+.mf-flashcard__side {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+}
+
+.mf-flashcard__front {
+  flex: 1;
+}
+
+.mf-flashcard__back {
+  display: none;
+  flex: 1;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.15);
+}
+
+.mf-flashcard.is-flipped .mf-flashcard__back {
+  display: flex;
+}
+
+.mf-flashcard__label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8b8bb0;
+}
+
+.mf-flashcard__input {
+  flex: 1;
+  min-height: 36px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  resize: none;
+  outline: none;
+}
+
+.mf-flashcard__front .mf-flashcard__input {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* The answer is rendered when not selected and editable when selected. */
+.mf-flashcard__back .mf-flashcard__input,
+.mf-flashcard.is-editing .mf-flashcard__answer {
+  display: none;
+}
+
+.mf-flashcard.is-editing .mf-flashcard__back .mf-flashcard__input {
+  display: block;
+}
+
+.mf-flashcard__answer {
+  overflow: auto;
+  color: #cfcfe0;
+}
+
+.mf-flashcard__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mf-flashcard__flip {
+  height: 24px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(124, 108, 220, 0.2);
+  color: #b9adff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.mf-flashcard__flip:hover {
+  background: rgba(124, 108, 220, 0.32);
+}
+
+.mf-flashcard__score {
+  font-size: 11px;
+  color: #77779a;
+}

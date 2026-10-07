@@ -16,6 +16,7 @@
     Package,
     Shapes,
     PanelLeft,
+    Puzzle,
   } from 'lucide-svelte';
   import { exportJsonCanvasDialog } from '$lib/services/interopService';
   import { workspace } from '$lib/stores/workspace.svelte';
@@ -28,9 +29,10 @@
     onExportPackage: () => void;
     onExportPng: () => void;
     onExportSvg: () => void;
+    onPlugins: () => void;
   }
 
-  let { onSearch, onExport, onExportPackage, onExportPng, onExportSvg }: Props = $props();
+  let { onSearch, onExport, onExportPackage, onExportPng, onExportSvg, onPlugins }: Props = $props();
 
   let exportMenuOpen = $state(false);
   let hasSelection = $derived(workspace.selectedNodeIds.length > 0 || workspace.selectedEdgeIds.length > 0);
@@ -103,6 +105,11 @@
   <div class="ribbon-spacer"></div>
 
   <div class="ribbon-section">
+    <SimpleTooltip text="Plugins" position="right">
+      <button class="ribbon-btn" onclick={(e) => { e.stopPropagation(); onPlugins(); }}>
+        <Puzzle size={17} strokeWidth={1.6} />
+      </button>
+    </SimpleTooltip>
     <div class="dropdown-container">
       <SimpleTooltip text="Export" position="right">
         <button

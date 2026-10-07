@@ -89,7 +89,7 @@ MosaicFlow/
 │           └── core-utility/    # Utility nodes plugin
 │
 ├── plugins/                     # External plugins directory
-│   └── example-todo-node/       # Example community plugin
+│   └── example-flashcard/       # Example community plugin
 │
 └── src-tauri/
     └── src/

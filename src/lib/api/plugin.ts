@@ -45,3 +45,19 @@ export async function readPluginModule(pluginId: string): Promise<string> {
     throw new Error(`Cannot read plugin module in dev mode: ${pluginId}`);
   });
 }
+
+/**
+ * Read another text file of a plugin (e.g. its stylesheet), confined to the plugin folder
+ */
+export async function readPluginFile(pluginId: string, file: string): Promise<string> {
+  return safeInvoke<string>('read_plugin_file', { pluginId, file }, () => {
+    throw new Error(`Cannot read plugin file in dev mode: ${pluginId}/${file}`);
+  });
+}
+
+/**
+ * Open the plugins folder in the system file manager
+ */
+export async function openPluginsDir(): Promise<void> {
+  return safeInvoke<void>('open_plugins_dir', undefined, () => undefined);
+}

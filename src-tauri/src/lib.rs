@@ -113,6 +113,8 @@ pub fn run() {
             get_plugins_dir,
             discover_plugins,
             read_plugin_module,
+            read_plugin_file,
+            open_plugins_dir,
             // Files opened from the OS
             take_pending_open_files,
         ])

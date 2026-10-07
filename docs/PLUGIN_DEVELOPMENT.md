@@ -4,15 +4,19 @@ This guide explains how to create and test plugins for MosaicFlow.
 
 ## Plugin Directory
 
-MosaicFlow looks for external plugins in the **app config directory**:
+MosaicFlow looks for user plugins in the **app data directory** (`{APP_DATA}/plugins`):
 
 | Platform | Location |
 |----------|----------|
 | **macOS** | `~/Library/Application Support/com.mosaicflow.app/plugins/` |
 | **Windows** | `%APPDATA%\com.mosaicflow.app\plugins\` |
-| **Linux** | `~/.config/com.mosaicflow.app/plugins/` |
+| **Linux** | `~/.local/share/com.mosaicflow.app/plugins/` |
 
-Each plugin should be in its own subfolder with a `plugin.json` manifest.
+Each plugin lives in its own subfolder with a `plugin.json` manifest. The easiest way to get there is the
+**Plugins** button (puzzle icon at the bottom of the left ribbon) → **Open plugins folder**.
+
+> **Security:** plugins run with the same access as MosaicFlow, including your vault files. New plugins are
+> **disabled** until you switch them on in the Plugins dialog. Only enable plugins you trust.
 
 ## Quick Start
 
@@ -54,86 +58,59 @@ cd ~/Library/Application\ Support/com.mosaicflow.app/plugins/my-first-plugin
 
 ### 3. Create index.js
 
+`index.js` must be a single **ES module** (bundle it if you use dependencies) that exports `activate(api)`.
+Nodes are framework-free: you get a container element and draw into it.
+
 ```javascript
-/**
- * Hello World Node Plugin
- */
-
-// Simple Svelte-like component template
-const HelloWorldNode = {
-  // Component will be rendered as HTML
-  render: (props) => `
-    <div class="hello-node" style="padding: 16px; background: #1a1a2e; border: 1px solid #4a4a6a; border-radius: 8px;">
-      <div class="header" style="font-weight: bold; color: #fff; margin-bottom: 8px;">
-        👋 ${props.data?.title || 'Hello World'}
-      </div>
-      <div class="content" style="color: #aaa;">
-        ${props.data?.message || 'Welcome to MosaicFlow!'}
-      </div>
-    </div>
-  `
-};
-
-// Node type registration
-const helloWorldNode = {
-  type: 'helloWorld',
-  label: 'Hello World',
-  description: 'A simple greeting node',
-  category: 'custom',
-  iconName: 'Hand',
-  component: HelloWorldNode,
-  defaultData: {
-    title: 'Hello World',
-    message: 'Welcome to MosaicFlow!',
-  },
-  dimensions: { 
-    minWidth: 200, 
-    minHeight: 100, 
-    defaultWidth: 250, 
-    defaultHeight: 120 
-  },
-  colors: { 
-    bg: '#1a1a2e', 
-    border: '#4a4a6a', 
-    icon: '👋' 
-  },
-};
-
-/**
- * Plugin activation
- */
 export function activate(api) {
-  console.log(`[${api.manifest.id}] Activating Hello World plugin...`);
-  
-  api.registerNodeTypes([helloWorldNode]);
-  
-  console.log(`[${api.manifest.id}] Registered helloWorld node type`);
+  api.registerNodeTypes([
+    {
+      type: 'helloWorld',
+      label: 'Hello World',
+      description: 'A simple greeting node',
+      keywords: ['greeting'],
+      defaultData: { title: 'Hello World', message: 'Welcome to MosaicFlow!' },
+      render(container, ctx) {
+        const input = document.createElement('input');
+        input.className = 'hello-node__input nodrag'; // nodrag: typing/clicking won't drag the node
+        input.addEventListener('input', () => ctx.update({ message: input.value }));
+        container.appendChild(input);
+
+        const sync = (next) => {
+          ctx = next;
+          if (document.activeElement !== input) input.value = next.data.message ?? '';
+        };
+        sync(ctx);
+        return { update: sync, destroy: () => input.remove() };
+      },
+    },
+  ]);
 }
 
-/**
- * Plugin deactivation
- */
-export function deactivate() {
-  console.log('[my-plugin.hello-node] Deactivating Hello World plugin...');
-}
+export function deactivate() {}
 ```
+
+`render(container, ctx)` is called once when the node mounts; `update(ctx)` is called whenever its data or
+selection changes. `ctx` contains:
+
+| Field | Description |
+|-------|-------------|
+| `id`, `type` | Node id and type |
+| `data` | A copy of the node's data |
+| `selected` | Whether the node is selected |
+| `update(patch)` | Merge `patch` into the node's data (saved to the vault, undoable) |
+| `renderMarkdown(text)` | Sanitized markdown → HTML, with `[[wikilinks]]` and `#tags` |
+| `openWikilink(ref)` | Navigate to a node or page, like clicking `[[ref]]` |
+
+The node gets the standard frame (resize handles, connection handles, colors, header) automatically.
 
 ### 4. Create styles.css (optional)
 
 ```css
-/* Custom styles for the hello world node */
-.hello-node {
-  font-family: system-ui, -apple-system, sans-serif;
-}
-
-.hello-node .header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.hello-node .content {
-  font-size: 14px;
+/* Plugin CSS is global: prefix every class with your plugin name */
+.hello-node__input {
+  width: 100%;
+  font-family: inherit;
 }
 ```
 
@@ -160,34 +137,27 @@ export function deactivate() {
 
 ### Node Types
 
-Register new node types for the canvas:
+Register new node types for the canvas. Only `type` and `render` are required; everything else has a default.
 
 ```javascript
 api.registerNodeTypes([
   {
-    type: 'myNodeType',           // Unique type identifier
-    label: 'My Node',             // Display name in palette
-    description: 'Description',   // Tooltip text
-    category: 'custom',           // content | entity | data | utility | custom
-    iconName: 'Box',              // Lucide icon name
-    component: MyNodeComponent,   // Svelte component or render function
-    defaultData: {                // Default node data
-      title: 'New Node',
-      customField: '',
+    type: 'myNodeType',           // Unique type identifier (cannot override another plugin's type)
+    label: 'My Node',             // Name in the insert menu (default: type)
+    description: 'Description',   // Second line in the insert menu
+    keywords: ['alias'],          // Extra search terms for the insert menu
+    category: 'custom',           // content | entity | data | utility | custom (default, shown as "Plugins")
+    iconName: 'Puzzle',           // Built-in icon name; otherwise colors.icon (emoji) is shown
+    render: (container, ctx) => ({ update() {}, destroy() {} }),
+    defaultData: { title: 'New Node' },
+    dimensions: { minWidth: 120, minHeight: 80, defaultWidth: 260, defaultHeight: 180 },
+    colors: { bg: '#1a1a2e', border: '#4a4a6a', icon: '🧩' },
+    knowledge: {                  // Optional: how the data is stored, searched and described to AI agents
+      purpose: 'What this node is for',
+      bodyField: 'content',
+      fields: { content: { type: 'markdown', description: 'Body text' } },
     },
-    dimensions: {                 // Size constraints
-      minWidth: 200,
-      minHeight: 100,
-      defaultWidth: 280,
-      defaultHeight: 150,
-    },
-    colors: {                     // Colors for export
-      bg: '#1a1a2e',
-      border: '#4a4a6a',
-      icon: '📦',
-    },
-    quickAccess: true,            // Show in quick toolbar
-    shortcut: 'Ctrl+Shift+M',     // Keyboard shortcut
+    quickAccess: false,           // Show in the floating toolbar
   }
 ]);
 ```
@@ -237,10 +207,20 @@ api.registerCommands([
 
 ## Testing Your Plugin
 
-1. **Restart MosaicFlow** after adding/modifying your plugin
-2. Check the **Developer Console** (Cmd+Option+I / Ctrl+Shift+I) for plugin logs
-3. Your node should appear in the **Node Palette** under the appropriate category
-4. If there are errors, they'll be logged to the console
+1. Open **Plugins** (puzzle icon in the left ribbon), click **Rescan**, and switch your plugin on
+2. After editing your files, click **Rescan** again to reload it (no restart needed)
+3. Press `/` on a canvas (or double-click empty space) and search for your node
+4. Load errors are shown under the plugin in the Plugins dialog and in the **Developer Console** (Ctrl+Shift+I)
+
+## Sharing Your Plugin
+
+A plugin is just its folder, so sharing is simple:
+
+1. Publish the folder (with `plugin.json`, the bundled `index.js`, optional `styles.css` and a README) as a GitHub repository or release zip
+2. Users download it, drop the folder into their plugins folder, rescan and enable it
+
+Use a globally unique `id` such as `yourname.plugin-name` and bump `version` on each release; a marketplace can
+build on these manifests later.
 
 ## Debugging
 
@@ -260,7 +240,7 @@ Enable verbose logging by checking the console for messages starting with:
 
 ## Example Plugins
 
-See the [plugins/example-todo-node](../plugins/example-todo-node/) directory for a complete example plugin.
+See [plugins/example-flashcard](../plugins/example-flashcard/) for a complete example plugin.
 
 ## API Reference
 

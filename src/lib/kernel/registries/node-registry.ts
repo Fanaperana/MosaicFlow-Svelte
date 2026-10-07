@@ -37,6 +37,10 @@ import {
   AppWindow,
   MessageCircle,
   Link2,
+  ListChecks,
+  Lightbulb,
+  FileText,
+  Puzzle,
 } from 'lucide-svelte';
 
 // =============================================================================
@@ -61,6 +65,29 @@ export interface NodeColors {
   icon: string; // emoji for SVG export
 }
 
+/** What a framework-free plugin node receives on every render. */
+export interface ExternalNodeContext {
+  id: string;
+  type: string;
+  data: Record<string, unknown>;
+  selected: boolean;
+  /** Merge a patch into the node's data (saved to the vault, undoable). */
+  update: (patch: Record<string, unknown>) => void;
+  /** Sanitized markdown → HTML, with [[wikilinks]] and #tags. */
+  renderMarkdown: (text: string) => string;
+  /** Navigate to "[[ref]]" (a node title, "Canvas#Title" or a page name). */
+  openWikilink: (ref: string) => void;
+}
+
+/**
+ * Framework-free node renderer for external plugins: draw into `container`,
+ * then receive `update` calls when data/selection change.
+ */
+export type ExternalNodeRenderer = (
+  container: HTMLElement,
+  ctx: ExternalNodeContext
+) => { update?: (ctx: ExternalNodeContext) => void; destroy?: () => void } | void;
+
 /**
  * Node type registration from a plugin
  */
@@ -77,6 +104,10 @@ export interface NodeTypeRegistration {
   iconName: string;
   /** Svelte component for rendering */
   component: NodeComponent;
+  /** DOM renderer used by external plugins instead of a Svelte component */
+  render?: ExternalNodeRenderer;
+  /** Extra search terms for the insert menu */
+  keywords?: string[];
   /** Default data when creating new node */
   defaultData: Partial<MosaicNodeData>;
   /** Size constraints */
@@ -383,6 +414,7 @@ export const NODE_CATEGORIES: { id: NodeCategory; label: string; icon: string }[
   { id: 'entity', label: 'Entities', icon: '👤' },
   { id: 'data', label: 'Data', icon: '🔗' },
   { id: 'utility', label: 'Utility', icon: '🔧' },
+  { id: 'custom', label: 'Plugins', icon: '🧩' },
 ];
 
 // =============================================================================
@@ -392,6 +424,10 @@ export const NODE_CATEGORIES: { id: NodeCategory; label: string; icon: string }[
 /** Map of icon names to Lucide components */
 export const ICON_COMPONENTS: Record<string, typeof StickyNote> = {
   Link2,
+  ListChecks,
+  Lightbulb,
+  FileText,
+  Puzzle,
   StickyNote,
   Type,
   Image,

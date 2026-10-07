@@ -13,12 +13,14 @@ import coreContentManifest from './core-content/plugin.json';
 import coreEntityManifest from './core-entity/plugin.json';
 import coreDataManifest from './core-data/plugin.json';
 import coreUtilityManifest from './core-utility/plugin.json';
+import coreKnowledgeManifest from './core-knowledge/plugin.json';
 
 // Import core plugin modules
 import * as coreContent from './core-content/index';
 import * as coreEntity from './core-entity/index';
 import * as coreData from './core-data/index';
 import * as coreUtility from './core-utility/index';
+import * as coreKnowledge from './core-knowledge/index';
 
 /**
  * Core plugin definitions
@@ -28,6 +30,7 @@ const CORE_PLUGINS = [
   { manifest: coreEntityManifest as PluginManifest, module: coreEntity },
   { manifest: coreDataManifest as PluginManifest, module: coreData },
   { manifest: coreUtilityManifest as PluginManifest, module: coreUtility },
+  { manifest: coreKnowledgeManifest as PluginManifest, module: coreKnowledge },
 ];
 
 /**
@@ -61,39 +64,12 @@ export async function loadCorePlugins(): Promise<void> {
 }
 
 /**
- * Load external plugins from the plugins directory
+ * Load the user's enabled plugins from {APP_DATA}/plugins
  */
 export async function loadExternalPlugins(): Promise<void> {
-  console.log('[Plugins] Discovering external plugins...');
-  
-  try {
-    // Import dynamically to avoid circular dependencies
-    const { discoverPlugins, getPluginsDir } = await import('$lib/api/plugin');
-    
-    // Log the plugins directory for user reference
-    const pluginsDir = await getPluginsDir();
-    console.log(`[Plugins] Plugins directory: ${pluginsDir}`);
-    
-    // Discover plugins
-    const discovered = await discoverPlugins();
-    console.log(`[Plugins] Found ${discovered.length} external plugin(s)`);
-    
-    // Load each discovered plugin
-    for (const plugin of discovered) {
-      try {
-        if (plugin.mainUrl) {
-          console.log(`[Plugins] Loading external plugin: ${plugin.manifest.id}`);
-          await pluginLoader.loadExternalPlugin(plugin.manifest, plugin.mainUrl);
-        } else {
-          console.warn(`[Plugins] Plugin ${plugin.manifest.id} has no main URL, skipping`);
-        }
-      } catch (error) {
-        console.error(`[Plugins] Failed to load external plugin: ${plugin.manifest.id}`, error);
-      }
-    }
-  } catch (error) {
-    console.error('[Plugins] Failed to discover external plugins:', error);
-  }
+  const { pluginStore } = await import('$lib/stores/plugins.svelte');
+  await pluginStore.init();
+  console.log(`[Plugins] ${pluginStore.activeCount} of ${pluginStore.plugins.length} user plugin(s) active (${pluginStore.dir})`);
 }
 
 /**

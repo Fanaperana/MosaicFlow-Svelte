@@ -7,7 +7,8 @@
   import { FileText, Unlink, MousePointerClick } from 'lucide-svelte';
   import { renderMarkdown } from '@mosaicflow/node-sdk';
   import type { IndexedNode } from '@mosaicflow/vault-core';
-  import { knowledge, type MiniNode } from '$lib/stores/knowledge.svelte';
+  import { knowledge } from '$lib/stores/knowledge.svelte';
+  import CanvasMiniMap from './CanvasMiniMap.svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
   import { resolveWikilink, type LinkTarget } from '$lib/services/navigation';
   import { nodeRegistry, getIconComponent } from '$lib/kernel/registries/node-registry';
@@ -49,15 +50,6 @@
       text = text.slice(firstLine.length).trim();
     }
     return text ? renderMarkdown(text.length > 700 ? `${text.slice(0, 700)}…` : text) : '';
-  }
-
-  function viewBoxOf(nodes: MiniNode[]): string {
-    const minX = Math.min(...nodes.map((n) => n.x));
-    const minY = Math.min(...nodes.map((n) => n.y));
-    const maxX = Math.max(...nodes.map((n) => n.x + n.width));
-    const maxY = Math.max(...nodes.map((n) => n.y + n.height));
-    const pad = Math.max(maxX - minX, maxY - minY) * 0.06 + 20;
-    return `${minX - pad} ${minY - pad} ${maxX - minX + pad * 2} ${maxY - minY + pad * 2}`;
   }
 
   function resolve(el: HTMLElement): { target: LinkTarget | null; missing: string | null } {
@@ -172,21 +164,7 @@
       </div>
 
       {#if layout.length > 0}
-        <svg class="lp-map" viewBox={viewBoxOf(layout)} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-          {#each layout as n (n.id)}
-            <rect
-              x={n.x}
-              y={n.y}
-              width={n.width}
-              height={n.height}
-              rx="6"
-              class:group={n.type === 'group'}
-              class:hit={n.id === node?.id}
-              style={n.color && n.id !== node?.id ? `stroke: ${n.color}` : ''}
-              vector-effect="non-scaling-stroke"
-            />
-          {/each}
-        </svg>
+        <CanvasMiniMap nodes={layout} highlight={node?.id} class="lp-map" />
       {/if}
 
       <footer class="lp-footer">
@@ -333,33 +311,10 @@
     line-height: 18px;
   }
 
-  .lp-map {
-    display: block;
+  .page-peek :global(.lp-map) {
     width: calc(100% - 16px);
     height: 120px;
     margin: 2px 8px 0;
-    border: 1px solid var(--mf-border);
-    border-radius: 6px;
-    background:
-      radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px) 0 0 / 10px 10px,
-      var(--mf-bg);
-  }
-
-  .lp-map rect {
-    fill: rgba(255, 255, 255, 0.07);
-    stroke: rgba(255, 255, 255, 0.16);
-    stroke-width: 1;
-  }
-
-  .lp-map rect.group {
-    fill: rgba(59, 130, 246, 0.04);
-    stroke-dasharray: 3 2;
-  }
-
-  .lp-map rect.hit {
-    fill: var(--mf-accent-soft);
-    stroke: var(--mf-accent);
-    stroke-width: 2;
   }
 
   .lp-footer {

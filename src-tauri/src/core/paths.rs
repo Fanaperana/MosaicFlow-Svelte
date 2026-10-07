@@ -32,14 +32,14 @@ pub fn get_config_path(app_handle: &tauri::AppHandle) -> MosaicResult<PathBuf> {
     Ok(config_dir.join("config.json"))
 }
 
-/// Get the plugins directory
+/// Get the user plugins directory ({APP_DATA}/plugins)
 pub fn get_plugins_dir(app_handle: &tauri::AppHandle) -> MosaicResult<PathBuf> {
-    let config_dir = app_handle
+    let data_dir = app_handle
         .path()
-        .app_config_dir()
+        .app_data_dir()
         .map_err(|e| MosaicError::io_error(e))?;
 
-    let plugins_dir = config_dir.join("plugins");
+    let plugins_dir = data_dir.join("plugins");
     mosaicflow_core::ensure_dir(&plugins_dir)?;
 
     Ok(plugins_dir)

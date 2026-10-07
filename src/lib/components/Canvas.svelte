@@ -15,7 +15,7 @@
   import { untrack } from 'svelte';
 
   import { workspace } from '$lib/stores/workspace.svelte';
-  import { nodeRegistry, NODE_CATEGORIES, getIconComponent } from '$lib/kernel/registries/node-registry';
+  import { nodeRegistry } from '$lib/kernel/registries/node-registry';
   import { GlowEdge } from '$lib/components/edges';
   import type { NodeType, MosaicNode, MosaicEdge } from '$lib/types';
   import { resolveCollisions, findNonOverlappingPosition } from '$lib/utils/resolve-collisions';
@@ -25,6 +25,7 @@
   import NodeListSidebar from '$lib/components/NodeListSidebar.svelte';
   import FlowHelper from '$lib/components/FlowHelper.svelte';
   import CanvasFilterBar from '$lib/components/CanvasFilterBar.svelte';
+  import NodeInsertMenu from '$lib/components/NodeInsertMenu.svelte';
   import * as ContextMenu from '$lib/components/ui/context-menu';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   interface Props {
@@ -106,6 +107,54 @@
   let contextMenuPosition = $state({ x: 0, y: 0 });
   let contextMenuOpen = $state(false);
   let contextMenuOnNode = $state(false); // Track if context menu was opened on a node
+
+  // Block picker: `menu` is where it opens, `at` is where the node goes (screen coords).
+  let insertMenu = $state<{ menu: { x: number; y: number }; at: { x: number; y: number }; centered: boolean } | null>(null);
+  let lastPointer: { x: number; y: number } | null = null;
+
+  function openInsertMenu(menu: { x: number; y: number }, at = menu, centered = false) {
+    insertMenu = { menu, at, centered };
+  }
+
+  function openInsertMenuAtPointer() {
+    const bounds = flowContainer?.getBoundingClientRect();
+    const inside = lastPointer && bounds &&
+      lastPointer.x >= bounds.left && lastPointer.x <= bounds.right &&
+      lastPointer.y >= bounds.top && lastPointer.y <= bounds.bottom;
+    if (inside) openInsertMenu(lastPointer!);
+    else if (bounds) {
+      const center = { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 };
+      openInsertMenu({ x: center.x - 160, y: center.y - 120 }, center, true);
+    }
+  }
+
+  function insertFromMenu(type: string) {
+    if (!insertMenu) return;
+    const { at, centered } = insertMenu;
+    insertMenu = null;
+    const size = getNodeSizeForType(type);
+    const point = screenToFlowPosition(at);
+    const start = centered ? { x: point.x - size.width / 2, y: point.y - size.height / 2 } : point;
+    const newNode = workspace.createNode(type, findNonOverlappingPosition(start, size, nodes, 20));
+    workspace.setSelectedNodes([newNode.id]);
+  }
+
+  function handlePaneDoubleClick(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (!target.closest('.svelte-flow__pane') || target.closest('.svelte-flow__node, .svelte-flow__edge')) return;
+    openInsertMenu({ x: e.clientX, y: e.clientY });
+  }
+
+  $effect(() => {
+    const onRequest = (e: Event) => {
+      const anchor = (e as CustomEvent<{ x: number; y: number }>).detail;
+      const bounds = flowContainer?.getBoundingClientRect();
+      if (!bounds) return;
+      openInsertMenu(anchor, { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 }, true);
+    };
+    window.addEventListener('mosaicflow:insertMenu', onRequest);
+    return () => window.removeEventListener('mosaicflow:insertMenu', onRequest);
+  });
   
   // Snap guides state
   let snapGuides = $state<SnapGuide[]>([]);
@@ -605,44 +654,6 @@
     }, 50);
   }
 
-  // Add node from context menu
-  function addNodeFromContextMenu(type: NodeType) {
-    if (!flowContainer) return;
-    
-    const bounds = flowContainer.getBoundingClientRect();
-    
-    // Convert screen coordinates to flow coordinates
-    const initialPosition = {
-      x: (contextMenuPosition.x - bounds.left - viewport.x) / viewport.zoom,
-      y: (contextMenuPosition.y - bounds.top - viewport.y) / viewport.zoom,
-    };
-
-    // Get default node size based on type
-    const nodeSize = getNodeSizeForType(type);
-
-    // Find non-overlapping position before creation
-    const position = findNonOverlappingPosition(initialPosition, nodeSize, nodes, 20);
-
-    // Create the node
-    const newNode = workspace.createNode(type, position);
-
-    // After creation, run collision resolution and select the new node
-    setTimeout(() => {
-      nodes = resolveCollisions(nodes, { 
-        maxIterations: 100, 
-        overlapThreshold: 0.5, 
-        margin: 15 
-      });
-      
-      nodes = nodes.map(n => ({
-        ...n,
-        selected: n.id === newNode.id
-      }));
-      
-      workspace.setSelectedNodes([newNode.id]);
-    }, 50);
-  }
-
   // Get node size from plugin registry
   function getNodeSizeForType(type: NodeType): { width: number; height: number } {
     const dims = nodeRegistry.getDimensions(type);
@@ -705,6 +716,13 @@
     
     if (event.key === 'Delete' || event.key === 'Backspace') {
       handleDeleteSelected();
+    }
+
+    // "/" opens the block picker, like Notion
+    if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey && !insertMenu) {
+      event.preventDefault();
+      openInsertMenuAtPointer();
+      return;
     }
 
     // With Shift held, event.key is upper-case.
@@ -780,6 +798,8 @@
       bind:this={flowContainer}
       ondragover={handleDragOver}
       ondrop={handleDrop}
+      ondblclick={handlePaneDoubleClick}
+      onpointermove={(e) => (lastPointer = { x: e.clientX, y: e.clientY })}
       oncontextmenu={(e) => { 
         contextMenuPosition = { x: e.clientX, y: e.clientY };
         // Check if right-click is on a node
@@ -807,6 +827,7 @@
         onnodedragstop={handleNodeDragStop}
         fitView
         fitViewOptions={{ maxZoom: 1, padding: 0.2 }}        elevateNodesOnSelect={false}
+        zoomOnDoubleClick={false}
         connectionLineType={ConnectionLineType.Bezier}
         panOnDrag={panOnDrag}
         selectionOnDrag={selectionOnDrag}
@@ -886,30 +907,11 @@
       </ContextMenu.Item>
     {:else}
       <!-- Canvas Actions (shown when clicking on empty canvas) -->
-      <!-- Add Node Submenu - Dynamically generated from registry -->
-      <ContextMenu.Sub>
-        <ContextMenu.SubTrigger class="context-menu-item">
-          <Plus size={14} />
-          <span>Add Node</span>
-        </ContextMenu.SubTrigger>
-        <ContextMenu.SubContent class="context-menu-content">
-          {#each NODE_CATEGORIES as category, i}
-            <ContextMenu.Group>
-              <ContextMenu.GroupHeading class="context-menu-heading">{category.label}</ContextMenu.GroupHeading>
-              {#each nodeRegistry.getByCategory(category.id) as nodeDef}
-                {@const IconComponent = getIconComponent(nodeDef.type)}
-                <ContextMenu.Item class="context-menu-item" onclick={() => addNodeFromContextMenu(nodeDef.type)}>
-                  <IconComponent size={14} />
-                  <span>{nodeDef.label}</span>
-                </ContextMenu.Item>
-              {/each}
-            </ContextMenu.Group>
-            {#if i < NODE_CATEGORIES.length - 1}
-              <ContextMenu.Separator class="context-menu-separator" />
-            {/if}
-          {/each}
-        </ContextMenu.SubContent>
-      </ContextMenu.Sub>
+      <ContextMenu.Item class="context-menu-item" onclick={() => openInsertMenu(contextMenuPosition)}>
+        <Plus size={14} />
+        <span>Insert block…</span>
+        <ContextMenu.Shortcut>/</ContextMenu.Shortcut>
+      </ContextMenu.Item>
 
       <ContextMenu.Separator class="context-menu-separator" />
 
@@ -930,35 +932,25 @@
   </ContextMenu.Content>
 </ContextMenu.Root>
 
-<!-- Edge Drop Menu - Dynamically generated from registry -->
+<!-- Edge drop: pick a block to create and connect -->
 {#if edgeDropMenuOpen}
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div 
-    class="edge-drop-overlay"
-    role="presentation"
-    onclick={() => { edgeDropMenuOpen = false; pendingConnectionSource = null; }}
-  ></div>
-  <div 
-    class="edge-drop-menu"
-    style="left: {Math.max(8, Math.min(edgeDropMenuPosition.x, window.innerWidth - 208))}px; top: {Math.max(8, Math.min(edgeDropMenuPosition.y, window.innerHeight - 428))}px;"
-  >
-    <div class="edge-drop-header">
-      <Plus size={14} />
-      <span>Add & Connect Node</span>
-    </div>
-    
-    {#each NODE_CATEGORIES as category}
-      <div class="edge-drop-section">
-        <div class="edge-drop-section-title">{category.label}</div>
-        {#each nodeRegistry.getByCategory(category.id).filter(def => nodeRegistry.isConnectable(def.type)) as nodeDef}
-          {@const IconComponent = getIconComponent(nodeDef.type)}
-          <button class="edge-drop-item" onclick={() => createNodeFromEdgeDrop(nodeDef.type)}>
-            <IconComponent size={14} /> {nodeDef.label}
-          </button>
-        {/each}
-      </div>
-    {/each}
-  </div>
+  <NodeInsertMenu
+    x={edgeDropMenuPosition.x}
+    y={edgeDropMenuPosition.y}
+    heading="Add & connect"
+    filter={(reg) => nodeRegistry.isConnectable(reg.type)}
+    onPick={createNodeFromEdgeDrop}
+    onClose={() => { edgeDropMenuOpen = false; pendingConnectionSource = null; }}
+  />
+{/if}
+
+{#if insertMenu}
+  <NodeInsertMenu
+    x={insertMenu.menu.x}
+    y={insertMenu.menu.y}
+    onPick={insertFromMenu}
+    onClose={() => (insertMenu = null)}
+  />
 {/if}
 
 <style>
@@ -1231,77 +1223,6 @@
     border: 1px solid var(--mf-border-strong);
     pointer-events: none;
     z-index: 10;
-  }
-
-  /* Edge Drop Menu Styles */
-  .edge-drop-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 999;
-  }
-
-  .edge-drop-menu {
-    position: fixed;
-    z-index: 1000;
-    background: var(--mf-surface-2);
-    border: 1px solid var(--mf-border-strong);
-    border-radius: 8px;
-    padding: 4px;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-    width: 200px;
-    max-height: min(420px, calc(100vh - 16px));
-    overflow-y: auto;
-    font-family: var(--mf-font-ui);
-  }
-
-  .edge-drop-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    height: var(--mf-row);
-    padding: 0 8px;
-    color: var(--mf-text-2);
-    font-size: 12px;
-    font-weight: 500;
-  }
-
-  .edge-drop-section {
-    padding: 2px 0;
-    border-top: 1px solid var(--mf-border);
-  }
-
-  .edge-drop-section-title {
-    padding: 6px 8px 2px;
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--mf-text-3);
-  }
-
-  .edge-drop-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    height: var(--mf-row);
-    padding: 0 8px;
-    background: transparent;
-    border: none;
-    color: var(--mf-text);
-    font-size: 12.5px;
-    cursor: pointer;
-    border-radius: 4px;
-    text-align: left;
-  }
-
-  .edge-drop-item :global(svg) {
-    color: var(--mf-text-2);
-  }
-
-  .edge-drop-item:hover {
-    background: var(--mf-hover);
   }
 
   /* LOD (Level of Detail) Rendering Optimizations */

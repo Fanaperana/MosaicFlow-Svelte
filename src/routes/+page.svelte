@@ -12,6 +12,7 @@
   import WorkflowSearch from '$lib/components/WorkflowSearch.svelte';
   import PagesSidebar from '$lib/components/PagesSidebar.svelte';
   import LinkPreview from '$lib/components/LinkPreview.svelte';
+  import PluginsDialog from '$lib/components/PluginsDialog.svelte';
   import { pageNav } from '$lib/stores/pages.svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
@@ -26,6 +27,7 @@
   
   let showSearch = $state(false);
   let showNodeList = $state(false);
+  let showPlugins = $state(false);
 
   const PANEL_TRANSITION = { axis: 'x', duration: 200, easing: cubicOut } as const;
   
@@ -217,6 +219,7 @@
       onExportPackage={exportCanvasPackage}
       onExportPng={handleExportPng}
       onExportSvg={handleExportSvg}
+      onPlugins={() => (showPlugins = true)}
     />
     
     <div class="main-content">
@@ -244,6 +247,9 @@
       onCanvasSelect={handleCanvasSelect}
     />
     <LinkPreview />
+    {#if showPlugins}
+      <PluginsDialog onClose={() => (showPlugins = false)} />
+    {/if}
   </div>
 {:else}
   <VaultPicker />

@@ -9,6 +9,39 @@ import type { PluginManifest, PluginInfo } from './types';
 import { nodeRegistry, type NodeTypeRegistration } from './registries/node-registry';
 import { panelRegistry, type PanelRegistration } from './registries/panel-registry';
 import { commandRegistry, type CommandRegistration } from './registries/command-registry';
+import ExternalNode from '$lib/plugins/ExternalNode.svelte';
+
+/** Node registration as written by plugin authors: only `type` and a renderer are required. */
+export type PluginNodeType = Partial<Omit<NodeTypeRegistration, 'pluginId' | 'dimensions' | 'colors'>> & {
+  type: string;
+  dimensions?: Partial<NodeTypeRegistration['dimensions']>;
+  colors?: Partial<NodeTypeRegistration['colors']>;
+};
+
+function normalizeNodeType(type: PluginNodeType, manifest: PluginManifest): NodeTypeRegistration {
+  if (manifest.core) return { ...type, pluginId: manifest.id } as NodeTypeRegistration;
+  const existing = nodeRegistry.get(type.type);
+  if (existing && existing.pluginId !== manifest.id) {
+    throw new Error(`Node type "${type.type}" is already provided by ${existing.pluginId}`);
+  }
+  const component = type.component ?? (type.render ? ExternalNode : undefined);
+  if (!component) {
+    throw new Error(`Node type "${type.type}" needs a render(container, ctx) function`);
+  }
+  const label = type.label ?? type.type;
+  return {
+    ...type,
+    label,
+    description: type.description ?? '',
+    category: type.category ?? 'custom',
+    iconName: type.iconName ?? 'Puzzle',
+    component,
+    defaultData: { title: label, ...type.defaultData },
+    dimensions: { minWidth: 120, minHeight: 80, defaultWidth: 260, defaultHeight: 180, ...type.dimensions },
+    colors: { bg: '#1a1a2e', border: '#4a4a6a', icon: '🧩', ...type.colors },
+    pluginId: manifest.id,
+  };
+}
 
 // =============================================================================
 // TYPES
@@ -19,7 +52,7 @@ import { commandRegistry, type CommandRegistration } from './registries/command-
  */
 export interface PluginAPI {
   /** Register node types */
-  registerNodeTypes: (types: Omit<NodeTypeRegistration, 'pluginId'>[]) => void;
+  registerNodeTypes: (types: PluginNodeType[]) => void;
   /** Register panels */
   registerPanels: (panels: Omit<PanelRegistration, 'pluginId'>[]) => void;
   /** Register commands */
@@ -112,9 +145,9 @@ class PluginLoader {
   }
 
   /**
-   * Load an external plugin from a manifest and module URL
+   * Load an external plugin from its bundled ES module source
    */
-  async loadExternalPlugin(manifest: PluginManifest, moduleUrl: string): Promise<void> {
+  async loadExternalPlugin(manifest: PluginManifest, source: string): Promise<void> {
     const pluginId = manifest.id;
     
     if (this.loadedPlugins.has(pluginId)) {
@@ -129,25 +162,32 @@ class PluginLoader {
     this.loadedPlugins.set(pluginId, loaded);
     this.notifyListeners();
 
+    // The webview cannot import file:// URLs, so the module is imported from a blob.
+    const url = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
     try {
-      // Dynamic import the module
-      const module = await import(/* @vite-ignore */ moduleUrl) as PluginModule;
+      const imported = await import(/* @vite-ignore */ url);
+      const module = (typeof imported.activate === 'function' ? imported : imported.default) as PluginModule;
+      if (typeof module?.activate !== 'function') {
+        throw new Error('The plugin module does not export an activate(api) function');
+      }
       loaded.module = module;
 
-      // Create the plugin API
       const api = this.createPluginAPI(manifest);
-
-      // Activate the plugin
       await module.activate(api);
 
       loaded.state = 'active';
       console.log(`[PluginLoader] Loaded external plugin: ${pluginId}`);
     } catch (error) {
       loaded.state = 'error';
-      loaded.error = String(error);
+      loaded.error = error instanceof Error ? error.message : String(error);
+      // Drop anything it registered before failing.
+      nodeRegistry.unregisterByPlugin(pluginId);
+      panelRegistry.unregisterByPlugin(pluginId);
+      commandRegistry.unregisterByPlugin(pluginId);
       console.error(`[PluginLoader] Failed to load external plugin: ${pluginId}`, error);
       throw error;
     } finally {
+      URL.revokeObjectURL(url);
       this.notifyListeners();
     }
   }
@@ -238,10 +278,7 @@ class PluginLoader {
       
       registerNodeTypes: (types) => {
         for (const type of types) {
-          nodeRegistry.register({
-            ...type,
-            pluginId,
-          });
+          nodeRegistry.register(normalizeNodeType(type, manifest));
         }
       },
 
