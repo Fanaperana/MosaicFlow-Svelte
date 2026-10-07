@@ -11,13 +11,32 @@ export interface FsAdapter {
   /** Recursive remove. */
   remove(path: string): Promise<void>;
   list(path: string): Promise<{ name: string; isDirectory: boolean }[]>;
-  /** Optional: every node and edge file of a canvas in one round-trip (ids are file/folder names). */
-  readCanvasFiles?(root: string): Promise<CanvasFiles>;
+  /**
+   * Optional: every node and edge file of a canvas in one round-trip (ids are file/folder names).
+   * Files whose stamp matches `known["nodes/<id>" | "edges/<id>"]` come back with content null.
+   */
+  readCanvasFiles?(root: string, known?: Record<string, string>): Promise<CanvasFiles>;
+}
+
+export interface RawCanvasFile {
+  id: string;
+  /** Modification stamp; absent when the adapter cannot provide one. */
+  stamp?: string;
+  content: string | null;
 }
 
 export interface CanvasFiles {
-  nodes: { id: string; content: string }[];
-  edges: { id: string; content: string }[];
+  nodes: RawCanvasFile[];
+  edges: RawCanvasFile[];
+}
+
+export const CANVAS_CACHE_VERSION = 1;
+
+/** Parsed files of one canvas keyed by id, so unchanged files are not re-read or re-parsed. */
+export interface CanvasCache {
+  version: number;
+  nodes: Record<string, { stamp: string; node: StoredNode }>;
+  edges: Record<string, { stamp: string; edge: StoredEdge }>;
 }
 
 const SAFE_ID = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
@@ -90,25 +109,72 @@ export class CanvasRepository {
 
   /** Reads every node and edge, in one round-trip when the adapter supports it. */
   async readAll(): Promise<{ nodes: StoredNode[]; edges: StoredEdge[] }> {
+    const { nodes, edges } = await this.readAllCached(null);
+    return { nodes, edges };
+  }
+
+  /**
+   * Like readAll, but reuses parsed entries from `cache` for files whose stamp is unchanged.
+   * `cache` in the result is null when the adapter has no stamped bulk read.
+   */
+  async readAllCached(cache: CanvasCache | null): Promise<{
+    nodes: StoredNode[];
+    edges: StoredEdge[];
+    cache: CanvasCache | null;
+    changed: boolean;
+  }> {
     if (!this.fs.readCanvasFiles) {
       const [nodes, edges] = await Promise.all([this.readAllNodes(), this.readAllEdges()]);
-      return { nodes, edges };
+      return { nodes, edges, cache: null, changed: true };
     }
-    const files = await this.fs.readCanvasFiles(this.root);
-    const parse = <T>(kind: string, list: { id: string; content: string }[], fn: (id: string, c: string) => T): T[] =>
-      list.flatMap(({ id, content }) => {
+    const prev = cache?.version === CANVAS_CACHE_VERSION ? cache : null;
+    const known: Record<string, string> = {};
+    for (const [id, e] of Object.entries(prev?.nodes ?? {})) known[`nodes/${id}`] = e.stamp;
+    for (const [id, e] of Object.entries(prev?.edges ?? {})) known[`edges/${id}`] = e.stamp;
+
+    const files = await this.fs.readCanvasFiles(this.root, known);
+    const next: CanvasCache = { version: CANVAS_CACHE_VERSION, nodes: {}, edges: {} };
+    let stamped = true;
+    let parsed = 0;
+
+    const collect = <T>(
+      kind: 'node' | 'edge',
+      list: RawCanvasFile[],
+      previous: Record<string, { stamp: string } & Record<string, unknown>> | undefined,
+      parse: (id: string, content: string) => T,
+      store: (id: string, stamp: string, value: T) => void
+    ): T[] =>
+      list.flatMap(({ id, stamp, content }) => {
         if (!SAFE_ID.test(id)) return [];
+        if (content === null) {
+          const hit = previous?.[id];
+          if (!hit) return [];
+          const value = hit[kind] as T;
+          store(id, hit.stamp, value);
+          return [value];
+        }
         try {
-          return [fn(id, content)];
+          const value = parse(id, content);
+          parsed++;
+          if (stamp) store(id, stamp, value);
+          else stamped = false;
+          return [value];
         } catch (error) {
           console.error(`[vault-core] Skipping unreadable ${kind} ${id}:`, error);
           return [];
         }
       });
-    return {
-      nodes: parse('node', files.nodes, (id, c) => this.parseNode(id, c)),
-      edges: parse('edge', files.edges, (id, c) => this.parseEdge(id, c)),
-    };
+
+    const nodes = collect('node', files.nodes, prev?.nodes, (id, c) => this.parseNode(id, c), (id, stamp, node) => {
+      next.nodes[id] = { stamp, node };
+    });
+    const edges = collect('edge', files.edges, prev?.edges, (id, c) => this.parseEdge(id, c), (id, stamp, edge) => {
+      next.edges[id] = { stamp, edge };
+    });
+    const removed =
+      Object.keys(prev?.nodes ?? {}).length !== Object.keys(next.nodes).length ||
+      Object.keys(prev?.edges ?? {}).length !== Object.keys(next.edges).length;
+    return { nodes, edges, cache: stamped ? next : null, changed: !prev || parsed > 0 || removed };
   }
 
   async readAllNodes(): Promise<StoredNode[]> {

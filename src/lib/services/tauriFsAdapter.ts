@@ -31,11 +31,15 @@ export const tauriFsAdapter: FsAdapter = {
     const entries = await readDir(path);
     return entries.map((e) => ({ name: e.name, isDirectory: e.isDirectory }));
   },
-  async readCanvasFiles(root) {
+  async readCanvasFiles(root, known) {
     const { invoke } = await import('@tauri-apps/api/core');
-    const files = await invoke<CanvasFiles>('read_canvas_files', { canvasPath: root });
-    for (const { id, content } of files.nodes) rememberContent(`${root}/nodes/${id}.md`, content);
-    for (const { id, content } of files.edges) rememberContent(`${root}/edges/${id}/joined.json`, content);
+    const files = await invoke<CanvasFiles>('read_canvas_files', { canvasPath: root, known: known ?? null });
+    for (const { id, content } of files.nodes) {
+      if (content !== null) rememberContent(`${root}/nodes/${id}.md`, content);
+    }
+    for (const { id, content } of files.edges) {
+      if (content !== null) rememberContent(`${root}/edges/${id}/joined.json`, content);
+    }
     return files;
   },
 };

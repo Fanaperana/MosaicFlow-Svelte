@@ -5,6 +5,7 @@ import { untrack } from 'svelte';
 import { CanvasRepository, KnowledgeIndex, absoluteRects, type IndexCanvas, type Point } from '@mosaicflow/vault-core';
 import { nodeRegistry } from '$lib/kernel/registries/node-registry';
 import { tauriFsAdapter } from '$lib/services/tauriFsAdapter';
+import { readCanvasCache, writeCanvasCache } from '$lib/services/canvasCache';
 import { vaultStore } from './vault.svelte';
 import { workspace } from './workspace.svelte';
 
@@ -68,10 +69,15 @@ class KnowledgeStore {
       for (const id of map.keys()) if (!alive.has(id)) map.delete(id);
     }
     let nodeCount = 0;
+    let parsedCanvases = 0;
+    const vaultPath = vaultStore.currentVaultPath;
     const readOne = async (c: (typeof canvases)[number]) => {
       try {
         const repo = new CanvasRepository(tauriFsAdapter, c.path, (type) => nodeRegistry.getBodyMapping(type));
-        const { nodes, edges } = await repo.readAll();
+        const cached = vaultPath ? await readCanvasCache(vaultPath, c.id) : null;
+        const { nodes, edges, cache, changed } = await repo.readAllCached(cached);
+        if (changed) parsedCanvases++;
+        if (vaultPath && cache && changed) void writeCanvasCache(vaultPath, c.id, cache);
         nodeCount += nodes.length;
         // The open page is newer in memory than on disk.
         if (c.id === this.liveCanvasId) return;
@@ -92,7 +98,9 @@ class KnowledgeStore {
     this.compose();
     if (stale.length) {
       const ms = Math.round(performance.now() - started);
-      console.info(`[knowledge] read ${stale.length}/${canvases.length} canvases (${nodeCount} nodes) in ${ms} ms`);
+      console.info(
+        `[knowledge] read ${stale.length}/${canvases.length} canvases (${nodeCount} nodes, ${parsedCanvases} with changed files) in ${ms} ms`
+      );
     }
   }
 
