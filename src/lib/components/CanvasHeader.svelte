@@ -3,8 +3,9 @@
   import { workspace } from '$lib/stores/workspace.svelte';
   import { flushPendingSaves as flushNodeSaves } from '$lib/services/nodeFileService';
   import { flushPendingSaves as flushEdgeSaves } from '$lib/services/edgeFileService';
-  import { Pencil, Check, X, ChevronRight, Loader2, List } from 'lucide-svelte';
+  import { Pencil, Check, X, ChevronRight, Loader2, List, ArrowLeft, ArrowRight, PanelLeft } from 'lucide-svelte';
   import VaultSwitcher from './VaultSwitcher.svelte';
+  import { pageNav } from '$lib/stores/pages.svelte';
 
   interface Props {
     onToggleNodeList?: () => void;
@@ -59,9 +60,25 @@
 </script>
 
 <div class="canvas-header">
+  <div class="left-actions">
+    {#if !pageNav.sidebarOpen}
+      <button class="icon-btn" onclick={() => pageNav.toggleSidebar(true)} title="Show pages (Ctrl+\)" aria-label="Show pages">
+        <PanelLeft size={15} />
+      </button>
+    {/if}
+    <button class="icon-btn" onclick={() => pageNav.goBack()} disabled={!pageNav.canGoBack} title="Back (Alt+←)" aria-label="Back">
+      <ArrowLeft size={15} />
+    </button>
+    <button class="icon-btn" onclick={() => pageNav.goForward()} disabled={!pageNav.canGoForward} title="Forward (Alt+→)" aria-label="Forward">
+      <ArrowRight size={15} />
+    </button>
+  </div>
+
   <div class="breadcrumb">
-    <VaultSwitcher />
-    <ChevronRight size={14} class="separator" />
+    {#if !pageNav.sidebarOpen}
+      <VaultSwitcher />
+      <ChevronRight size={14} class="separator" />
+    {/if}
     {#if isEditing}
       <div class="edit-container">
         <!-- svelte-ignore a11y_autofocus -->
@@ -121,6 +138,22 @@
     right: 10px;
     display: flex;
     align-items: center;
+  }
+
+  .left-actions {
+    position: absolute;
+    left: 8px;
+    display: flex;
+    align-items: center;
+    gap: 1px;
+  }
+
+  .icon-btn:disabled,
+  .icon-btn:disabled:hover {
+    opacity: 0.35;
+    background: transparent;
+    color: var(--mf-text-3);
+    cursor: default;
   }
 
   .icon-btn {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import Canvas from '$lib/components/Canvas.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import PropertiesPanel from '$lib/components/PropertiesPanel.svelte';
@@ -8,6 +8,9 @@
   import CanvasHeader from '$lib/components/CanvasHeader.svelte';
   import QuickToolbar from '$lib/components/QuickToolbar.svelte';
   import WorkflowSearch from '$lib/components/WorkflowSearch.svelte';
+  import PagesSidebar from '$lib/components/PagesSidebar.svelte';
+  import LinkPreview from '$lib/components/LinkPreview.svelte';
+  import { pageNav } from '$lib/stores/pages.svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
   import { loadWorkspace, exportAsPng, exportAsSvg, exportAsJson } from '$lib/services/fileOperations';
@@ -28,6 +31,7 @@
   // Load canvas when current canvas changes
   $effect(() => {
     const canvas = vaultStore.currentCanvas;
+    if (canvas) untrack(() => pageNav.visit(canvas.id));
     if (canvas && canvas.id !== currentCanvasId) {
       currentCanvasId = canvas.id;
       loadCurrentCanvas();
@@ -176,16 +180,32 @@
     showSearch = false;
   }
 
-  // Global keyboard shortcut for search
+  // Global keyboard shortcuts: search, page sidebar, back/forward between pages
   function handleGlobalKeydown(e: KeyboardEvent) {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && !e.shiftKey && (e.key === 'k' || e.key === 'o')) {
       e.preventDefault();
       showSearch = !showSearch;
+    } else if (mod && e.key === '\\' && vaultStore.appView === 'canvas') {
+      e.preventDefault();
+      pageNav.toggleSidebar();
+    } else if (e.altKey && !mod && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && vaultStore.appView === 'canvas') {
+      e.preventDefault();
+      if (e.key === 'ArrowLeft') pageNav.goBack();
+      else pageNav.goForward();
     }
+  }
+
+  // Mouse back/forward buttons
+  function handleMouseNav(e: MouseEvent) {
+    if (vaultStore.appView !== 'canvas' || (e.button !== 3 && e.button !== 4)) return;
+    e.preventDefault();
+    if (e.button === 3) pageNav.goBack();
+    else pageNav.goForward();
   }
 </script>
 
-<svelte:window onkeydown={handleGlobalKeydown} />
+<svelte:window onkeydown={handleGlobalKeydown} onmouseup={handleMouseNav} />
 
 {#if !vaultStore.isInitialized || vaultStore.isLoading}
   <div class="loading-screen">
@@ -213,6 +233,9 @@
     />
     
     <div class="main-content">
+      {#if pageNav.sidebarOpen}
+        <PagesSidebar onSearch={handleSearch} onNewCanvas={handleNewCanvas} onAllPages={handleHome} />
+      {/if}
       <div class="canvas-container">
         <CanvasHeader onToggleNodeList={() => showNodeList = !showNodeList} />
         <QuickToolbar />
@@ -229,6 +252,7 @@
       onClose={() => showSearch = false}
       onCanvasSelect={handleCanvasSelect}
     />
+    <LinkPreview />
   </div>
 {:else}
   <VaultPicker />

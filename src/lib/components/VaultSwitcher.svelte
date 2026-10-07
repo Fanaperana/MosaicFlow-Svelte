@@ -342,6 +342,7 @@
   .search input {
     flex: 1;
     min-width: 0;
+    padding: 0;
     border: none;
     background: transparent;
     color: var(--mf-text);

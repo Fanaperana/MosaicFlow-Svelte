@@ -2,6 +2,7 @@
   import { Search, X, FileText, StickyNote, Image, Link, Code, Clock, User, Building2, Globe, FileDigit, KeyRound, MessageSquare, Router, Camera, FolderOpen, MapPin, List, ChevronRight } from 'lucide-svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
   import { knowledge } from '$lib/stores/knowledge.svelte';
+  import { pageNav } from '$lib/stores/pages.svelte';
   import { openNode } from '$lib/services/navigation';
   import type { CanvasInfo } from '$lib/services/vaultService';
   import type { IndexedNode } from '@mosaicflow/vault-core';
@@ -72,8 +73,10 @@
     if (searchQuery.trim()) {
       performSearch(searchQuery);
     } else {
-      // Show recent canvases when no query
-      searchResults = vaultStore.canvases.slice(0, 10).map(canvas => ({
+      // Recently opened pages first, then the rest of the vault
+      const recent = pageNav.recentCanvases;
+      const ordered = [...recent, ...vaultStore.canvases.filter(c => !recent.some(r => r.id === c.id))];
+      searchResults = ordered.slice(0, 10).map(canvas => ({
         type: 'canvas' as const,
         canvas,
         score: 0

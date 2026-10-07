@@ -16,7 +16,9 @@
     FileCode,
     Package,
     Shapes,
+    PanelLeft,
   } from 'lucide-svelte';
+  import { pageNav } from '$lib/stores/pages.svelte';
   import { exportJsonCanvasDialog } from '$lib/services/interopService';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { cn } from '$lib/utils';
@@ -50,6 +52,11 @@
 <div class="sidebar">
   <!-- Top section -->
   <div class="sidebar-section">
+    <SimpleTooltip text="Pages (Ctrl+\)" position="right">
+      <button class="sidebar-btn" class:active={pageNav.sidebarOpen} onclick={(e) => { e.stopPropagation(); pageNav.toggleSidebar(); }}>
+        <PanelLeft size={17} strokeWidth={1.6} />
+      </button>
+    </SimpleTooltip>
     <SimpleTooltip text="Home" position="right">
       <button class="sidebar-btn" onclick={(e) => { e.stopPropagation(); onHome(); }}>
         <Home size={17} strokeWidth={1.6} />
@@ -253,6 +260,11 @@
   .sidebar-btn:disabled {
     opacity: 0.3;
     cursor: not-allowed;
+  }
+
+  .sidebar-btn.active {
+    background: var(--mf-active);
+    color: var(--mf-text);
   }
 
   .sidebar-btn.danger:hover:not(:disabled) {

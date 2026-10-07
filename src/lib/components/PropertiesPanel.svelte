@@ -682,7 +682,7 @@
             class="link-row"
             class:unresolved={!node}
             onclick={() => openWikilink(link.canvas ? `${link.canvas}#${link.target}` : link.target)}
-            title={node ? `${node.canvasName} › ${node.title}` : 'No node with this title yet'}
+            data-wikilink={link.canvas ? `${link.canvas}#${link.target}` : link.target}
           >
             <ArrowUpRight size={13} />
             <span class="link-title">{link.alias ?? link.target}</span>
@@ -694,7 +694,7 @@
 
         <div class="sub-heading"><span>Backlinks</span><span class="count">{backlinks.length}</span></div>
         {#each backlinks as source (source.canvasId + source.id)}
-          <button class="link-row" onclick={() => openNode(source.canvasId, source.id)} title="{source.canvasName} › {source.title}">
+          <button class="link-row" onclick={() => openNode(source.canvasId, source.id)} data-preview-canvas={source.canvasId} data-preview-node={source.id}>
             <CornerDownLeft size={13} />
             <span class="link-title">{source.title || source.id}</span>
             {#if source.canvasId !== canvasId}<span class="link-canvas">{source.canvasName}</span>{/if}

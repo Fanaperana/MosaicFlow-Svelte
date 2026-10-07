@@ -1,11 +1,33 @@
 // Vault-wide knowledge index (search, [[wikilinks]], backlinks, #tags).
 // Other canvases are read from disk; the open canvas comes from the live workspace.
 
-import { CanvasRepository, KnowledgeIndex, type IndexCanvas } from '@mosaicflow/vault-core';
+import { CanvasRepository, KnowledgeIndex, absoluteRects, type IndexCanvas, type Point } from '@mosaicflow/vault-core';
 import { nodeRegistry } from '$lib/kernel/registries/node-registry';
 import { tauriFsAdapter } from '$lib/services/tauriFsAdapter';
 import { vaultStore } from './vault.svelte';
 import { workspace } from './workspace.svelte';
+
+/** Absolute, canvas-space box of a node, used for mini-map previews. */
+export interface MiniNode {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color?: string;
+}
+
+type LayoutInput = { id: string; type: string; parentId?: string; position: Point; width?: number; height?: number; data: Record<string, unknown> };
+
+function toMiniNodes(nodes: LayoutInput[]): MiniNode[] {
+  const rects = absoluteRects(nodes);
+  return nodes.map((n) => {
+    const r = rects.get(n.id)!;
+    const color = typeof n.data.borderColor === 'string' ? n.data.borderColor : undefined;
+    return { id: n.id, type: n.type, x: r.x, y: r.y, width: r.width, height: r.height, color };
+  });
+}
 
 class KnowledgeStore {
   index = $state.raw(new KnowledgeIndex([]));
@@ -20,6 +42,7 @@ class KnowledgeStore {
   }
 
   private disk = new Map<string, IndexCanvas>();
+  private layouts = new Map<string, MiniNode[]>();
   private loadedKey = '';
   private rebuildTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -31,17 +54,37 @@ class KnowledgeStore {
     this.loadedKey = key;
     this.loading = true;
     const next = new Map<string, IndexCanvas>();
+    const layouts = new Map<string, MiniNode[]>();
     for (const c of canvases) {
       try {
         const repo = new CanvasRepository(tauriFsAdapter, c.path, (type) => nodeRegistry.getBodyMapping(type));
-        next.set(c.id, { id: c.id, name: c.name, nodes: await repo.readAllNodes() });
+        const nodes = await repo.readAllNodes();
+        next.set(c.id, { id: c.id, name: c.name, nodes });
+        layouts.set(c.id, toMiniNodes(nodes));
       } catch (error) {
         console.warn(`[knowledge] Skipping canvas ${c.name}:`, error);
       }
     }
     this.disk = next;
+    this.layouts = layouts;
     this.loading = false;
     this.compose();
+  }
+
+  /** Node boxes of a canvas; the open canvas is read live from the workspace. */
+  canvasLayout(canvasId: string): MiniNode[] {
+    if (canvasId !== vaultStore.currentCanvas?.id) return this.layouts.get(canvasId) ?? [];
+    return toMiniNodes(
+      workspace.nodes.map((n) => ({
+        id: n.id,
+        type: n.type as string,
+        parentId: n.parentId,
+        position: n.position,
+        width: n.width ?? n.measured?.width,
+        height: n.height ?? n.measured?.height,
+        data: n.data as Record<string, unknown>,
+      }))
+    );
   }
 
   /** Debounced refresh of the open canvas (called when workspace nodes change). */

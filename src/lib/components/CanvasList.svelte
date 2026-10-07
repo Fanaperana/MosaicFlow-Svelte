@@ -1,28 +1,47 @@
 <script lang="ts">
+  import { tick, onMount } from 'svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
-  import type { CanvasInfo } from '$lib/services/vaultService';
-  import { 
-    Plus, 
-    ArrowLeft, 
-    Trash2, 
-    ArrowRight, 
-    FileText, 
+  import { pageNav } from '$lib/stores/pages.svelte';
+  import { formatRelativeTime, type CanvasInfo } from '$lib/services/vaultService';
+  import {
+    Plus,
+    ArrowLeft,
+    Trash2,
+    FileText,
     Loader2,
     Pencil,
-    Check,
-    X,
     PackageOpen,
     FolderInput,
     Archive,
+    Search,
   } from 'lucide-svelte';
-  import { onMount } from 'svelte';
-  import { Button } from '$lib/components/ui/button';
   import { importDropped, importFileDialog, importMarkdownFolderDialog } from '$lib/services/interopService';
   import { exportVaultPackage } from '$lib/services/packageService';
   import VaultSwitcher from './VaultSwitcher.svelte';
 
+  type SortMode = 'recent' | 'name';
+
   let isImporting = $state(false);
   let dropActive = $state(false);
+  let query = $state('');
+  let sortMode = $state<SortMode>('recent');
+
+  let isCreating = $state(false);
+  let newCanvasName = $state('');
+  let showCreateInput = $state(false);
+  let renamingId = $state<string | null>(null);
+  let draftName = $state('');
+  let renameInput = $state<HTMLInputElement>();
+
+  let pages = $derived.by(() => {
+    const q = query.trim().toLowerCase();
+    const list = q
+      ? vaultStore.canvases.filter((c) => c.name.toLowerCase().includes(q) || c.tags?.some((t) => t.toLowerCase().includes(q)))
+      : [...vaultStore.canvases];
+    return sortMode === 'name'
+      ? list.sort((a, b) => a.name.localeCompare(b.name))
+      : list.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  });
 
   async function runImport(task: () => Promise<unknown>) {
     isImporting = true;
@@ -56,15 +75,8 @@
     };
   });
 
-  let isCreating = $state(false);
-  let newCanvasName = $state('');
-  let showCreateInput = $state(false);
-  let editingCanvasId = $state<string | null>(null);
-  let editingName = $state('');
-
   async function handleCreateCanvas() {
     if (!newCanvasName.trim()) return;
-    
     isCreating = true;
     try {
       await vaultStore.createCanvas(newCanvasName.trim());
@@ -77,53 +89,37 @@
     }
   }
 
-  function handleOpenCanvas(canvas: CanvasInfo) {
+  function openPage(canvas: CanvasInfo) {
+    if (renamingId === canvas.id) return;
     vaultStore.openCanvas(canvas);
   }
 
-  async function handleDeleteCanvas(canvas: CanvasInfo, e: Event) {
-    e.stopPropagation();
+  async function handleDeleteCanvas(canvas: CanvasInfo) {
     if (confirm(`Delete "${canvas.name}"? This cannot be undone.`)) {
       await vaultStore.deleteCanvasById(canvas.path);
     }
   }
 
-  function startEditing(canvas: CanvasInfo, e: Event) {
-    e.stopPropagation();
-    editingCanvasId = canvas.id;
-    editingName = canvas.name;
+  async function startRename(canvas: CanvasInfo) {
+    renamingId = canvas.id;
+    draftName = canvas.name;
+    await tick();
+    renameInput?.select();
   }
 
-  async function saveEdit(canvas: CanvasInfo) {
-    if (editingName.trim() && editingName !== canvas.name) {
-      // For now, just update locally - the renameCanvas will handle folder rename
-      vaultStore.openCanvas(canvas);
-      // Then rename
-      await vaultStore.renameCurrentCanvas(editingName.trim());
-    }
-    editingCanvasId = null;
-    editingName = '';
+  async function commitRename(canvas: CanvasInfo) {
+    if (renamingId !== canvas.id) return;
+    renamingId = null;
+    await pageNav.renameCanvas(canvas, draftName);
   }
 
-  function cancelEdit() {
-    editingCanvasId = null;
-    editingName = '';
-  }
-
-  function formatDate(iso: string): string {
-    const date = new Date(iso);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays} days ago`;
-    return date.toLocaleDateString();
+  function handleFilterKey(e: KeyboardEvent) {
+    if (e.key === 'Enter' && pages[0]) openPage(pages[0]);
+    if (e.key === 'Escape') query = '';
   }
 </script>
 
-<div class="canvas-list-page">
+<div class="cl-page">
   {#if dropActive}
     <div class="drop-overlay">
       <PackageOpen size={28} />
@@ -131,124 +127,126 @@
       <span>.mosaic · .zip · Obsidian .canvas · .json · Mermaid · folders of .md notes</span>
     </div>
   {/if}
-  <div class="canvas-list-content">
-    <header class="list-header">
-      <button class="back-btn" onclick={() => vaultStore.closeVault()} title="All vaults">
-        <ArrowLeft size={20} />
+
+  <div class="cl-wrap">
+    <header class="cl-head">
+      <button class="icon-btn" onclick={() => vaultStore.closeVault()} title="All vaults" aria-label="All vaults">
+        <ArrowLeft size={16} />
       </button>
-      <div class="vault-info">
-        <VaultSwitcher size="lg" />
-        <p class="canvas-count">{vaultStore.canvases.length} canvas{vaultStore.canvases.length !== 1 ? 'es' : ''}</p>
-      </div>
-      <Button onclick={() => runImport(exportVaultPackage)} disabled={isImporting || vaultStore.canvases.length === 0} variant="ghost" size="sm" class="px-3" title="Export every canvas in this vault as one .mosaic package">
-        <Archive size={14} class="mr-1" />
-        Export vault
-      </Button>
-      <Button onclick={() => runImport(importMarkdownFolderDialog)} disabled={isImporting} variant="ghost" size="sm" class="px-3" title="Import a folder of markdown notes (e.g. an Obsidian vault); [[wikilinks]] become edges">
-        <FolderInput size={14} class="mr-1" />
-        Notes folder
-      </Button>
-      <Button onclick={() => runImport(importFileDialog)} disabled={isImporting} variant="ghost" size="sm" class="px-3" title="Import a .mosaic package, Obsidian .canvas, MosaicFlow JSON or Mermaid flowchart">
-        {#if isImporting}
-          <Loader2 size={14} class="mr-1 animate-spin" />
-        {:else}
-          <PackageOpen size={14} class="mr-1" />
-        {/if}
-        Import
-      </Button>
-      <Button onclick={() => showCreateInput = true} size="sm" class="px-4">
-        <Plus size={14} class="mr-1" />
-        New Canvas
-      </Button>
+      <VaultSwitcher />
+      <div class="cl-spacer"></div>
+      <button class="ghost-btn" onclick={() => runImport(exportVaultPackage)} disabled={isImporting || vaultStore.canvases.length === 0} title="Export every canvas in this vault as one .mosaic package">
+        <Archive size={14} /><span>Export</span>
+      </button>
+      <button class="ghost-btn" onclick={() => runImport(importMarkdownFolderDialog)} disabled={isImporting} title="Import a folder of markdown notes (e.g. an Obsidian vault); [[wikilinks]] become edges">
+        <FolderInput size={14} /><span>Notes folder</span>
+      </button>
+      <button class="ghost-btn" onclick={() => runImport(importFileDialog)} disabled={isImporting} title="Import a .mosaic package, Obsidian .canvas, MosaicFlow JSON or Mermaid flowchart">
+        {#if isImporting}<Loader2 size={14} class="animate-spin" />{:else}<PackageOpen size={14} />{/if}<span>Import</span>
+      </button>
+      <button class="primary-btn" onclick={() => (showCreateInput = true)}>
+        <Plus size={14} /><span>New page</span>
+      </button>
     </header>
 
-    {#if showCreateInput}
-      <div class="create-input-row">
-        <!-- svelte-ignore a11y_autofocus -->
-        <input
-          type="text"
-          bind:value={newCanvasName}
-          placeholder="Canvas name..."
-          class="canvas-name-input"
-          onkeydown={(e) => e.key === 'Enter' && handleCreateCanvas()}
-          autofocus
-        />
-        <Button onclick={handleCreateCanvas} disabled={isCreating || !newCanvasName.trim()} size="sm">
-          {#if isCreating}
-            <Loader2 size={16} class="animate-spin" />
-          {:else}
-            Create
-          {/if}
-        </Button>
-        <Button onclick={() => { showCreateInput = false; newCanvasName = ''; }} variant="ghost" size="sm">
-          Cancel
-        </Button>
-      </div>
-    {/if}
+    <div class="cl-title">
+      <h1>Pages</h1>
+      <span class="cl-count">{vaultStore.canvases.length}</span>
+    </div>
 
-    <div class="canvas-grid">
-      {#each vaultStore.canvases as canvas}
-        <div class="canvas-card" role="button" tabindex="0" onclick={() => handleOpenCanvas(canvas)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleOpenCanvas(canvas); }}>
-          <div class="canvas-icon">
-            <FileText size={32} strokeWidth={1.5} />
-          </div>
-          <div class="canvas-info">
-            {#if editingCanvasId === canvas.id}
-              <!-- svelte-ignore a11y_no_static_element_interactions -->
-              <div class="edit-name-row" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
-                <!-- svelte-ignore a11y_autofocus -->
-                <input
-                  type="text"
-                  bind:value={editingName}
-                  class="edit-name-input"
-                  onkeydown={(e) => {
-                    if (e.key === 'Enter') saveEdit(canvas);
-                    if (e.key === 'Escape') cancelEdit();
-                  }}
-                  autofocus
-                />
-                <button class="edit-action-btn save" onclick={() => saveEdit(canvas)}>
-                  <Check size={14} />
-                </button>
-                <button class="edit-action-btn cancel" onclick={cancelEdit}>
-                  <X size={14} />
-                </button>
-              </div>
+    <div class="cl-toolbar">
+      <label class="cl-search">
+        <Search size={13} />
+        <input type="text" bind:value={query} placeholder="Filter pages…" onkeydown={handleFilterKey} />
+      </label>
+      <div class="seg" role="group" aria-label="Sort pages">
+        <button class:active={sortMode === 'recent'} onclick={() => (sortMode = 'recent')}>Recent</button>
+        <button class:active={sortMode === 'name'} onclick={() => (sortMode = 'name')}>Name</button>
+      </div>
+    </div>
+
+    <div class="cl-list">
+      <div class="cl-row cl-columns" aria-hidden="true">
+        <span class="col-name">Name</span>
+        <span class="col-date">Edited</span>
+        <span class="col-actions"></span>
+      </div>
+
+      {#if showCreateInput}
+        <div class="cl-row creating">
+          <FileText size={15} />
+          <!-- svelte-ignore a11y_autofocus -->
+          <input
+            class="cl-input"
+            type="text"
+            bind:value={newCanvasName}
+            placeholder="Untitled page"
+            autofocus
+            onkeydown={(e) => {
+              if (e.key === 'Enter') handleCreateCanvas();
+              if (e.key === 'Escape') { showCreateInput = false; newCanvasName = ''; }
+            }}
+            onblur={() => { if (!newCanvasName.trim()) showCreateInput = false; }}
+          />
+          {#if isCreating}<Loader2 size={14} class="animate-spin" />{:else}<kbd>Enter</kbd>{/if}
+        </div>
+      {/if}
+
+      {#each pages as canvas (canvas.id)}
+        <div
+          class="cl-row page"
+          role="button"
+          tabindex="0"
+          onclick={() => openPage(canvas)}
+          ondblclick={() => startRename(canvas)}
+          onkeydown={(e) => {
+            if (renamingId === canvas.id) return;
+            if (e.key === 'Enter') openPage(canvas);
+            else if (e.key === 'F2') startRename(canvas);
+          }}
+        >
+          <span class="col-name">
+            <FileText size={15} />
+            {#if renamingId === canvas.id}
+              <input
+                class="cl-input"
+                bind:this={renameInput}
+                bind:value={draftName}
+                onclick={(e) => e.stopPropagation()}
+                onblur={() => commitRename(canvas)}
+                onkeydown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === 'Enter') commitRename(canvas);
+                  if (e.key === 'Escape') renamingId = null;
+                }}
+              />
             {:else}
-              <h3 class="canvas-name">{canvas.name}</h3>
+              <span class="name">{canvas.name}</span>
+              {#if canvas.description}<span class="desc">{canvas.description}</span>{/if}
             {/if}
-            <p class="canvas-date">Modified {formatDate(canvas.updated_at)}</p>
-          </div>
-          <div class="canvas-actions">
-            <button 
-              class="action-btn edit"
-              onclick={(e) => startEditing(canvas, e)}
-              title="Rename"
-            >
-              <Pencil size={14} />
-            </button>
-            <button 
-              class="action-btn delete"
-              onclick={(e) => handleDeleteCanvas(canvas, e)}
-              title="Delete"
-            >
-              <Trash2 size={14} />
-            </button>
-            <ArrowRight size={18} class="arrow" />
-          </div>
+          </span>
+          <span class="col-date">{formatRelativeTime(canvas.updated_at)}</span>
+          <span class="col-actions">
+            <button onclick={(e) => { e.stopPropagation(); startRename(canvas); }} title="Rename (F2)" aria-label="Rename {canvas.name}"><Pencil size={13} /></button>
+            <button class="danger" onclick={(e) => { e.stopPropagation(); handleDeleteCanvas(canvas); }} title="Delete" aria-label="Delete {canvas.name}"><Trash2 size={13} /></button>
+          </span>
         </div>
       {/each}
+
+      {#if pages.length === 0 && query}
+        <p class="cl-empty">No pages match "{query}"</p>
+      {/if}
+
+      <button class="cl-row new-row" onclick={() => (showCreateInput = true)}>
+        <Plus size={15} /><span>New page</span>
+      </button>
     </div>
 
     {#if vaultStore.canvases.length === 0}
       <div class="empty-state">
-        <FileText size={48} strokeWidth={1} />
-        <h3>No canvases yet</h3>
-        <p>Create your first canvas to start investigating</p>
-        <Button onclick={() => showCreateInput = true}>
-          <Plus size={16} class="mr-1" />
-          Create Canvas
-        </Button>
+        <FileText size={36} strokeWidth={1.25} />
+        <h3>No pages yet</h3>
+        <p>Create your first page to start mapping.</p>
       </div>
     {/if}
   </div>
@@ -282,245 +280,337 @@
     color: var(--mf-text-2);
   }
 
-  .canvas-list-page {
-    min-height: 100vh;
-    background: linear-gradient(135deg, #0a0a0f 0%, #111118 100%);
-    padding: 2rem;
+  .cl-page {
+    height: 100vh;
+    overflow-y: auto;
+    background: var(--mf-bg);
+    color: var(--mf-text);
+    font-family: var(--mf-font-ui);
+    font-size: 13px;
   }
 
-  .canvas-list-content {
-    max-width: 800px;
+  .cl-wrap {
+    max-width: 760px;
     margin: 0 auto;
+    padding: 14px 24px 48px;
   }
 
-  .list-header {
+  .cl-head {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    margin-bottom: 2rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid #2a2a3a;
+    gap: 4px;
+    height: 36px;
   }
 
-  .back-btn {
+  .cl-spacer {
+    flex: 1;
+  }
+
+  .icon-btn {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border-radius: var(--mf-radius);
+    background: transparent;
+    color: var(--mf-text-3);
+  }
+
+  .icon-btn:hover {
+    background: var(--mf-hover);
+    color: var(--mf-text);
+  }
+
+  .ghost-btn,
+  .primary-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 8px;
+    border-radius: var(--mf-radius);
+    font-size: 12.5px;
+  }
+
+  .ghost-btn {
+    background: transparent;
+    color: var(--mf-text-2);
+  }
+
+  .ghost-btn :global(svg) {
+    color: var(--mf-text-3);
+  }
+
+  .ghost-btn:hover:not(:disabled) {
+    background: var(--mf-hover);
+    color: var(--mf-text);
+  }
+
+  .primary-btn {
+    margin-left: 4px;
+    padding: 0 10px;
+    background: var(--mf-accent);
+    color: #fff;
+    font-weight: 500;
+  }
+
+  .primary-btn:hover {
+    filter: brightness(1.1);
+  }
+
+  .cl-title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 36px 0 12px;
+  }
+
+  .cl-title h1 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .cl-count {
+    font-size: 13px;
+    color: var(--mf-text-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cl-toolbar {
     display: flex;
     align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    background: #111118;
-    border: 1px solid #2a2a3a;
-    border-radius: 8px;
-    color: #fafafa;
-    cursor: pointer;
-    transition: all 0.2s;
+    gap: 8px;
+    margin-bottom: 6px;
   }
 
-  .back-btn:hover {
-    border-color: #3b82f6;
-    background: #1a1a2e;
-  }
-
-  .vault-info {
-    flex: 1;
-    margin-left: -6px;
-  }
-
-  .canvas-count {
-    font-size: 0.875rem;
-    color: #666;
-    margin: 0.125rem 0 0 6px;
-  }
-
-  .create-input-row {
+  .cl-search {
     display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
-    padding: 1rem;
-    background: #111118;
-    border: 1px solid #2a2a3a;
-    border-radius: 8px;
-  }
-
-  .canvas-name-input {
     flex: 1;
-    padding: 0.5rem 0.75rem;
-    background: #0a0a0f;
-    border: 1px solid #2a2a3a;
-    border-radius: 6px;
-    color: #fafafa;
-    font-size: 0.875rem;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid var(--mf-border);
+    border-radius: var(--mf-radius);
+    background: var(--mf-surface);
+    color: var(--mf-text-3);
+    cursor: text;
   }
 
-  .canvas-name-input:focus {
-    outline: none;
-    border-color: #3b82f6;
+  .cl-search:focus-within {
+    border-color: var(--mf-accent);
   }
 
-  .canvas-grid {
+  .cl-search input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--mf-text);
+    font-size: 12.5px;
+  }
+
+  .seg {
+    display: inline-flex;
+    gap: 1px;
+    padding: 2px;
+    border: 1px solid var(--mf-border);
+    border-radius: var(--mf-radius);
+    background: var(--mf-surface);
+  }
+
+  .seg button {
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--mf-text-3);
+    font-size: 12px;
+  }
+
+  .seg button:hover {
+    color: var(--mf-text);
+  }
+
+  .seg button.active {
+    background: var(--mf-active);
+    color: var(--mf-text);
+  }
+
+  .cl-list {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
   }
 
-  .canvas-card {
-    display: flex;
+  .cl-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 110px 52px;
     align-items: center;
-    gap: 1rem;
-    padding: 1rem 1.25rem;
-    background: #111118;
-    border: 1px solid #2a2a3a;
-    border-radius: 12px;
+    gap: 8px;
+    min-height: 34px;
+    padding: 0 8px;
+    border-bottom: 1px solid var(--mf-border);
+    color: var(--mf-text);
+    text-align: left;
+    outline: none;
+  }
+
+  .cl-columns {
+    min-height: 28px;
+    font-size: 11.5px;
+    color: var(--mf-text-3);
+  }
+
+  .cl-row.page {
     cursor: pointer;
-    transition: all 0.2s;
+    border-radius: 0;
   }
 
-  .canvas-card:hover {
-    border-color: #3b82f6;
-    background: #1a1a2e;
+  .cl-row.page:hover,
+  .cl-row.page:focus-visible {
+    background: var(--mf-hover);
   }
 
-  .canvas-icon {
+  .col-name {
     display: flex;
     align-items: center;
-    justify-content: center;
-    width: 48px;
-    height: 48px;
-    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-    border-radius: 10px;
-    color: white;
-  }
-
-  .canvas-info {
-    flex: 1;
+    gap: 8px;
     min-width: 0;
   }
 
-  .canvas-name {
-    font-size: 1rem;
-    font-weight: 500;
-    margin: 0;
+  .col-name :global(svg),
+  .creating :global(svg),
+  .new-row :global(svg) {
+    flex-shrink: 0;
+    color: var(--mf-text-3);
+  }
+
+  .name {
+    flex-shrink: 0;
+    max-width: 70%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-weight: 500;
   }
 
-  .canvas-date {
-    font-size: 0.75rem;
-    color: #666;
-    margin: 0.25rem 0 0 0;
+  .desc {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--mf-text-3);
+    font-size: 12px;
   }
 
-  .edit-name-row {
+  .col-date {
+    font-size: 12px;
+    color: var(--mf-text-3);
+    white-space: nowrap;
+  }
+
+  .col-actions {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .edit-name-input {
-    flex: 1;
-    padding: 0.25rem 0.5rem;
-    background: #0a0a0f;
-    border: 1px solid #3b82f6;
-    border-radius: 4px;
-    color: #fafafa;
-    font-size: 0.875rem;
-  }
-
-  .edit-action-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    background: transparent;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .edit-action-btn.save {
-    color: #22c55e;
-  }
-
-  .edit-action-btn.save:hover {
-    background: rgba(34, 197, 94, 0.1);
-  }
-
-  .edit-action-btn.cancel {
-    color: #666;
-  }
-
-  .edit-action-btn.cancel:hover {
-    color: #ef4444;
-    background: rgba(239, 68, 68, 0.1);
-  }
-
-  .canvas-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .action-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    background: transparent;
-    border: none;
-    color: #666;
-    cursor: pointer;
-    border-radius: 6px;
+    justify-content: flex-end;
+    gap: 1px;
     opacity: 0;
-    transition: all 0.2s;
   }
 
-  .canvas-card:hover .action-btn {
+  .cl-row.page:hover .col-actions,
+  .cl-row.page:focus-within .col-actions {
     opacity: 1;
   }
 
-  .action-btn.edit:hover {
-    color: #3b82f6;
-    background: rgba(59, 130, 246, 0.1);
+  .col-actions button {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--mf-text-3);
   }
 
-  .action-btn.delete:hover {
-    color: #ef4444;
-    background: rgba(239, 68, 68, 0.1);
+  .col-actions button:hover {
+    background: var(--mf-active);
+    color: var(--mf-text);
   }
 
-  .canvas-actions :global(.arrow) {
-    color: #666;
-    margin-left: 0.5rem;
+  .col-actions button.danger:hover {
+    background: var(--mf-danger-soft);
+    color: var(--mf-danger);
   }
 
-  .canvas-card:hover :global(.arrow) {
-    color: #3b82f6;
+  .creating {
+    display: flex;
+    background: var(--mf-hover);
+  }
+
+  .creating kbd {
+    font-family: inherit;
+    font-size: 11px;
+    color: var(--mf-text-3);
+  }
+
+  .cl-input {
+    flex: 1;
+    min-width: 0;
+    height: 24px;
+    padding: 0 6px;
+    border: 1px solid var(--mf-accent);
+    border-radius: 4px;
+    background: var(--mf-surface-2);
+    color: var(--mf-text);
+    font-size: 13px;
+  }
+
+  .new-row {
+    display: flex;
+    width: 100%;
+    border-bottom: none;
+    background: transparent;
+    color: var(--mf-text-3);
+    cursor: pointer;
+  }
+
+  .new-row:hover {
+    background: var(--mf-hover);
+    color: var(--mf-text-2);
+  }
+
+  .cl-empty {
+    margin: 0;
+    padding: 12px 8px;
+    color: var(--mf-text-3);
+    font-size: 12.5px;
   }
 
   .empty-state {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1rem;
-    padding: 4rem 2rem;
+    gap: 6px;
+    padding: 48px 16px;
     text-align: center;
-    color: #666;
+    color: var(--mf-text-3);
   }
 
   .empty-state h3 {
-    font-size: 1.25rem;
-    font-weight: 500;
-    color: #888;
-    margin: 0;
+    margin: 4px 0 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--mf-text-2);
   }
 
   .empty-state p {
-    font-size: 0.875rem;
     margin: 0;
+    font-size: 12.5px;
   }
 
   :global(.animate-spin) {

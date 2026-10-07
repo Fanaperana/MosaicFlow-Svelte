@@ -208,11 +208,10 @@ export async function deleteCanvas(canvasPath: string): Promise<boolean> {
  * Format timestamp from Rust (milliseconds since epoch) to readable date
  */
 export function formatTimestamp(timestamp: string): string {
-  const ms = parseInt(timestamp, 10);
-  if (isNaN(ms)) {
-    return timestamp; // Already formatted
+  if (!/^\d+$/.test(timestamp.trim())) {
+    return timestamp; // Already an ISO/date string
   }
-  return new Date(ms).toISOString();
+  return new Date(parseInt(timestamp, 10)).toISOString();
 }
 
 /**
@@ -220,11 +219,15 @@ export function formatTimestamp(timestamp: string): string {
  */
 export function formatRelativeTime(timestamp: string): string {
   const date = new Date(formatTimestamp(timestamp));
+  if (isNaN(date.getTime())) return '';
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   
-  if (diffDays === 0) return 'Today';
+  if (diffMinutes < 1) return 'Just now';
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  if (diffMinutes < 24 * 60) return `${Math.floor(diffMinutes / 60)}h ago`;
   if (diffDays === 1) return 'Yesterday';
   if (diffDays < 7) return `${diffDays} days ago`;
   if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
