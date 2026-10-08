@@ -168,6 +168,14 @@
     labelText = target.value;
   }
 
+  const fontFamilies: Record<string, string> = {
+    sans: 'var(--mf-font-ui)',
+    serif: "Georgia, 'Times New Roman', serif",
+    mono: 'var(--mf-font-mono)',
+    hand: "'Segoe Print', 'Bradley Hand', 'Comic Sans MS', cursive",
+  };
+  const fontFamily = $derived(fontFamilies[data.fontFamily || 'mono'] ?? fontFamilies.mono);
+
   const textColor = $derived(data.textColor || '#999');
 
   function handleColorChange(newColor: string) {
@@ -190,6 +198,7 @@
     --font-size: {calculatedFontSize()}px;
     --font-weight: {data.fontWeight || '400'};
     --font-style: {data.fontStyle || 'normal'};
+    --font-family: {fontFamily};
     --text-color: {textColor};
     --text-align: {data.textAlign || 'left'};
   "
@@ -237,8 +246,13 @@
         {customGlyph}
       {:else}
         <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M4 34 C 14 12, 32 10, 44 22" />
-          <path d="M34.3 19.4 L44 22 L41.4 12.3" />
+          {#if data.arrowShape === 'straight'}
+            <path d="M4 24 L44 24" />
+            <path d="M36 16 L44 24 L36 32" />
+          {:else}
+            <path d="M4 34 C 14 12, 32 10, 44 22" />
+            <path d="M34.3 19.4 L44 22 L41.4 12.3" />
+          {/if}
         </svg>
       {/if}
       
@@ -290,6 +304,7 @@
     font-size: var(--font-size);
     font-weight: var(--font-weight);
     font-style: var(--font-style);
+    font-family: var(--font-family);
     color: var(--text-color);
     text-align: var(--text-align);
     line-height: 1.3;
@@ -304,6 +319,7 @@
     font-size: var(--font-size);
     font-weight: var(--font-weight);
     font-style: var(--font-style);
+    font-family: var(--font-family);
     color: var(--text-color);
     text-align: var(--text-align);
     line-height: 1.3;

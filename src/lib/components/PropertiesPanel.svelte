@@ -1030,6 +1030,14 @@
           </div>
 
           <div class="prop">
+            <span class="prop-label"><Spline size={14} />Shape</span>
+            <div class="seg">
+              <button type="button" class="seg-btn wide" class:active={data.arrowShape !== 'straight'} onclick={() => updateNodeData('arrowShape', 'curved')}>Curved</button>
+              <button type="button" class="seg-btn wide" class:active={data.arrowShape === 'straight'} onclick={() => updateNodeData('arrowShape', 'straight')}>Straight</button>
+            </div>
+          </div>
+
+          <div class="prop">
             <span class="prop-label"><RotateCw size={14} />Rotation</span>
             <select class="pp-control" value={data.arrowRotation || 0} onchange={(e) => updateNodeData('arrowRotation', parseInt((e.target as HTMLSelectElement).value))}>
               {#each [0, 45, 90, 135, 180, 225, 270, 315] as deg (deg)}
@@ -1044,6 +1052,36 @@
               <button type="button" class="seg-btn" class:active={data.arrowFlipX} onclick={() => updateNodeData('arrowFlipX', !data.arrowFlipX)} title="Flip horizontally"><FlipHorizontal2 size={13} /></button>
               <button type="button" class="seg-btn" class:active={data.arrowFlipY} onclick={() => updateNodeData('arrowFlipY', !data.arrowFlipY)} title="Flip vertically"><FlipVertical2 size={13} /></button>
             </div>
+          </div>
+
+          <div class="prop">
+            <span class="prop-label"><Type size={14} />Font size</span>
+            <span class="prop-value">
+              <label class="num" title="Leave empty to scale with the node size">
+                <input
+                  type="number"
+                  min="8"
+                  max="120"
+                  placeholder="Auto"
+                  value={data.fontSize ?? ''}
+                  oninput={(e) => {
+                    const size = parseInt((e.target as HTMLInputElement).value);
+                    updateNodeData('fontSize', Number.isFinite(size) && size > 0 ? Math.min(size, 120) : undefined);
+                  }}
+                />
+                <span class="unit">px</span>
+              </label>
+            </span>
+          </div>
+
+          <div class="prop">
+            <span class="prop-label"><Type size={14} />Font</span>
+            <select class="pp-control" value={data.fontFamily || 'mono'} onchange={(e) => updateNodeData('fontFamily', (e.target as HTMLSelectElement).value)}>
+              <option value="mono">Mono</option>
+              <option value="sans">Sans</option>
+              <option value="serif">Serif</option>
+              <option value="hand">Handwritten</option>
+            </select>
           </div>
 
           <div class="prop">

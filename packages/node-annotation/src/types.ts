@@ -8,7 +8,9 @@ export interface AnnotationNodeData extends BaseNodeData {
   arrowRotation?: number;
   arrowFlipX?: boolean;
   arrowFlipY?: boolean;
+  arrowShape?: "curved" | "straight";
   fontSize?: number;
+  fontFamily?: "sans" | "serif" | "mono" | "hand";
   fontWeight?: string;
   fontStyle?: "normal" | "italic";
   textAlign?: "left" | "center" | "right";
