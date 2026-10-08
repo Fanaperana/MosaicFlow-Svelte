@@ -10,15 +10,26 @@ import type { EditorState, Range } from '@codemirror/state';
 
 const patternTag = /{%\s*(?<closing>\/)?(?<tag>[a-zA-Z0-9-_]+)(?<attrs>\s+[^]+)?\s*(?<self>\/)?%}\s*$/m;
 
+// Rendered HTML by source: blocks are rebuilt on every transaction, re-rendering them all made typing slow.
+const renderCache = new Map<string, string>();
+const CACHE_LIMIT = 300;
+
+function renderSource(source: string, config: Config): string {
+  const cached = renderCache.get(source);
+  if (cached !== undefined) return cached;
+  const transformed = markdoc.transform(markdoc.parse(source), config);
+  const html = DOMPurify.sanitize(markdoc.renderers.html(transformed));
+  if (renderCache.size >= CACHE_LIMIT) renderCache.delete(renderCache.keys().next().value!);
+  renderCache.set(source, html);
+  return html;
+}
+
 class RenderBlockWidget extends WidgetType {
   rendered: string;
 
   constructor(public source: string, config: Config) {
     super();
-
-    const document = markdoc.parse(source);
-    const transformed = markdoc.transform(document, config);
-    this.rendered = DOMPurify.sanitize(markdoc.renderers.html(transformed));
+    this.rendered = renderSource(source, config);
   }
 
   eq(widget: RenderBlockWidget): boolean {
@@ -103,7 +114,8 @@ export function renderBlock(config: Config) {
       return RangeSet.of(replaceBlocks(state, config), true);
     },
 
-    update(_decorations, transaction) {
+    update(decorations, transaction) {
+      if (!transaction.docChanged && !transaction.selection) return decorations;
       return RangeSet.of(replaceBlocks(transaction.state, config), true);
     },
 

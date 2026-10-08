@@ -20,10 +20,11 @@
     indentOnInput 
   } from '@codemirror/language';
   import { languages } from '@codemirror/language-data';
-  import { Table } from '@lezer/markdown';
+  import { Strikethrough, Table, TaskList } from '@lezer/markdown';
 
   import { richMarkdownPlugin } from './richMarkdownPlugin';
   import { markdocConfig } from './markdocConfig';
+  import { wikilinkParser } from './wikilinkParser';
   import './richEditor.css';
   import { knowledge } from '$lib/stores/knowledge.svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
@@ -145,7 +146,7 @@
         richMarkdownPlugin({
           markdoc: markdocConfig,
           codeLanguages: languages,
-          extensions: [Table]
+          extensions: [Table, TaskList, Strikethrough, wikilinkParser]
         }),
         EditorView.lineWrapping,
         history(),
@@ -209,13 +210,21 @@
 
   // Update editor content when value prop changes externally
   $effect(() => {
-    const next = value;
+    // CodeMirror stores \n only; comparing raw CRLF text would rewrite the note just by opening it.
+    const next = value.replace(/\r\n?/g, '\n');
     if (view && !isInternalChange) {
-      const currentContent = view.state.doc.toString();
-      if (currentContent !== next) {
-        view.dispatch({
-          changes: { from: 0, to: currentContent.length, insert: next }
-        });
+      const current = view.state.doc.toString();
+      if (current !== next) {
+        // Replace only the part that changed so the cursor and scroll position survive.
+        let start = 0;
+        while (start < current.length && start < next.length && current[start] === next[start]) start++;
+        let endCur = current.length;
+        let endNext = next.length;
+        while (endCur > start && endNext > start && current[endCur - 1] === next[endNext - 1]) {
+          endCur--;
+          endNext--;
+        }
+        view.dispatch({ changes: { from: start, to: endCur, insert: next.slice(start, endNext) } });
       }
     }
   });
