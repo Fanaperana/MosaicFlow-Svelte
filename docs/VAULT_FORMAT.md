@@ -30,9 +30,11 @@ Everything in `.mosaicflow/` is owned by the app; `node-types.json` is regenerat
 
 ## Identifiers
 
-- Node, edge and page ids must match `^[A-Za-z0-9_][A-Za-z0-9_.-]*$` and must not contain `..`. Readable slugs are preferred: `ada-lovelace`, `e-ada-babbage`.
+- Node, edge and page ids must match `^[A-Za-z0-9_][A-Za-z0-9_.-]*$` and must not contain `..`.
+- The app creates **UUIDs** (`6a95855d-6394-4d58-a467-c9b7928d75b6`). Tools may use readable ids (`ada-lovelace`) instead; both are valid.
+- Ids must be unique **within a page**. Before writing a new node or edge, check the file does not exist yet; if it does, pick another id (e.g. append `-2`). Prefer UUIDs when nodes may later be copied between pages or vaults.
 - The **file name is the id**: `nodes/ada-lovelace.md` is node `ada-lovelace` even if its frontmatter says otherwise. Keep both equal.
-- Node ids are unique within a page. Edge ids are unique within a page.
+- Never change an existing id: edges, `layout.parent` and embeds refer to it. Change `title` instead.
 - Page ids (`canvas.json` → `id`) and the vault id are UUIDs.
 
 ## vault.json
@@ -208,7 +210,7 @@ Read it before creating nodes; it is the source of truth for field names.
 
 **Read a page.** Open `canvas.json`, then every `nodes/*.md` (frontmatter + body) and `edges/*.json`.
 
-**Add a node.** Pick a free id, choose a `type` from `node-types.json`, write `nodes/<id>.md` with `id`, `type`, `title`, `layout` (size ≥ `minSize`, not overlapping other nodes) and `data`; put the body field in the Markdown body. Bump `updatedAt`.
+**Add a node.** Pick an id that has no file yet in `nodes/` (a new UUID is safest), choose a `type` from `node-types.json`, write `nodes/<id>.md` with `id`, `type`, `title`, `layout` (size ≥ `minSize`, not overlapping other nodes) and `data`; put the body field in the Markdown body. Bump `updatedAt`.
 
 **Edit a node.** Change only the keys you mean to change; keep the rest of the frontmatter and body. Bump `updatedAt`.
 
