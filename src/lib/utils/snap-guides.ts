@@ -2,7 +2,6 @@
 // Calculates alignment guides when dragging nodes to show visual indicators
 
 import type { Node } from '@xyflow/svelte';
-import { nodeRegistry } from '$lib/kernel/registries/node-registry';
 
 export interface SnapGuide {
   type: 'vertical' | 'horizontal';
@@ -76,7 +75,6 @@ export function calculateSnapGuides(
     // If dragging a child node, only snap to other children of the same parent
     // If dragging a top-level node, only snap to other top-level nodes (exclude children)
     if (node.parentId !== draggingParentId) continue;
-    if (nodeRegistry.isContainer(node.type)) continue;
     
     const bounds = getNodeBounds(node);
     
@@ -197,7 +195,6 @@ export function calculateSelectionSnapGuides(
   // Filter to only sibling nodes
   const otherNodes = allNodes.filter(n => {
     if (draggingIds.has(n.id)) return false;
-    if (nodeRegistry.isContainer(n.type)) return false;
     // Only include nodes with the same parent
     return n.parentId === commonParentId;
   });
@@ -240,7 +237,6 @@ export function calculateSnapOffset(
 
   for (const node of allNodes) {
     if (draggingIds.has(node.id) || node.parentId !== parentId) continue;
-    if (nodeRegistry.isContainer(node.type)) continue;
     const other = getNodeBounds(node);
 
     for (const from of [drag.left, drag.centerX, drag.right]) {
@@ -258,6 +254,57 @@ export function calculateSnapOffset(
   }
 
   return { dx: dx ?? 0, dy: dy ?? 0 };
+}
+
+export interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface ResizeEdges {
+  left: boolean;
+  right: boolean;
+  top: boolean;
+  bottom: boolean;
+}
+
+/**
+ * Snaps the edges under the resize handle onto the nearest sibling edge or centre line;
+ * the opposite edges stay put.
+ */
+export function calculateResizeSnap(node: Node, edges: ResizeEdges, allNodes: Node[], threshold: number, minSize = 20): Rect {
+  const width = node.width ?? node.measured?.width ?? DEFAULT_NODE_WIDTH;
+  const height = node.height ?? node.measured?.height ?? DEFAULT_NODE_HEIGHT;
+  let left = node.position.x;
+  let top = node.position.y;
+  let right = left + width;
+  let bottom = top + height;
+
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (const other of allNodes) {
+    if (other.id === node.id || other.parentId !== node.parentId) continue;
+    const b = getNodeBounds(other);
+    xs.push(b.left, b.centerX, b.right);
+    ys.push(b.top, b.centerY, b.bottom);
+  }
+  const nearest = (value: number, lines: number[]) => {
+    let best: number | null = null;
+    for (const line of lines) {
+      const d = line - value;
+      if (Math.abs(d) <= threshold && (best === null || Math.abs(d) < Math.abs(best))) best = d;
+    }
+    return best ?? 0;
+  };
+
+  if (edges.left) left = Math.min(left + nearest(left, xs), right - minSize);
+  else if (edges.right) right = Math.max(right + nearest(right, xs), left + minSize);
+  if (edges.top) top = Math.min(top + nearest(top, ys), bottom - minSize);
+  else if (edges.bottom) bottom = Math.max(bottom + nearest(bottom, ys), top + minSize);
+
+  return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
 /**

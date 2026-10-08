@@ -19,7 +19,7 @@
   import { GlowEdge } from '$lib/components/edges';
   import type { NodeType, MosaicNode, MosaicEdge } from '$lib/types';
   import { resolveCollisions, findNonOverlappingPosition } from '$lib/utils/resolve-collisions';
-  import { calculateSnapGuides, calculateSelectionSnapGuides, calculateSnapOffset, type SnapGuide } from '$lib/utils/snap-guides';
+  import { calculateSnapGuides, calculateSelectionSnapGuides, calculateSnapOffset, calculateResizeSnap, type ResizeEdges, type SnapGuide } from '$lib/utils/snap-guides';
   import { SpatialIndex } from '$lib/utils/spatial-index';
   import SnapGuides from '$lib/components/SnapGuides.svelte';
   import NodeListSidebar from '$lib/components/NodeListSidebar.svelte';
@@ -246,13 +246,79 @@
   let pendingConnectionSource = $state<{ nodeId: string; handleId: string | null; handleType: 'source' | 'target' } | null>(null);
   
   // Track previous node dimensions for detecting resize changes
-  let prevNodeDimensions = new Map<string, { width?: number; height?: number }>();
+  let prevNodeDimensions = new Map<string, { x: number; y: number; width?: number; height?: number }>();
   // Track if history has been saved for current resize operation
   let resizeHistorySaved = $state(false);
+
+  // Resize snapping: the node under a grabbed resize handle, and whether Shift is down.
+  let resizingId: string | null = null;
+  let resizeEdges: ResizeEdges = { left: false, right: false, top: false, bottom: false };
+  let shiftHeld = false;
+  $effect(() => {
+    const onPointerDown = (e: PointerEvent) => {
+      shiftHeld = e.shiftKey;
+      const control = (e.target as Element | null)?.closest?.('.svelte-flow__resize-control');
+      resizingId = control?.closest('.svelte-flow__node')?.getAttribute('data-id') ?? null;
+      if (control) {
+        const has = (side: string) => control.classList.contains(side);
+        resizeEdges = { left: has('left'), right: has('right'), top: has('top'), bottom: has('bottom') };
+      }
+    };
+    const onPointerUp = () => {
+      if (resizingId) snapGuides = [];
+      resizingId = null;
+    };
+    const onModifier = (e: KeyboardEvent | PointerEvent) => (shiftHeld = e.shiftKey);
+    window.addEventListener('pointerdown', onPointerDown, true);
+    window.addEventListener('pointerup', onPointerUp, true);
+    window.addEventListener('pointermove', onModifier, true);
+    window.addEventListener('keydown', onModifier, true);
+    window.addEventListener('keyup', onModifier, true);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown, true);
+      window.removeEventListener('pointerup', onPointerUp, true);
+      window.removeEventListener('pointermove', onModifier, true);
+      window.removeEventListener('keydown', onModifier, true);
+      window.removeEventListener('keyup', onModifier, true);
+    };
+  });
+
+  function snapResize(list: Node[]): Node[] {
+    const node = resizingId ? list.find(n => n.id === resizingId) : undefined;
+    const prev = node && prevNodeDimensions.get(node.id);
+    if (!node || !prev) return list;
+    if (prev.width === node.width && prev.height === node.height) return list;
+
+    let current = node;
+    if (shiftHeld) {
+      const snapped = calculateResizeSnap(node, resizeEdges, list, SNAP_DISTANCE / viewport.zoom);
+      const dx = snapped.x - node.position.x;
+      const dy = snapped.y - node.position.y;
+      if (dx || dy || snapped.width !== node.width || snapped.height !== node.height) {
+        current = { ...node, position: { x: snapped.x, y: snapped.y }, width: snapped.width, height: snapped.height };
+        // Children are relative to the group, so undo the extra shift of its top/left corner.
+        list = list.map(n => {
+          if (n.id === node.id) return current;
+          if (n.parentId === node.id && (dx || dy)) return { ...n, position: { x: n.position.x - dx, y: n.position.y - dy } };
+          return n;
+        });
+      }
+    }
+    snapGuides = calculateSnapGuides(
+      { ...current, measured: { width: current.width, height: current.height } },
+      list,
+      shiftHeld ? 0.5 : SNAP_THRESHOLD
+    );
+    return list;
+  }
   
   // Sync workspace changes to local state
   $effect(() => {
     nodes = workspace.nodes as Node[];
+    // Only canvas-side changes count as resizes; undo, loads and panel edits update the baseline.
+    for (const n of workspace.nodes) {
+      prevNodeDimensions.set(n.id, { x: n.position.x, y: n.position.y, width: n.width, height: n.height });
+    }
   });
   
   $effect(() => {
@@ -272,23 +338,30 @@
   // Sync local state changes back to workspace and detect dimension changes
   $effect(() => {
     if (nodes !== workspace.nodes) {
+      if (resizingId) nodes = snapResize(nodes);
+      const resized = new Set<string>();
       // Detect nodes with changed dimensions (from resize)
       for (const node of nodes) {
         const prev = prevNodeDimensions.get(node.id);
         if (prev && (prev.width !== node.width || prev.height !== node.height)) {
+          resized.add(node.id);
           // Save history before first resize change
           if (!resizeHistorySaved) {
             workspace.saveToHistory();
             resizeHistorySaved = true;
           }
-          // Dimension changed - save to file
+          // Dimension changed - save to file (resizing from the top/left also moves the node)
           workspace.updateNode(node.id, {
+            position: node.position,
             width: node.width,
             height: node.height,
           });
+        } else if (prev && node.parentId && resized.has(node.parentId) && (prev.x !== node.position.x || prev.y !== node.position.y)) {
+          // A group resized from its top/left shifts its children's relative positions.
+          workspace.updateNode(node.id, { position: node.position });
         }
         // Update tracking
-        prevNodeDimensions.set(node.id, { width: node.width, height: node.height });
+        prevNodeDimensions.set(node.id, { x: node.position.x, y: node.position.y, width: node.width, height: node.height });
       }
       
       workspace.nodes = nodes as MosaicNode[];
