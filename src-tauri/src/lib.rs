@@ -31,7 +31,6 @@ pub fn run() {
             queue_open_files(app, files);
         }))
         // Plugins
-        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_persisted_scope::init())

@@ -18,7 +18,6 @@ let watchedPath = '';
 const dirtyNodes = new Set<string>();
 const dirtyEdges = new Set<string>();
 let batchTimer: ReturnType<typeof setTimeout> | null = null;
-let externalChanges = 0;
 
 export async function startLiveSync(canvasPath: string) {
   stopLiveSync();
@@ -125,12 +124,6 @@ async function applyBatch() {
   }
 
   if (applied > 0) {
-    externalChanges += applied;
     toast.info(`Canvas updated from disk`, { id: 'live-sync', description: `${applied} change${applied === 1 ? '' : 's'} applied` });
   }
-}
-
-/** Count of external changes applied since start (used by tests). */
-export function externalChangeCount(): number {
-  return externalChanges;
 }

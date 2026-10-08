@@ -151,13 +151,10 @@ preview and installs the ones the user ticks.
 
 ## Command Routing
 
-All plugin commands go through `kernel_invoke`:
+Backend plugin commands go through the `kernel_invoke` Tauri command (the frontend currently uses
+registries and services directly, so nothing calls it yet):
 
-```typescript
-// Frontend
-const response = await kernelInvoke('core.content', 'get_node_data', { nodeId });
-
-// Routes to backend
+```rust
 #[tauri::command]
 fn kernel_invoke(request: InvokeRequest) -> InvokeResponse {
     get_kernel().read().invoke(&request.into())

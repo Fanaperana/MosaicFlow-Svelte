@@ -149,63 +149,6 @@ async function readCanvasFile(path: string): Promise<CanvasFile | null> {
   }
 }
 
-// Create new workspace with v2 folder structure
-export async function createWorkspace(path: string, name: string): Promise<boolean> {
-  try {
-    const { mkdir, exists } = await import('@tauri-apps/plugin-fs');
-    
-    // Create workspace directory
-    if (!(await exists(path))) {
-      await mkdir(path, { recursive: true });
-    }
-    
-    // Create required subdirectories
-    const dirs = ['nodes', 'edges'];
-    for (const dir of dirs) {
-      const dirPath = `${path}/${dir}`;
-      if (!(await exists(dirPath))) {
-        await mkdir(dirPath, { recursive: true });
-      }
-    }
-    
-    // Initialize workspace
-    workspace.clear();
-    workspace.name = name;
-    workspace.initFileServices(path);
-    
-    // Save initial manifest
-    await workspace.saveWorkspaceManifest();
-    
-    return true;
-  } catch (error) {
-    console.error('Error creating workspace:', error);
-    return false;
-  }
-}
-
-// Open workspace dialog
-export async function openWorkspaceDialog(): Promise<string | null> {
-  try {
-    const { open } = await import('@tauri-apps/plugin-dialog');
-    
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      title: 'Open Workspace',
-    });
-    
-    if (selected && typeof selected === 'string') {
-      const success = await loadWorkspace(selected);
-      return success ? selected : null;
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('Error opening workspace dialog:', error);
-    return null;
-  }
-}
-
 // Export the full canvas (nodes, edges, metadata) as a single JSON file
 export async function exportAsJson(): Promise<boolean> {
   try {

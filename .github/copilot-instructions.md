@@ -122,11 +122,11 @@ Always use Svelte 5 runes API:
 
 When creating or modifying node components:
 
-1. Follow the pattern in existing nodes (see `src/lib/components/nodes/`)
-2. Use `NodeWrapper` for consistent styling
-3. Define proper TypeScript interfaces in `src/lib/types.ts`
-4. Register nodes in `src/lib/components/nodes/index.ts`
-5. Update the node registry in `src/lib/components/nodes/registry.ts`
+1. Follow the pattern in existing node packages (`packages/node-*`) or `src/lib/components/nodes/knowledge/`
+2. Use `NodeWrapper` from `@mosaicflow/node-sdk` for consistent styling
+3. Define the data type in the package's `types.ts`
+4. Describe the node in the package's `plugin.ts` (`NodeTypeRegistration`)
+5. Register it in `src/lib/plugins/` (node registry: `src/lib/kernel/registries/node-registry.ts`)
 
 Example node structure:
 ```svelte
@@ -266,20 +266,19 @@ Scopes:
 
 ### Adding a New Node Type
 
-1. Create the type interface in `src/lib/types.ts`
-2. Create the component in the appropriate category folder
-3. Export from `src/lib/components/nodes/index.ts`
-4. Add to registry in `src/lib/components/nodes/registry.ts`
-5. Add default data factory
-6. Update node size constraints in `_shared/utils.ts`
+1. Create a `packages/node-<name>` package (copy an existing one): component, `types.ts`, `plugin.ts`, `index.ts`
+2. Add it to the root `package.json` dependencies
+3. Register it in `src/lib/plugins/`
+4. Set default data, dimensions and `knowledge` (fields for search and AI agents) in `plugin.ts`
+
+User plugins (no rebuild) are covered in `docs/PLUGIN_DEVELOPMENT.md`.
 
 ### Modifying Tauri Commands
 
 1. Add/modify command in `src-tauri/src/commands/`
 2. Update `mod.rs` exports
 3. Register in `lib.rs`
-4. Update TypeScript types in `src/lib/api/types.ts`
-5. Add bridge function in `src/lib/api/`
+4. Call it from a service in `src/lib/services/` (or `src/lib/api/` for plugin commands) with `invoke`
 
 ### Working with Stores
 
