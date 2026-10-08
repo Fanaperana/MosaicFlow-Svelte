@@ -186,8 +186,8 @@ export function registerTools(server: McpServer, ops: MosaicOps) {
 
   server.registerTool('auto_layout', {
     title: 'Auto layout',
-    description: 'Tidy nodes with a layered layout that follows the edges (grid when there are none). Lays out the top-level nodes, the children of parentId, or the given nodeIds (same parent). Groups grow to fit.',
-    inputSchema: { canvas, parentId: z.string().optional(), nodeIds: z.array(z.string()).optional(), direction: z.enum(['LR', 'TB']).optional() },
+    description: 'Tidy nodes. mode "layered" (default) follows the edges (grid when there are none); mode "wrap" places nodeIds in the given order in rows, ideal for a page of groups. Lays out the top-level nodes, the children of parentId, or the given nodeIds (same parent). Groups grow to fit.',
+    inputSchema: { canvas, parentId: z.string().optional(), nodeIds: z.array(z.string()).optional(), direction: z.enum(['LR', 'TB']).optional(), mode: z.enum(['layered', 'wrap']).optional() },
     annotations: write,
   }, (args) => run(() => ops.autoLayout(args)));
 

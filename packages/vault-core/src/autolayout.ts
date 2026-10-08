@@ -153,6 +153,33 @@ export function gridLayout(nodes: LayoutNode[], options: LayoutOptions = {}): Ma
   return snap(positions);
 }
 
+/**
+ * Places nodes in the given order, left to right, wrapping into rows so the result is roughly 16:10.
+ * Suits pages made of a few large blocks (groups) where a layered layout would be one long strip.
+ */
+export function wrapLayout(nodes: LayoutNode[], options: LayoutOptions & { maxWidth?: number } = {}): Map<string, Point> {
+  const gap = options.nodeGap ?? 160;
+  const origin = options.origin ?? { x: 0, y: 0 };
+  const area = nodes.reduce((s, n) => s + (n.width + gap) * (n.height + gap), 0);
+  const widest = Math.max(0, ...nodes.map((n) => n.width));
+  const maxWidth = Math.max(widest, options.maxWidth ?? Math.sqrt(area * 1.6));
+  const positions = new Map<string, Point>();
+  let x = origin.x;
+  let y = origin.y;
+  let rowHeight = 0;
+  for (const n of nodes) {
+    if (x > origin.x && x - origin.x + n.width > maxWidth) {
+      x = origin.x;
+      y += rowHeight + gap;
+      rowHeight = 0;
+    }
+    positions.set(n.id, { x, y });
+    x += n.width + gap;
+    rowHeight = Math.max(rowHeight, n.height);
+  }
+  return snap(positions);
+}
+
 function snap(positions: Map<string, Point>): Map<string, Point> {
   positions.forEach((p, id) => positions.set(id, { x: Math.round(p.x / 10) * 10, y: Math.round(p.y / 10) * 10 }));
   return positions;

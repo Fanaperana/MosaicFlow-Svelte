@@ -5,6 +5,7 @@ import {
   KnowledgeIndex,
   absoluteRects,
   autoLayout,
+  wrapLayout,
   importMermaid,
   boundsOf,
   buildEdge,
@@ -645,8 +646,16 @@ export class MosaicOps {
           await this.autoLayout({ canvas, parentId: ids.get(g.key), direction });
         }
       }
-      const { nodes } = await this.open(canvas);
-      if (nodes.filter((n) => !n.parentId).length >= 2) await this.autoLayout({ canvas, direction });
+      // New pages: blocks (groups and loose nodes) in reading order, wrapped into rows. Existing pages keep their layout.
+      if (!existing) {
+        const order: string[] = [];
+        for (const n of input.nodes) {
+          const id = ids.get(n.group ?? n.key)!;
+          if (!order.includes(id)) order.push(id);
+        }
+        for (const g of groups) if (!order.includes(ids.get(g.key)!)) order.push(ids.get(g.key)!);
+        if (order.length >= 2) await this.autoLayout({ canvas, nodeIds: order, mode: 'wrap' });
+      }
     }
     if (input.story !== false && input.nodes.length > 0) {
       await this.setStoryOrder(canvas, input.nodes.map((n) => ids.get(n.key)!));
@@ -674,7 +683,7 @@ export class MosaicOps {
    * Re-arranges nodes with a layered layout following the edges (or a grid). Only nodes that share
    * the same parent are moved; by default the top-level nodes of the canvas.
    */
-  async autoLayout(input: { canvas: string; parentId?: string; nodeIds?: string[]; direction?: 'LR' | 'TB' }) {
+  async autoLayout(input: { canvas: string; parentId?: string; nodeIds?: string[]; direction?: 'LR' | 'TB'; mode?: 'layered' | 'wrap' }) {
     const { entry, repo, nodes } = await this.open(input.canvas);
     const edges = await repo.readAllEdges();
     let targets = input.nodeIds
@@ -705,11 +714,16 @@ export class MosaicOps {
 
     const before = boundsOf(targets.map((n) => ({ ...n.position, width: n.width ?? FALLBACK_SIZE.width, height: n.height ?? FALLBACK_SIZE.height })))!;
     const origin = parentId ? { x: Math.max(before.x, GROUP_PAD.side), y: Math.max(before.y, GROUP_PAD.top) } : { x: before.x, y: before.y };
-    const positions = autoLayout(
-      targets.map((n) => ({ id: n.id, width: n.width ?? FALLBACK_SIZE.width, height: n.height ?? FALLBACK_SIZE.height })),
-      layoutEdges,
-      { direction: input.direction ?? 'LR', origin, nodeGap: parentId ? 40 : 60 }
-    );
+    const positions = input.mode === 'wrap'
+      ? wrapLayout(
+          targets.map((n) => ({ id: n.id, width: n.width ?? FALLBACK_SIZE.width, height: n.height ?? FALLBACK_SIZE.height })),
+          { origin, nodeGap: parentId ? 40 : 160 }
+        )
+      : autoLayout(
+          targets.map((n) => ({ id: n.id, width: n.width ?? FALLBACK_SIZE.width, height: n.height ?? FALLBACK_SIZE.height })),
+          layoutEdges,
+          { direction: input.direction ?? 'LR', origin, nodeGap: parentId ? 40 : 60 }
+        );
     for (const n of targets) {
       n.position = positions.get(n.id)!;
       await repo.writeNode(n);
