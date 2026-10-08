@@ -79,6 +79,57 @@ export function activate(api) {
       },
     },
   ]);
+
+  // Templates appear in the command palette (Ctrl+P) as "Insert template: …".
+  api.registerTemplates([
+    {
+      id: 'study-set',
+      name: 'Study set',
+      description: 'A topic note linked to three flashcards',
+      content: {
+        nodes: [
+          { key: 'topic', type: 'note', x: 0, y: 0, data: { title: 'Topic', content: 'What are you studying?' } },
+          ...[0, 1, 2].map((i) => ({
+            key: `card${i}`,
+            type: 'flashcard',
+            x: 380,
+            y: i * 230 - 230,
+            data: { title: `Card ${i + 1}`, question: '', answer: '', flipped: false, reviews: 0 },
+          })),
+        ],
+        edges: [0, 1, 2].map((i) => ({ from: 'topic', to: `card${i}`, fromSide: 'right', toSide: 'left' })),
+      },
+    },
+  ]);
+
+  // Layouts appear as "Arrange: …". They get the selected (or all) nodes and return new positions.
+  api.registerLayouts([
+    {
+      id: 'deck',
+      name: 'Flashcard deck (rows of 4)',
+      arrange: ({ nodes }) => {
+        const sorted = [...nodes].sort((a, b) => a.y - b.y || a.x - b.x);
+        const left = Math.min(...nodes.map((n) => n.x));
+        const top = Math.min(...nodes.map((n) => n.y));
+        return Object.fromEntries(
+          sorted.map((n, i) => [n.id, { x: left + (i % 4) * 310, y: top + Math.floor(i / 4) * 230 }]),
+        );
+      },
+    },
+  ]);
+
+  api.registerCommands([
+    {
+      id: 'reset-reviews',
+      label: 'Flashcards: reset review counts on this page',
+      category: 'Flashcards',
+      handler: () => {
+        const cards = api.workspace.getNodes().filter((n) => n.type === 'flashcard');
+        for (const card of cards) api.workspace.updateNodeData(card.id, { reviews: 0, flipped: false });
+        api.ui.notify(`Reset ${cards.length} flashcard${cards.length === 1 ? '' : 's'}`, 'success');
+      },
+    },
+  ]);
 }
 
 export function deactivate() {}

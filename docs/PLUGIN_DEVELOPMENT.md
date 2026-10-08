@@ -180,8 +180,8 @@ api.registerPanels([
 
 ### Commands
 
-Register actions users can run with a keyboard shortcut. They are listed under
-**Settings → Keyboard shortcuts**, where users can change or remove their keys.
+Register actions users can run from the **command palette** (`Ctrl+P` / `Cmd+P`) or with a keyboard shortcut.
+They are listed under **Settings → Keyboard shortcuts**, where users can change or remove their keys.
 Ids are prefixed with your plugin id automatically.
 
 ```javascript
@@ -213,6 +213,83 @@ const stop = api.settings.onChange((key, value) => { /* re-render */ });
 
 Types: `toggle`, `text`, `number`, `select`.
 
+### Templates
+
+Ready-made sets of nodes and edges, inserted from the command palette as **Insert template: …**. The template is
+placed at the centre of the view, selected, and can be undone in one step. Positions are relative to the template.
+
+```javascript
+api.registerTemplates([
+  {
+    id: 'study-set',
+    name: 'Study set',
+    description: 'A topic note linked to three flashcards',
+    // An object, or a (possibly async) function returning one, e.g. to put today's date in it
+    content: {
+      nodes: [
+        { key: 'topic', type: 'note', x: 0, y: 0, data: { title: 'Topic' } },
+        { key: 'box', type: 'group', x: 360, y: -40, width: 340, height: 300, data: { title: 'Cards' } },
+        { key: 'c1', type: 'flashcard', parent: 'box', x: 30, y: 50 },   // relative to the group
+      ],
+      edges: [{ from: 'topic', to: 'c1', label: 'tests', fromSide: 'right', toSide: 'left' }],
+    },
+  },
+]);
+```
+
+Node types that aren't installed are skipped with a warning.
+
+### Layouts
+
+Arrange nodes, shown in the command palette as **Arrange: …**. A layout gets the selected nodes (or every top-level
+node when fewer than two are selected) and returns new top-left positions; nodes it leaves out stay put. The
+change is one undo step. The built-in *Flow right*, *Flow down* and *Grid* layouts use the same API.
+
+```javascript
+api.registerLayouts([
+  {
+    id: 'column',
+    name: 'Single column',
+    arrange: ({ nodes, edges }) => {
+      let y = Math.min(...nodes.map((n) => n.y));
+      const x = Math.min(...nodes.map((n) => n.x));
+      return Object.fromEntries(nodes.map((n) => { const p = [n.id, { x, y }]; y += n.height + 40; return p; }));
+    },
+  },
+]);
+```
+
+### Workspace
+
+Read and change the open page. Reads return copies; every change goes through the app, so it is saved, synced to
+the Markdown files and undoable.
+
+```javascript
+const nodes = api.workspace.getNodes();      // [{ id, type, x, y, width, height, parentId, selected, data }]
+const edges = api.workspace.getEdges();      // [{ id, source, target, label, data }]
+const ids = api.workspace.getSelection();
+api.workspace.select(ids);
+
+const id = api.workspace.createNode('note', { x: 0, y: 0 }, { title: 'Hello' });
+api.workspace.updateNodeData(id, { content: 'World' });
+api.workspace.moveNode(id, { x: 200, y: 100 });
+api.workspace.createEdge(id, ids[0], 'relates to');
+api.workspace.deleteNodes([id]);
+api.workspace.isLocked();                    // true on view-only pages
+```
+
+### UI and other commands
+
+```javascript
+api.ui.notify('Done!', 'success');           // 'info' | 'success' | 'warning' | 'error'
+await api.commands.execute('view.fit');      // run any command, built in or from another plugin
+```
+
+### Unloading
+
+Everything a plugin registers (node types, commands, templates, layouts, settings) is removed automatically when it
+is switched off; use `deactivate()` only for your own timers and listeners.
+
 ## Node Categories
 
 | Category | Description | Use For |
@@ -239,6 +316,14 @@ A plugin is just its folder, so sharing is simple:
 
 Use a globally unique `id` such as `yourname.plugin-name` and bump `version` on each release; a marketplace can
 build on these manifests later.
+
+### Shipped with pages
+
+When someone exports pages (**Export pages…** → `.mosaic`) that use your node types, the export dialog lists your
+plugin and bundles its folder by default (under `.plugins/<id>/` in the file). Whoever imports the file sees the
+plugins it contains (new, update, or already installed) with a warning that plugins run code, and chooses which to
+install; selected ones are installed and enabled before the pages are added. Everything in your folder is
+included except `.git` and `node_modules`, so keep the folder lean.
 
 ## Debugging
 

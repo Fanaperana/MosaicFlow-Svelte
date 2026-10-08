@@ -7,6 +7,7 @@ class UiStore {
   nodeListOpen = $state(false);
   settingsOpen = $state(false);
   graphOpen = $state(false);
+  paletteOpen = $state(false);
   settingsSection = $state<SettingsSection>('general');
 
   openSettings(section: SettingsSection = this.settingsSection) {

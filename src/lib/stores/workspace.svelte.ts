@@ -453,9 +453,16 @@ class WorkspaceStore {
   }
 
   // Create an edge
-  createEdge(source: string, target: string, label?: string, sourceHandle?: string | null, targetHandle?: string | null): MosaicEdge {
+  createEdge(
+    source: string,
+    target: string,
+    label?: string,
+    sourceHandle?: string | null,
+    targetHandle?: string | null,
+    options: { recordHistory?: boolean } = {}
+  ): MosaicEdge {
     // Save state before mutation
-    this.saveToHistory();
+    if (options.recordHistory !== false) this.saveToHistory();
     
     const id = uuidv4();
     const edge: MosaicEdge = {

@@ -13,6 +13,7 @@
   import PagesSidebar from '$lib/components/PagesSidebar.svelte';
   import LinkPreview from '$lib/components/LinkPreview.svelte';
   import SettingsDialog from '$lib/components/settings/SettingsDialog.svelte';
+  import CommandPalette from '$lib/components/CommandPalette.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import { keybindings } from '$lib/kernel/keybindings.svelte';
   import { pageNav } from '$lib/stores/pages.svelte';
@@ -279,6 +280,10 @@
 
 {#if ui.settingsOpen}
   <SettingsDialog />
+{/if}
+
+{#if ui.paletteOpen}
+  <CommandPalette />
 {/if}
 
 {#if packageDialogs.importPreview}

@@ -7,6 +7,7 @@ import { vaultStore } from '$lib/stores/vault.svelte';
 import { pageNav } from '$lib/stores/pages.svelte';
 import { packageDialogs } from '$lib/stores/packages.svelte';
 import { ui } from '$lib/stores/ui.svelte';
+import { registerCoreLayouts } from '$lib/services/contributions';
 
 const emit = (name: string, detail?: unknown) => () => {
   window.dispatchEvent(new CustomEvent(name, { detail }));
@@ -17,6 +18,8 @@ type CoreCommand = Omit<CommandRegistration, 'pluginId'>;
 
 const COMMANDS: CoreCommand[] = [
   // App
+  { id: 'app.commandPalette', label: 'Command palette', category: 'App', shortcut: 'Ctrl+P', context: 'global',
+    handler: () => { ui.paletteOpen = !ui.paletteOpen; } },
   { id: 'app.search', label: 'Search pages and nodes', category: 'App', shortcut: ['Ctrl+K', 'Ctrl+O'], context: 'global',
     enabled: () => !!vaultStore.currentVault, handler: () => { ui.searchOpen = !ui.searchOpen; } },
   { id: 'app.settings', label: 'Open settings', category: 'App', shortcut: 'Ctrl+,', context: 'global',
@@ -81,4 +84,5 @@ export const COMMAND_CATEGORIES = ['App', 'Pages', 'View', 'Canvas', 'Edit'];
 
 export function registerCoreCommands() {
   for (const cmd of COMMANDS) commandRegistry.register({ ...cmd, pluginId: 'core' });
+  registerCoreLayouts();
 }

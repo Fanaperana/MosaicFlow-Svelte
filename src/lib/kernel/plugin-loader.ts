@@ -9,8 +9,17 @@ import type { PluginManifest, PluginInfo } from './types';
 import { nodeRegistry, type NodeTypeRegistration } from './registries/node-registry';
 import { panelRegistry, type PanelRegistration } from './registries/panel-registry';
 import { commandRegistry, type CommandRegistration } from './registries/command-registry';
+import {
+  layoutRegistry,
+  templateRegistry,
+  type LayoutRegistration,
+  type TemplateRegistration,
+} from './registries/contribution-registry';
 import ExternalNode from '$lib/plugins/ExternalNode.svelte';
 import { settings, type PluginSettingDef } from '$lib/stores/settings.svelte';
+import { workspace } from '$lib/stores/workspace.svelte';
+import { toast } from 'svelte-sonner';
+import type { MosaicNode, MosaicEdge, NodeType } from '$lib/types';
 
 /** Node registration as written by plugin authors: only `type` and a renderer are required. */
 export type PluginNodeType = Partial<Omit<NodeTypeRegistration, 'pluginId' | 'dimensions' | 'colors'>> & {
@@ -48,6 +57,27 @@ function normalizeNodeType(type: PluginNodeType, manifest: PluginManifest): Node
 // TYPES
 // =============================================================================
 
+/** A node as plugins see it: a copy, so changes must go through the workspace API. */
+export interface PluginNodeView {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  parentId?: string;
+  selected: boolean;
+  data: Record<string, unknown>;
+}
+
+export interface PluginEdgeView {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
+  data: Record<string, unknown>;
+}
+
 /**
  * Plugin API exposed to plugins for registration
  */
@@ -56,8 +86,33 @@ export interface PluginAPI {
   registerNodeTypes: (types: PluginNodeType[]) => void;
   /** Register panels */
   registerPanels: (panels: Omit<PanelRegistration, 'pluginId'>[]) => void;
-  /** Register commands; their shortcuts appear in Settings → Keyboard shortcuts */
+  /** Register commands; they appear in the command palette (Ctrl+P) and Settings → Keyboard shortcuts */
   registerCommands: (commands: Omit<CommandRegistration, 'pluginId'>[]) => void;
+  /** Register page templates, inserted from the command palette */
+  registerTemplates: (templates: Omit<TemplateRegistration, 'pluginId'>[]) => void;
+  /** Register layouts ("Arrange: …" in the command palette) */
+  registerLayouts: (layouts: Omit<LayoutRegistration, 'pluginId'>[]) => void;
+  /** Read and change the open page. Every change is saved and can be undone. */
+  workspace: {
+    getNodes: () => PluginNodeView[];
+    getEdges: () => PluginEdgeView[];
+    getSelection: () => string[];
+    select: (ids: string[]) => void;
+    createNode: (type: string, position: { x: number; y: number }, data?: Record<string, unknown>) => string;
+    updateNodeData: (id: string, patch: Record<string, unknown>) => void;
+    moveNode: (id: string, position: { x: number; y: number }) => void;
+    deleteNodes: (ids: string[]) => void;
+    createEdge: (source: string, target: string, label?: string) => string;
+    /** True when the page is view-only; changes are ignored then. */
+    isLocked: () => boolean;
+  };
+  ui: {
+    notify: (message: string, kind?: 'info' | 'success' | 'warning' | 'error') => void;
+  };
+  commands: {
+    /** Runs any command by id, e.g. "view.fit" or another plugin's command. */
+    execute: (id: string, args?: unknown) => Promise<void>;
+  };
   /** Plugin settings shown in Settings → Plugins and saved in settings.json */
   settings: {
     register: (defs: PluginSettingDef[]) => void;
@@ -189,10 +244,7 @@ class PluginLoader {
       loaded.state = 'error';
       loaded.error = error instanceof Error ? error.message : String(error);
       // Drop anything it registered before failing.
-      nodeRegistry.unregisterByPlugin(pluginId);
-      panelRegistry.unregisterByPlugin(pluginId);
-      commandRegistry.unregisterByPlugin(pluginId);
-      settings.unregisterPlugin(pluginId);
+      this.unregisterAll(pluginId);
       console.error(`[PluginLoader] Failed to load external plugin: ${pluginId}`, error);
       throw error;
     } finally {
@@ -217,10 +269,7 @@ class PluginLoader {
       }
 
       // Unregister all contributions
-      nodeRegistry.unregisterByPlugin(pluginId);
-      panelRegistry.unregisterByPlugin(pluginId);
-      commandRegistry.unregisterByPlugin(pluginId);
-      settings.unregisterPlugin(pluginId);
+      this.unregisterAll(pluginId);
 
       this.loadedPlugins.delete(pluginId);
       console.log(`[PluginLoader] Unloaded plugin: ${pluginId}`);
@@ -277,14 +326,84 @@ class PluginLoader {
     }
   }
 
+  private unregisterAll(pluginId: string) {
+    nodeRegistry.unregisterByPlugin(pluginId);
+    panelRegistry.unregisterByPlugin(pluginId);
+    commandRegistry.unregisterByPlugin(pluginId);
+    templateRegistry.unregisterByPlugin(pluginId);
+    layoutRegistry.unregisterByPlugin(pluginId);
+    settings.unregisterPlugin(pluginId);
+  }
+
   /**
    * Create the plugin API for a specific plugin
    */
   private createPluginAPI(manifest: PluginManifest): PluginAPI {
     const pluginId = manifest.id;
+    // Contribution ids are namespaced so plugins can't replace each other's or the app's.
+    const scoped = (id: string) => (manifest.core || id.startsWith(`${pluginId}.`) ? id : `${pluginId}.${id}`);
+    // Plain copies: plugins get data they can read freely; edits go through the API so they save and undo.
+    const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? {}));
+    const nodeView = (n: MosaicNode): PluginNodeView => ({
+      id: n.id,
+      type: n.type,
+      x: n.position.x,
+      y: n.position.y,
+      width: n.width ?? n.measured?.width,
+      height: n.height ?? n.measured?.height,
+      parentId: n.parentId,
+      selected: workspace.selectedNodeIds.includes(n.id),
+      data: copy(n.data) as Record<string, unknown>,
+    });
+    const edgeView = (e: MosaicEdge): PluginEdgeView => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      label: typeof e.label === 'string' ? e.label : undefined,
+      data: copy(e.data) as Record<string, unknown>,
+    });
 
     return {
       manifest,
+
+      registerTemplates: (templates) => {
+        for (const t of templates) templateRegistry.register({ ...t, id: scoped(t.id), pluginId });
+      },
+
+      registerLayouts: (layouts) => {
+        for (const l of layouts) layoutRegistry.register({ ...l, id: scoped(l.id), pluginId });
+      },
+
+      workspace: {
+        getNodes: () => workspace.nodes.map(nodeView),
+        getEdges: () => workspace.edges.map(edgeView),
+        getSelection: () => [...workspace.selectedNodeIds],
+        select: (ids) => workspace.setSelectedNodes(ids),
+        createNode: (type, position, data) => {
+          if (!nodeRegistry.has(type)) throw new Error(`Unknown node type: ${type}`);
+          return workspace.createNode(type as NodeType, position, data as never).id;
+        },
+        updateNodeData: (id, patch) => workspace.updateNodeData(id, patch as never),
+        moveNode: (id, position) => workspace.updateNode(id, { position }),
+        deleteNodes: (ids) => workspace.deleteSelection(ids, []),
+        createEdge: (source, target, label) => workspace.createEdge(source, target, label).id,
+        isLocked: () => workspace.locked,
+      },
+
+      ui: {
+        notify: (message, kind = 'info') => {
+          const title = String(message).slice(0, 300);
+          const opts = { description: manifest.name };
+          if (kind === 'success') toast.success(title, opts);
+          else if (kind === 'warning') toast.warning(title, opts);
+          else if (kind === 'error') toast.error(title, opts);
+          else toast(title, opts);
+        },
+      },
+
+      commands: {
+        execute: (id, args) => commandRegistry.execute(id, args),
+      },
       
       registerNodeTypes: (types) => {
         for (const type of types) {
@@ -304,7 +423,7 @@ class PluginLoader {
       registerCommands: (commands) => {
         for (const command of commands) {
           // External plugins get their id as a prefix so they can't replace built-in commands.
-          const id = manifest.core || command.id.startsWith(`${pluginId}.`) ? command.id : `${pluginId}.${command.id}`;
+          const id = scoped(command.id);
           commandRegistry.register({
             ...command,
             id,
