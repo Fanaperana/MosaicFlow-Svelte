@@ -1,6 +1,7 @@
 <script lang="ts">
   import { open } from '@tauri-apps/plugin-dialog';
   import { vaultStore } from '$lib/stores/vault.svelte';
+  import { confirmDanger } from '$lib/utils/confirm';
   import { FolderOpen, Plus, Clock, Trash2, ArrowRight, Layers, Loader2, AlertCircle } from 'lucide-svelte';
   import { Button } from '$lib/components/ui/button';
 
@@ -58,9 +59,12 @@
     await vaultStore.openVault(path);
   }
 
-  function handleRemoveRecent(path: string, e: Event) {
+  async function handleRemoveRecent(path: string, e: Event) {
     e.stopPropagation();
-    vaultStore.removeFromRecent(path);
+    const name = vaultStore.recentVaults.find((v) => v.path === path)?.name ?? path;
+    if (await confirmDanger(`Remove "${name}" from the list?\n\nThe vault's files stay on disk at:\n${path}`, 'Remove vault from list', 'Remove')) {
+      vaultStore.removeFromRecent(path);
+    }
   }
 
   function formatDate(iso: string): string {

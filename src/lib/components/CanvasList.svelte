@@ -2,7 +2,7 @@
   import { tick, onMount } from 'svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
   import { pageNav } from '$lib/stores/pages.svelte';
-  import { formatRelativeTime, type CanvasInfo } from '$lib/services/vaultService';
+  import { formatRelativeTime, isValidVault, type CanvasInfo } from '$lib/services/vaultService';
   import {
     Plus,
     Trash2,
@@ -14,11 +14,13 @@
     FolderOpen,
     Archive,
     Search,
-    CornerDownLeft,
     LayoutGrid,
+    ChevronDown,
     X,
   } from 'lucide-svelte';
+  import { SvelteSet } from 'svelte/reactivity';
   import { open } from '@tauri-apps/plugin-dialog';
+  import { confirmDanger } from '$lib/utils/confirm';
   import { importDropped, importFileDialog, importMarkdownFolderDialog } from '$lib/services/interopService';
   import { packageDialogs } from '$lib/stores/packages.svelte';
   import { settings } from '$lib/stores/settings.svelte';
@@ -99,7 +101,10 @@
   }
 
   async function handleDeleteCanvas(canvas: CanvasInfo) {
-    if (!settings.current.general.confirmDelete || confirm(`Delete "${canvas.name}"? This cannot be undone.`)) {
+    if (
+      !settings.current.general.confirmDelete ||
+      (await confirmDanger(`Delete "${canvas.name}"?\n\nThis permanently deletes the page and all its nodes and edges.`, 'Delete page'))
+    ) {
       await vaultStore.deleteCanvasById(canvas.path);
     }
   }
@@ -127,6 +132,16 @@
   let vaultError = $state<string | null>(null);
   let vaultList = $state<HTMLElement>();
   let lastPage = $derived(vaultStore.lastCanvas);
+  // Recent vaults whose folder is gone (moved, renamed or deleted).
+  const missing = new SvelteSet<string>();
+
+  onMount(() => {
+    for (const v of vaultStore.recentVaults) {
+      if (v.path !== vaultStore.currentVault?.path) {
+        isValidVault(v.path).then((ok) => { if (!ok) missing.add(v.path); }).catch(() => {});
+      }
+    }
+  });
 
   function hueFor(name: string): number {
     let h = 0;
@@ -141,7 +156,87 @@
     query = '';
     const vault = await vaultStore.switchVault(path, { openPage: false });
     switchingPath = null;
-    if (!vault) vaultError = vaultStore.error ?? "Couldn't open that vault";
+    if (vault) {
+      missing.delete(path);
+    } else if (!(await isValidVault(path).catch(() => false))) {
+      missing.add(path);
+    } else {
+      vaultError = vaultStore.error ?? "Couldn't open that vault";
+    }
+  }
+
+  async function forgetVault(vault: { name: string; path: string }) {
+    const ok = missing.has(vault.path) || (await confirmDanger(
+      `Remove "${vault.name}" from the list?\n\nThe vault's files stay on disk at:\n${vault.path}`,
+      'Remove vault from list',
+      'Remove'
+    ));
+    if (!ok) return;
+    vaultStore.removeFromRecent(vault.path);
+    missing.delete(vault.path);
+  }
+
+  async function locateVault(vault: { name: string; path: string }) {
+    const selected = await open({ directory: true, multiple: false, title: `Locate "${vault.name}"` });
+    if (typeof selected !== 'string') return;
+    await browseVault(selected);
+    if (vaultStore.currentVault?.path === selected) {
+      vaultStore.removeFromRecent(vault.path);
+      missing.delete(vault.path);
+    }
+  }
+
+  // Resizable vault sidebar; double-click the divider to reset.
+  const RAIL_KEY = 'mosaicflow:vault-rail-width';
+  const RAIL_DEFAULT = 220;
+  const clampRail = (w: number) => Math.min(420, Math.max(160, Math.round(w)));
+  let railWidth = $state(clampRail(Number(localStorage.getItem(RAIL_KEY)) || RAIL_DEFAULT));
+  let resizingRail = $state(false);
+
+  function startRailResize(e: PointerEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = railWidth;
+    const handle = e.currentTarget as HTMLElement;
+    try {
+      handle.setPointerCapture(e.pointerId);
+    } catch {
+      // Pointer already released; the drag still works while the cursor stays on the handle.
+    }
+    resizingRail = true;
+    const move = (ev: PointerEvent) => (railWidth = clampRail(startWidth + ev.clientX - startX));
+    const end = () => {
+      resizingRail = false;
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', end);
+      handle.removeEventListener('pointercancel', end);
+      localStorage.setItem(RAIL_KEY, String(railWidth));
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+  }
+
+  function resetRail() {
+    railWidth = RAIL_DEFAULT;
+    localStorage.setItem(RAIL_KEY, String(railWidth));
+  }
+
+  function handleRailKey(e: KeyboardEvent) {
+    const step = e.shiftKey ? 40 : 10;
+    if (e.key === 'ArrowLeft') railWidth = clampRail(railWidth - step);
+    else if (e.key === 'ArrowRight') railWidth = clampRail(railWidth + step);
+    else return;
+    e.preventDefault();
+    localStorage.setItem(RAIL_KEY, String(railWidth));
+  }
+
+  let importMenuOpen = $state(false);
+  let importMenu = $state<HTMLElement>();
+
+  function chooseImport(task: () => Promise<unknown>) {
+    importMenuOpen = false;
+    runImport(task);
   }
 
   async function openVaultFolder() {
@@ -150,6 +245,10 @@
   }
 
   function handleWindowKey(e: KeyboardEvent) {
+    if (e.key === 'Escape' && importMenuOpen) {
+      importMenuOpen = false;
+      return;
+    }
     if (e.key !== 'Escape' || e.defaultPrevented || !lastPage) return;
     const el = e.target as HTMLElement | null;
     if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
@@ -165,9 +264,12 @@
   });
 </script>
 
-<svelte:window onkeydown={handleWindowKey} />
+<svelte:window
+  onkeydown={handleWindowKey}
+  onpointerdown={(e) => { if (importMenuOpen && !importMenu?.contains(e.target as Node)) importMenuOpen = false; }}
+/>
 
-<div class="cl-page">
+<div class="cl-page" class:resizing={resizingRail}>
   {#if dropActive}
     <div class="drop-overlay">
       <PackageOpen size={28} />
@@ -176,27 +278,36 @@
     </div>
   {/if}
 
-  <aside class="vault-rail" aria-label="Vaults">
+  <aside class="vault-rail" aria-label="Vaults" style="width: {railWidth}px">
     <div class="rail-title">Vaults</div>
     <nav class="rail-list" bind:this={vaultList}>
       {#each vaultStore.recentVaults as vault (vault.path)}
         {@const current = vault.path === vaultStore.currentVault?.path}
+        {@const gone = missing.has(vault.path)}
         <div
           class="vault-item"
           class:current
+          class:gone
           role="button"
           tabindex="0"
-          title={vault.path}
+          title={gone ? `Folder not found: ${vault.path}` : vault.path}
           aria-current={current ? 'true' : undefined}
-          onclick={() => browseVault(vault.path)}
+          onclick={() => (gone ? locateVault(vault) : browseVault(vault.path))}
           onkeydown={(e) => {
-            if (e.key === 'Enter') browseVault(vault.path);
+            if (e.key === 'Enter') {
+              if (gone) locateVault(vault);
+              else browseVault(vault.path);
+            }
+            else if (e.key === 'Delete' && !current) forgetVault(vault);
             else if (e.key === 'ArrowDown') (e.currentTarget.nextElementSibling as HTMLElement | null)?.focus();
             else if (e.key === 'ArrowUp') (e.currentTarget.previousElementSibling as HTMLElement | null)?.focus();
           }}
         >
           <span class="avatar" style="--hue: {hueFor(vault.name)}">{(vault.name.trim()[0] ?? '?').toUpperCase()}</span>
-          <span class="vault-name">{vault.name}</span>
+          <span class="vault-text">
+            <span class="vault-name">{vault.name}</span>
+            {#if gone}<span class="vault-missing">Folder not found · click to locate</span>{/if}
+          </span>
           {#if switchingPath === vault.path}
             <Loader2 size={12} class="animate-spin vault-meta" />
           {:else if current}
@@ -204,20 +315,42 @@
           {:else}
             <button
               class="vault-remove"
-              onclick={(e) => { e.stopPropagation(); vaultStore.removeFromRecent(vault.path); }}
-              title="Remove from list"
+              onclick={(e) => { e.stopPropagation(); forgetVault(vault); }}
+              title="Remove from list (files stay on disk)"
               aria-label="Remove {vault.name} from the list"
             ><X size={12} /></button>
           {/if}
         </div>
       {/each}
     </nav>
-    {#if vaultError}<p class="rail-error">{vaultError}</p>{/if}
+    {#if vaultError}
+      <p class="rail-error">
+        <span>{vaultError}</span>
+        <button onclick={() => (vaultError = null)} aria-label="Dismiss"><X size={12} /></button>
+      </p>
+    {/if}
     <div class="rail-actions">
       <button onclick={openVaultFolder}><FolderOpen size={14} />Open vault…</button>
       <button onclick={() => vaultStore.closeVault()}><LayoutGrid size={14} />Manage vaults</button>
     </div>
   </aside>
+
+  <!-- A focusable separator is the ARIA "window splitter" pattern. -->
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+  <div
+    class="rail-divider"
+    role="separator"
+    aria-orientation="vertical"
+    aria-label="Resize vault list"
+    aria-valuenow={railWidth}
+    aria-valuemin={160}
+    aria-valuemax={420}
+    tabindex="0"
+    title="Drag to resize · double-click to reset"
+    onpointerdown={startRailResize}
+    ondblclick={resetRail}
+    onkeydown={handleRailKey}
+  ></div>
 
   <div class="cl-main">
   <div class="cl-wrap">
@@ -227,12 +360,23 @@
       <button class="ghost-btn" onclick={() => packageDialogs.openExport('all')} disabled={isImporting || vaultStore.canvases.length === 0} title="Export pages or the whole vault as a .mosaic package">
         <Archive size={14} /><span>Export</span>
       </button>
-      <button class="ghost-btn" onclick={() => runImport(importMarkdownFolderDialog)} disabled={isImporting} title="Import a folder of markdown notes (e.g. an Obsidian vault); [[wikilinks]] become edges">
-        <FolderInput size={14} /><span>Notes folder</span>
-      </button>
-      <button class="ghost-btn" onclick={() => runImport(importFileDialog)} disabled={isImporting} title="Import a .mosaic package, Obsidian .canvas, MosaicFlow JSON or Mermaid flowchart">
-        {#if isImporting}<Loader2 size={14} class="animate-spin" />{:else}<PackageOpen size={14} />{/if}<span>Import</span>
-      </button>
+      <div class="import-menu" bind:this={importMenu}>
+        <button class="ghost-btn" onclick={() => (importMenuOpen = !importMenuOpen)} disabled={isImporting} aria-haspopup="menu" aria-expanded={importMenuOpen}>
+          {#if isImporting}<Loader2 size={14} class="animate-spin" />{:else}<PackageOpen size={14} />{/if}<span>Import</span><ChevronDown size={12} />
+        </button>
+        {#if importMenuOpen}
+          <div class="menu" role="menu">
+            <button role="menuitem" onclick={() => chooseImport(importFileDialog)}>
+              <PackageOpen size={15} />
+              <span class="menu-text"><span class="menu-title">File…</span><span class="menu-desc">.mosaic package, Obsidian .canvas, MosaicFlow JSON or Mermaid</span></span>
+            </button>
+            <button role="menuitem" onclick={() => chooseImport(importMarkdownFolderDialog)}>
+              <FolderInput size={15} />
+              <span class="menu-text"><span class="menu-title">Markdown notes folder…</span><span class="menu-desc">e.g. an Obsidian vault: each note becomes a node, [[wikilinks]] become edges</span></span>
+            </button>
+          </div>
+        {/if}
+      </div>
       <button class="primary-btn" onclick={() => (showCreateInput = true)}>
         <Plus size={14} /><span>New page</span>
       </button>
@@ -242,11 +386,10 @@
       <h1>Pages</h1>
       <span class="cl-count">{vaultStore.canvases.length}</span>
       {#if lastPage}
-        <button class="resume" onclick={() => lastPage && vaultStore.openCanvas(lastPage)} title="Back to the page you last had open">
-          <CornerDownLeft size={14} />
+        <button class="resume" onclick={() => lastPage && vaultStore.openCanvas(lastPage)} title="Back to the page you last had open (Esc)">
+          <kbd>Esc</kbd>
           <span class="resume-label">Continue</span>
           <span class="resume-name">{lastPage.name}</span>
-          <kbd>Esc</kbd>
         </button>
       {/if}
     </div>
@@ -391,10 +534,73 @@
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
-    width: 220px;
     padding: 14px 8px;
-    border-right: 1px solid var(--mf-border);
     background: var(--mf-surface);
+  }
+
+  .rail-divider {
+    position: relative;
+    flex-shrink: 0;
+    width: 1px;
+    background: var(--mf-border);
+    cursor: col-resize;
+    outline: none;
+  }
+
+  /* Wider invisible grab area around the 1px line. */
+  .rail-divider::before {
+    content: '';
+    position: absolute;
+    inset: 0 -4px;
+    z-index: 1;
+  }
+
+  .rail-divider:hover,
+  .rail-divider:focus-visible,
+  .resizing .rail-divider {
+    background: var(--mf-accent);
+    box-shadow: 0 0 0 1px var(--mf-accent);
+  }
+
+  .cl-page.resizing {
+    cursor: col-resize;
+    user-select: none;
+  }
+
+  .vault-text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .vault-item.gone .vault-name {
+    color: var(--mf-text-3);
+    text-decoration: line-through;
+  }
+
+  .vault-item.gone .avatar {
+    filter: grayscale(1);
+    opacity: 0.6;
+  }
+
+  .vault-item.gone .vault-remove {
+    display: grid;
+  }
+
+  .vault-missing {
+    overflow: hidden;
+    font-size: 10.5px;
+    color: #f59e0b;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .vault-item.gone {
+    height: auto;
+    min-height: 30px;
+    padding-top: 4px;
+    padding-bottom: 4px;
   }
 
   .rail-title {
@@ -454,8 +660,6 @@
   }
 
   .vault-name {
-    flex: 1;
-    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -490,9 +694,85 @@
   }
 
   .rail-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
     margin: 6px 8px;
     font-size: 11.5px;
     color: #f87171;
+    overflow-wrap: anywhere;
+  }
+
+  .rail-error button {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+  }
+
+  .rail-error button:hover {
+    background: var(--mf-hover);
+  }
+
+  .import-menu {
+    position: relative;
+  }
+
+  .import-menu .menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 20;
+    width: 300px;
+    padding: 4px;
+    border: 1px solid var(--mf-border-strong);
+    border-radius: 8px;
+    background: var(--mf-surface-2);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  }
+
+  .import-menu .menu button {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    padding: 8px;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--mf-text);
+    text-align: left;
+  }
+
+  .import-menu .menu button:hover {
+    background: var(--mf-hover);
+  }
+
+  .import-menu .menu :global(svg) {
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: var(--mf-text-3);
+  }
+
+  .menu-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .menu-title {
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+
+  .menu-desc {
+    font-size: 11.5px;
+    color: var(--mf-text-3);
+    line-height: 1.35;
   }
 
   .rail-actions {
@@ -561,7 +841,7 @@
     max-width: 50%;
     height: 28px;
     margin-left: auto;
-    padding: 0 6px 0 10px;
+    padding: 0 10px 0 5px;
     border: 1px solid var(--mf-border);
     border-radius: var(--mf-radius);
     background: var(--mf-surface);

@@ -22,6 +22,7 @@ impl VaultService {
         // Create directory structure
         vault_paths.create_all()?;
         crate::services::migration_service::ensure_gitignore(&vault_paths)?;
+        let _ = crate::services::migration_service::ensure_agents_md(&vault_paths);
 
         // Create vault metadata
         let vault_id = core::generate_uuid();
@@ -59,6 +60,7 @@ impl VaultService {
         let meta: VaultMeta = core::read_json(&vault_paths.vault_json)?;
         // Best effort: a read-only vault can still be opened.
         let _ = crate::services::migration_service::ensure_gitignore(&vault_paths);
+        let _ = crate::services::migration_service::ensure_agents_md(&vault_paths);
 
         // Count canvases
         let canvas_count = Self::count_canvases(&vault_paths.canvases);

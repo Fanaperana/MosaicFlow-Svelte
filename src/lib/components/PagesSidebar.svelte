@@ -11,6 +11,7 @@
   import VaultSwitcher from './VaultSwitcher.svelte';
   import { settings } from '$lib/stores/settings.svelte';
   import { keybindings } from '$lib/kernel/keybindings.svelte';
+  import { confirmDanger } from '$lib/utils/confirm';
 
   interface Props {
     onSearch: () => void;
@@ -49,7 +50,10 @@
   }
 
   async function remove(canvas: CanvasInfo) {
-    if (!settings.current.general.confirmDelete || confirm(`Delete "${canvas.name}"? This cannot be undone.`)) {
+    if (
+      !settings.current.general.confirmDelete ||
+      (await confirmDanger(`Delete "${canvas.name}"?\n\nThis permanently deletes the page and all its nodes and edges.`, 'Delete page'))
+    ) {
       await vaultStore.deleteCanvasById(canvas.path);
     }
   }

@@ -4,12 +4,13 @@ A MosaicFlow vault is a plain folder of JSON and Markdown files. Anything that c
 
 This document is the complete contract. If you are an AI agent: read [Rules for editing](#rules-for-editing) first, then use the [recipes](#recipes).
 
-> Prefer the MCP server (`packages/mcp-server`) when it is available: it applies all of these rules for you.
+> Prefer the MosaicFlow MCP server (`mosaicflow` tools such as `create_node`, `connect`, `build_knowledge`) when it is available: it applies all of these rules for you. See https://github.com/Fanaperana/MosaicFlow-Svelte (`packages/mcp-server`).
 
 ## Layout
 
 ```
 MyVault/
+├── AGENTS.md                           this document, written by the app for AI agents
 ├── vault.json                          vault metadata
 ├── attachments/                        shared files (optional, created when needed)
 ├── .mosaicflow/

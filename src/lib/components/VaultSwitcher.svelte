@@ -4,6 +4,7 @@
   import { vaultStore } from '$lib/stores/vault.svelte';
   import { keybindings } from '$lib/kernel/keybindings.svelte';
   import { formatRelativeTime } from '$lib/services/vaultService';
+  import { confirmDanger } from '$lib/utils/confirm';
   import { ChevronsUpDown, Check, FolderOpen, Plus, Search, X, Loader2, CircleAlert } from 'lucide-svelte';
 
   interface Props {
@@ -162,7 +163,12 @@
                 <span class="item-meta">{formatRelativeTime(vault.last_opened)}</span>
                 <button
                   class="item-remove"
-                  onclick={(e) => { e.stopPropagation(); vaultStore.removeFromRecent(vault.path); }}
+                  onclick={async (e) => {
+                    e.stopPropagation();
+                    if (await confirmDanger(`Remove "${vault.name}" from the list?\n\nThe vault's files stay on disk at:\n${vault.path}`, 'Remove vault from list', 'Remove')) {
+                      vaultStore.removeFromRecent(vault.path);
+                    }
+                  }}
                   aria-label="Remove {vault.name} from recent vaults"
                   title="Remove from list"
                 ><X size={12} /></button>
