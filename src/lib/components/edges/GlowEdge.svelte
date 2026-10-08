@@ -207,9 +207,14 @@
     pointer-events: none;
   }
 
-  /* xyflow sets the label's z-index to the edge's, which puts it under nodes nested in groups. */
+  /* xyflow sets the label's z-index to the edge's, which puts it under nodes nested in groups.
+     Selected edges and nodes are lifted by 1000, so labels sit above that, and grab dots above labels. */
   :global(.svelte-flow__edge-label.mf-edge-label) {
-    z-index: 1000 !important;
+    z-index: 2000 !important;
+  }
+
+  :global(.svelte-flow__edge-label.svelte-flow__edgeupdater) {
+    z-index: 2001 !important;
   }
 
   .edge-label-content {
