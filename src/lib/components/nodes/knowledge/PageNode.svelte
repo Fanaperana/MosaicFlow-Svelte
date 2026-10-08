@@ -36,7 +36,7 @@
 <NodeWrapper {data} {selected} {id} nodeType="page">
   {#if target && !picking}
     <div class="page">
-      <button class="page-head nodrag" onclick={open} data-preview-canvas={target.id} title="Open page">
+      <button class="page-head nodrag" data-nav onclick={open} data-preview-canvas={target.id} title="Open page">
         <FileText size={16} />
         <span class="name">{target.name}</span>
         <ArrowUpRight size={14} class="go" />

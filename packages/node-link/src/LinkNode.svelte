@@ -42,7 +42,7 @@
   
   {#snippet headerActions()}
     {#if data.url}
-      <button class="node-action-btn primary" onclick={openLink} title="Open link">
+      <button class="node-action-btn primary" data-nav onclick={openLink} title="Open link">
         <ExternalLink size={14} strokeWidth={1.5} />
       </button>
     {/if}

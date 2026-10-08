@@ -93,7 +93,7 @@
         autofocus
       />
     {:else if target}
-      <button class="source nodrag" ondblclick={startEdit} onclick={() => openNode(target.canvasId, target.id)} data-preview-canvas={target.canvasId} data-preview-node={target.id} aria-label="Open the original (double-click to change)">
+      <button class="source nodrag" data-nav ondblclick={startEdit} onclick={() => openNode(target.canvasId, target.id)} data-preview-canvas={target.canvasId} data-preview-node={target.id} aria-label="Open the original (double-click to change)">
         <span class="canvas">{target.canvasName}</span>
         <span class="sep">›</span>
         <span class="title">{target.title || target.id}</span>

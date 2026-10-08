@@ -129,12 +129,14 @@
   }
 
   // View-only pages: block edits inside nodes but keep links, scrolling and the hover previews working.
+  // Controls marked data-nav (open page, open original, open link) only navigate, so they stay usable.
   const LOCKED_TARGETS = 'input, textarea, select, button, [contenteditable], .cm-editor, .svelte-flow__resize-control, .svelte-flow__handle';
   function guardLocked(e: Event) {
     if (!workspace.locked) return;
     const target = e.target as HTMLElement | null;
     const node = target?.closest('.svelte-flow__node');
     if (!node) return;
+    if (e.type !== 'dblclick' && target?.closest('[data-nav]')) return;
     if (e.type === 'dblclick' || target?.closest(LOCKED_TARGETS)) {
       e.preventDefault();
       e.stopPropagation();

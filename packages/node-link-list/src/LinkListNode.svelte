@@ -84,7 +84,7 @@
           </div>
           <div class="link-actions">
             {#if link.url}
-              <button class="link-action-btn" onclick={() => openLink(link.url)}>
+              <button class="link-action-btn" data-nav onclick={() => openLink(link.url)}>
                 <ExternalLink size={12} />
               </button>
             {/if}

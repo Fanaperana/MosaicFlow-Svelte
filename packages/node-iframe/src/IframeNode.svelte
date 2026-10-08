@@ -46,7 +46,7 @@
       <RefreshCw size={14} strokeWidth={1.5} />
     </button>
     {#if data.url}
-      <button class="node-action-btn primary" onclick={openExternal} title="Open in browser">
+      <button class="node-action-btn primary" data-nav onclick={openExternal} title="Open in browser">
         <ExternalLink size={14} strokeWidth={1.5} />
       </button>
     {/if}

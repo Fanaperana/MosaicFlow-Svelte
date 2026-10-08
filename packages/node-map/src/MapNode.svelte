@@ -182,7 +182,7 @@
     <button class="node-action-btn" onclick={handleZoomIn} title="Zoom In">
       <ZoomIn size={14} strokeWidth={1.5} />
     </button>
-    <button class="node-action-btn" onclick={openInMaps} title="Open in Google Maps">
+    <button class="node-action-btn" data-nav onclick={openInMaps} title="Open in Google Maps">
       <ExternalLink size={14} strokeWidth={1.5} />
     </button>
   {/snippet}

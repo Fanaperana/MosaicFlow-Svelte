@@ -53,7 +53,7 @@
   
   {#snippet headerActions()}
     {#if data.sourceUrl}
-      <button class="node-action-btn" onclick={openSource} title="Open source">
+      <button class="node-action-btn" data-nav onclick={openSource} title="Open source">
         <ExternalLink size={14} strokeWidth={1.5} />
       </button>
     {/if}
