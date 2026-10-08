@@ -13,6 +13,8 @@ Everything a MosaicFlow plugin can call. For a step-by-step introduction, read t
   - [api.registerCommands](#apiregistercommands)
   - [api.registerTemplates](#apiregistertemplates)
   - [api.registerLayouts](#apiregisterlayouts)
+  - [api.registerThemes](#apiregisterthemes)
+  - [api.appearance](#apiappearance)
   - [api.workspace](#apiworkspace)
   - [api.settings](#apisettings)
   - [api.ui](#apiui)
@@ -238,6 +240,94 @@ Built-in layouts: **Flow left to right**, **Flow top to bottom** (follow the con
 
 ---
 
+## api.registerThemes
+
+```ts
+registerThemes(themes: Theme[]): void
+```
+
+Colour themes, listed in **Settings → Appearance → Theme** with "(plugin)" after the name. Registering a theme
+doesn't switch to it; the user picks it (or you call `api.appearance.set({ theme })`, e.g. from a command). If
+your plugin is switched off while its theme is active, the default theme is shown and the choice is remembered
+for when the plugin comes back.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `string` | Prefixed with your plugin id: `forest` becomes `my-name.my-plugin.forest` |
+| `name` | `string` | Name in the theme picker |
+| `description` | `string` | |
+| `variables` | `Record<string, string>` | CSS custom properties set on `:root`; keys must start with `--` (others are ignored) |
+| `css` | `string` | Extra CSS injected while the theme is active |
+
+```js
+api.registerThemes([{
+  id: 'forest',
+  name: 'Forest',
+  variables: {
+    '--mf-bg': '#0f1a14', '--mf-surface': '#13221a', '--mf-surface-2': '#1a2c22',
+    '--mf-text': '#e7f2ea', '--mf-text-2': '#a3bfae', '--mf-text-3': '#6c8a78',
+    '--mf-border': 'rgba(160, 255, 200, 0.08)', '--mf-canvas-pattern': '#2c4a38',
+  },
+  css: '.ribbon { box-shadow: inset -2px 0 0 #2f8f5b; }',
+}]);
+```
+
+Themes set colours; the user's accent colour, fonts and sizes still apply on top. Every variable you can set is
+listed under [CSS variables](#css-variables-and-helper-classes). Blocks keep their own colours (users set them
+per block), so design themes for dark backgrounds.
+
+---
+
+## api.appearance
+
+Reads and changes **Settings → Appearance**. Changes are saved for the user, exactly like changing them by hand,
+and show up in the Settings window. Invalid values (unknown options, bad colours, out-of-range numbers) are
+ignored or clamped.
+
+| Method | Description |
+|--------|-------------|
+| `get()` | A copy of the current settings (see the table below) |
+| `set(patch)` | Change one or more settings |
+| `reset()` | Restore every Appearance default |
+| `onChange((appearance) => {})` | Called after every change, by the user or a plugin. Returns an unsubscribe function. |
+| `themes()` | Installed themes: `{ id, name, description, pluginId }[]` |
+
+| Setting | Type | Default | Range / values |
+|---------|------|---------|----------------|
+| `theme` | `string` | `'core.default'` | A theme id: `core.default`, `core.midnight`, `core.graphite`, `core.nord`, `core.solarized`, `core.contrast`, or a plugin theme |
+| `accent` | `string` | `'#5b8def'` | `#rrggbb` |
+| `uiScale` | `number` | `1` | 0.75–1.5: zoom of the whole window |
+| `textScale` | `number` | `1` | 0.85–1.35: text in menus, panels and dialogs |
+| `uiFont` | `string` | `'space-grotesk'` | `space-grotesk`, `system`, `serif`, `mono`, `custom` |
+| `customUiFont` | `string` | `''` | Installed font name used when `uiFont` is `custom` |
+| `monoFont` | `string` | `'pt-mono'` | `pt-mono`, `space-mono`, `system`, `custom` |
+| `customMonoFont` | `string` | `''` | Installed font name used when `monoFont` is `custom` |
+| `iconScale` | `number` | `1` | 0.75–1.5 |
+| `iconColor` | `string` | `'default'` | `default` (follow the text), `accent`, `custom` |
+| `customIconColor` | `string` | `'#a6a6ad'` | `#rrggbb`, used when `iconColor` is `custom` |
+| `iconWeight` | `string` | `'regular'` | `thin`, `regular`, `bold` |
+| `radius` | `number` | `6` | 0–14 px |
+| `density` | `string` | `'default'` | `compact`, `default`, `comfortable` |
+| `reduceMotion` | `boolean` | `false` | |
+| `customCss` | `string` | `''` | The user's own CSS; avoid overwriting it, use `api.ui.addStyles` instead |
+
+```js
+// A command that toggles a presentation look
+api.registerCommands([{
+  id: 'present',
+  label: 'My Plugin: presentation mode',
+  handler: () => {
+    const a = api.appearance.get();
+    api.appearance.set(a.uiScale > 1 ? { uiScale: 1, textScale: 1 } : { uiScale: 1.25, textScale: 1.1 });
+  },
+}]);
+```
+
+Changing the user's appearance is noticeable and persistent: do it in response to an action (a command, a
+button), not on `activate`.
+
+---
+
 ## api.workspace
 
 Reads and changes the **open page**. Reads return plain copies, so changing them does nothing; use the methods.
@@ -294,6 +384,7 @@ Types: `toggle` (boolean), `text` (string), `number`, `select` (one of `options[
 | Method | Description |
 |--------|-------------|
 | `notify(message, kind?)` | Show a notification with your plugin name. `kind`: `'info'` (default), `'success'`, `'warning'`, `'error'`. |
+| `addStyles(css)` | Inject CSS while the plugin is on. Returns a function that removes it; everything is removed when the plugin is switched off. Use it for styles that depend on settings or data; static styles belong in `frontend.styles`. |
 
 ---
 
@@ -373,18 +464,27 @@ The authoritative list with every field is generated into each vault as `.mosaic
 
 ## CSS variables and helper classes
 
-Plugin stylesheets are global: prefix every class with your plugin name. Match the app's look with:
+Plugin stylesheets are global: prefix every class with your plugin name. Every variable below follows the user's
+theme and Appearance settings, and themes, custom CSS or `api.ui.addStyles` can override any of them on `:root`.
 
 | Variable | Use |
 |----------|-----|
 | `--mf-text`, `--mf-text-2`, `--mf-text-3` | Text, secondary, muted |
 | `--mf-bg`, `--mf-surface`, `--mf-surface-2` | App background, panel background, raised panel |
+| `--mf-canvas`, `--mf-canvas-pattern` | Canvas background (defaults to `--mf-bg`) and its dots/lines |
 | `--mf-border`, `--mf-border-strong` | Borders |
 | `--mf-hover`, `--mf-active` | Hover and pressed backgrounds |
 | `--mf-accent`, `--mf-accent-soft` | User's accent colour and its translucent version |
-| `--mf-danger` | Errors |
-| `--mf-radius` | Corner radius |
+| `--mf-danger`, `--mf-danger-soft` | Errors |
+| `--mf-radius` | Corner radius (Appearance → Corner radius) |
+| `--mf-row` | Row height of menus and lists (Appearance → Density) |
 | `--mf-font-ui`, `--mf-font-mono` | Fonts |
+| `--mf-text-scale` | Text size factor; every `font-size: Npx` in the app and in plugin CSS is multiplied by it (1 inside canvas blocks) |
+| `--mf-icon-scale` | Icon size factor for `svg.lucide` icons (1 inside canvas blocks) |
+| `--mf-icon-color` | Set when the user picks an icon colour |
+
+The root element also has `data-theme="<theme id>"` and the classes `reduce-motion`, `mf-icon-colored` and
+`mf-icon-weighted` when those options are on, for theme-specific CSS.
 
 Helper classes: `nodrag` (clicks/drags don't move the node), `nowheel` (wheel scrolls the element instead of
 zooming), `markdown-content` (app styling for `renderMarkdown` output).

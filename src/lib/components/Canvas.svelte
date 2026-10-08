@@ -1055,7 +1055,7 @@
     flex: 1;
     height: 100%;
     width: 100%;
-    background: #0d1117;
+    background: var(--mf-canvas);
   }
 
   .canvas-container.page-locked :global(.svelte-flow__resize-control) {
@@ -1144,18 +1144,22 @@
   }
 
   :global(.svelte-flow) {
-    background: #0d1117 !important;
+    background: var(--mf-canvas) !important;
     /* Grayscale AA stays sharp under CSS transforms (subpixel AA breaks) */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   :global(.svelte-flow__background) {
-    background: #0d1117 !important;
+    background: var(--mf-canvas) !important;
   }
 
   :global(.svelte-flow__background pattern circle) {
-    fill: #333 !important;
+    fill: var(--mf-canvas-pattern) !important;
+  }
+
+  :global(.svelte-flow__background pattern path) {
+    stroke: var(--mf-canvas-pattern) !important;
   }
 
   /*

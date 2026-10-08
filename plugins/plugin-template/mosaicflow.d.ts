@@ -180,6 +180,47 @@ export interface Layout {
 }
 
 // ---------------------------------------------------------------------------
+// Appearance and themes
+// ---------------------------------------------------------------------------
+
+export interface Appearance {
+  /** Theme id, e.g. 'core.default', 'core.nord' or a plugin theme. */
+  theme: string;
+  /** '#rrggbb' */
+  accent: string;
+  /** 0.75–1.5, zoom of the whole window. */
+  uiScale: number;
+  /** 0.85–1.35, text in menus, panels and dialogs. */
+  textScale: number;
+  uiFont: 'space-grotesk' | 'system' | 'serif' | 'mono' | 'custom';
+  customUiFont: string;
+  monoFont: 'pt-mono' | 'space-mono' | 'system' | 'custom';
+  customMonoFont: string;
+  /** 0.75–1.5 */
+  iconScale: number;
+  iconColor: 'default' | 'accent' | 'custom';
+  customIconColor: string;
+  iconWeight: 'thin' | 'regular' | 'bold';
+  /** 0–14 px */
+  radius: number;
+  density: 'compact' | 'default' | 'comfortable';
+  reduceMotion: boolean;
+  /** The user's own CSS. */
+  customCss: string;
+}
+
+export interface Theme {
+  /** Prefixed with your plugin id automatically. */
+  id: string;
+  name: string;
+  description?: string;
+  /** CSS custom properties for :root, e.g. { '--mf-bg': '#0f1a14' }. Keys must start with '--'. */
+  variables: Record<string, string>;
+  /** Extra CSS while the theme is active. */
+  css?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Workspace and settings
 // ---------------------------------------------------------------------------
 
@@ -222,6 +263,18 @@ export interface PluginAPI {
   registerCommands(commands: Command[]): void;
   registerTemplates(templates: Template[]): void;
   registerLayouts(layouts: Layout[]): void;
+  /** Themes for Settings → Appearance → Theme. */
+  registerThemes(themes: Theme[]): void;
+
+  /** Settings → Appearance. Changes are saved for the user; invalid values are ignored or clamped. */
+  appearance: {
+    get(): Appearance;
+    set(patch: Partial<Appearance>): void;
+    reset(): void;
+    /** Returns an unsubscribe function. */
+    onChange(listener: (appearance: Appearance) => void): () => void;
+    themes(): { id: string; name: string; description?: string; pluginId: string }[];
+  };
 
   /** The open page. Reads return copies; changes are saved and undoable. */
   workspace: {
@@ -242,6 +295,8 @@ export interface PluginAPI {
 
   ui: {
     notify(message: string, kind?: 'info' | 'success' | 'warning' | 'error'): void;
+    /** Inject CSS while the plugin is on; returns a function that removes it. */
+    addStyles(css: string): () => void;
   };
 
   commands: {

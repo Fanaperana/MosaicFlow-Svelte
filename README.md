@@ -148,7 +148,7 @@ Every shortcut can be changed in **Settings → Keyboard shortcuts** (<kbd>Ctrl<
 
 ## Settings
 
-Open with the gear at the bottom of the left ribbon or <kbd>Ctrl</kbd> + <kbd>,</kbd>: **General** (hover previews, delete confirmation), **Appearance** (accent color, fonts, reduced motion), **Canvas** (background, grid, snapping, minimap, controls), **Keyboard shortcuts**, **Plugins** and **About**. Everything is saved to `settings.json` in the app data folder, so you can back it up or copy it to another machine.
+Open with the gear at the bottom of the left ribbon or <kbd>Ctrl</kbd> + <kbd>,</kbd>: **General** (hover previews, delete confirmation), **Appearance** (theme, accent color, interface scale, text size, density, corner radius, fonts, icon size/color/weight, reduced motion, custom CSS), **Canvas** (background, grid, snapping, minimap, controls), **Keyboard shortcuts**, **Plugins** and **About**. Everything is saved to `settings.json` in the app data folder, so you can back it up or copy it to another machine.
 
 ---
 
@@ -177,6 +177,8 @@ A plugin is a folder with a `plugin.json` and a single ES module. It can add:
 | **Commands** | The command palette (`Ctrl + P`) and optional shortcuts |
 | **Templates** | "Insert template: …" in the palette |
 | **Layouts** | "Arrange: …" in the palette |
+| **Themes** | Settings → Appearance → Theme |
+| **Appearance** | Read and change every appearance option (scale, text and icon size, fonts, colours, custom CSS) |
 | **Settings** | Settings → Plugins |
 
 Start from the ready-made template:

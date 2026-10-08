@@ -7,6 +7,7 @@ A MosaicFlow plugin. It adds:
 - **My Plugin: count nodes on this page**: a command (`Ctrl+P`)
 - **My Plugin starter**: a template (`Ctrl+P` → "Insert template")
 - **Single column**: a layout (`Ctrl+P` → "Arrange")
+- **My Plugin dusk**: a theme (Settings → Appearance → Theme)
 - Settings under **Settings → Plugins → My Plugin**
 
 ## Install

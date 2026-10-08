@@ -103,3 +103,16 @@ class ContributionRegistry<T extends { id: string; pluginId: string; name: strin
 
 export const templateRegistry = new ContributionRegistry<TemplateRegistration>();
 export const layoutRegistry = new ContributionRegistry<LayoutRegistration>();
+
+export interface ThemeRegistration {
+  id: string;
+  name: string;
+  description?: string;
+  /** CSS custom properties set on the root element, e.g. { '--mf-bg': '#101418' }. */
+  variables: Record<string, string>;
+  /** Extra CSS, injected while the theme is active. */
+  css?: string;
+  pluginId: string;
+}
+
+export const themeRegistry = new ContributionRegistry<ThemeRegistration>();

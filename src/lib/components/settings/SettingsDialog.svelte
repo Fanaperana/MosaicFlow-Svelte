@@ -6,7 +6,16 @@
   import { onMount } from 'svelte';
   import { Settings2, Palette, LayoutGrid, Keyboard, Puzzle, Info, X, FileJson, RotateCcw, Check } from 'lucide-svelte';
   import { ui, type SettingsSection } from '$lib/stores/ui.svelte';
-  import { settings, ACCENT_PRESETS, type CanvasBackground, type UiFont, type MonoFont } from '$lib/stores/settings.svelte';
+  import {
+    settings,
+    ACCENT_PRESETS,
+    APPEARANCE_LIMITS,
+    type AppearanceSettings,
+    type CanvasBackground,
+    type UiFont,
+    type MonoFont,
+  } from '$lib/stores/settings.svelte';
+  import { themeRegistry } from '$lib/kernel/registries/contribution-registry';
   import { keybindings } from '$lib/kernel/keybindings.svelte';
   import KeybindingsSettings from './KeybindingsSettings.svelte';
   import PluginsSettings from './PluginsSettings.svelte';
@@ -22,6 +31,28 @@
 
   let s = $derived(settings.current);
   let title = $derived(SECTIONS.find((x) => x.id === ui.settingsSection)?.label ?? 'Settings');
+  let themes = $state(themeRegistry.getAll());
+  let themeMissing = $derived(!themes.some((t) => t.id === s.appearance.theme));
+  let cssDraft = $state(settings.current.appearance.customCss);
+  let cssTimer: ReturnType<typeof setTimeout> | undefined;
+  let cssPending = false;
+
+  function setAppearance(patch: Partial<AppearanceSettings>) {
+    settings.update('appearance', patch);
+  }
+
+  const num = (e: Event) => Number((e.target as HTMLInputElement).value);
+  const percent = (v: number) => `${Math.round(v * 100)}%`;
+
+  function editCss(value: string) {
+    cssDraft = value;
+    cssPending = true;
+    clearTimeout(cssTimer);
+    cssTimer = setTimeout(() => {
+      cssPending = false;
+      setAppearance({ customCss: value });
+    }, 400);
+  }
 
   function close() {
     if (!keybindings.recording) ui.settingsOpen = false;
@@ -37,12 +68,38 @@
       if (e.key === 'Escape' && !keybindings.recording) close();
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    const stopThemes = themeRegistry.subscribe(() => (themes = themeRegistry.getAll()));
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      stopThemes();
+      clearTimeout(cssTimer);
+    };
+  });
+
+  // Keep the editor in sync when appearance is reset or changed by a plugin.
+  $effect(() => {
+    const css = settings.current.appearance.customCss;
+    if (!cssPending) cssDraft = css;
   });
 </script>
 
 {#snippet toggle(checked: boolean, onchange: (v: boolean) => void, label: string)}
   <input type="checkbox" class="switch" {checked} onchange={(e) => onchange((e.target as HTMLInputElement).checked)} aria-label={label} />
+{/snippet}
+
+{#snippet slider(key: 'uiScale' | 'textScale' | 'iconScale', label: string)}
+  {@const limits = APPEARANCE_LIMITS[key]}
+  <div class="range">
+    <input type="range" min={limits.min} max={limits.max} step={limits.step} value={s.appearance[key]}
+      aria-label={label} oninput={(e) => setAppearance({ [key]: num(e) })} />
+    <button class="value link" onclick={() => setAppearance({ [key]: 1 })} title="Reset to 100%">{percent(s.appearance[key])}</button>
+  </div>
+{/snippet}
+
+{#snippet colorPicker(value: string, onchange: (v: string) => void, label: string)}
+  <label class="swatch custom" style="--c: {value}" title={label}>
+    <input type="color" {value} aria-label={label} oninput={(e) => onchange((e.target as HTMLInputElement).value)} />
+  </label>
 {/snippet}
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -94,37 +151,131 @@
           </div>
 
         {:else if ui.settingsSection === 'appearance'}
+          <h3>Colors</h3>
+          <div class="row">
+            <div class="text">
+              <span>Theme</span>
+              <small>
+                {#if themeMissing}The selected theme's plugin is off or missing, so the default is shown.{:else}Colors of the interface and canvas. Plugins can add more.{/if}
+              </small>
+            </div>
+            <select class="control" value={themeMissing ? '' : s.appearance.theme} onchange={(e) => setAppearance({ theme: (e.target as HTMLSelectElement).value })} aria-label="Theme">
+              {#if themeMissing}<option value="" disabled>Unavailable theme</option>{/if}
+              {#each themes as theme (theme.id)}
+                <option value={theme.id}>{theme.name}{theme.pluginId === 'core' ? '' : ' (plugin)'}</option>
+              {/each}
+            </select>
+          </div>
           <div class="row">
             <div class="text"><span>Accent color</span><small>Used for selection, focus rings and highlights.</small></div>
             <div class="swatches">
               {#each ACCENT_PRESETS as color (color)}
-                <button class="swatch" style="--c: {color}" class:active={s.appearance.accent.toLowerCase() === color} onclick={() => settings.update('appearance', { accent: color })} aria-label="Accent {color}">
+                <button class="swatch" style="--c: {color}" class:active={s.appearance.accent.toLowerCase() === color} onclick={() => setAppearance({ accent: color })} aria-label="Accent {color}">
                   {#if s.appearance.accent.toLowerCase() === color}<Check size={12} />{/if}
                 </button>
               {/each}
-              <label class="swatch custom" style="--c: {s.appearance.accent}" title="Custom color">
-                <input type="color" value={s.appearance.accent} oninput={(e) => settings.update('appearance', { accent: (e.target as HTMLInputElement).value })} />
-              </label>
+              {@render colorPicker(s.appearance.accent, (v) => setAppearance({ accent: v }), 'Custom accent color')}
+            </div>
+          </div>
+
+          <h3>Size</h3>
+          <div class="row">
+            <div class="text"><span>Interface scale</span><small>Zooms the whole window, like browser zoom.</small></div>
+            {@render slider('uiScale', 'Interface scale')}
+          </div>
+          <div class="row">
+            <div class="text"><span>Text size</span><small>Text in menus, panels and dialogs. Blocks on the canvas keep their size.</small></div>
+            {@render slider('textScale', 'Text size')}
+          </div>
+          <div class="row">
+            <div class="text"><span>Density</span><small>Height of rows in menus and lists.</small></div>
+            <div class="seg">
+              {#each [['compact', 'Compact'], ['default', 'Default'], ['comfortable', 'Comfortable']] as [value, label] (value)}
+                <button class:active={s.appearance.density === value} onclick={() => setAppearance({ density: value as AppearanceSettings['density'] })}>{label}</button>
+              {/each}
             </div>
           </div>
           <div class="row">
+            <div class="text"><span>Corner radius</span><small>Roundness of buttons, inputs and menus.</small></div>
+            <div class="range">
+              <input type="range" min={APPEARANCE_LIMITS.radius.min} max={APPEARANCE_LIMITS.radius.max} step="1" value={s.appearance.radius}
+                aria-label="Corner radius" oninput={(e) => setAppearance({ radius: num(e) })} />
+              <span class="value">{s.appearance.radius}px</span>
+            </div>
+          </div>
+
+          <h3>Fonts</h3>
+          <div class="row">
             <div class="text"><span>Interface font</span><small>Font for menus, panels and node text.</small></div>
-            <select class="control" value={s.appearance.uiFont} onchange={(e) => settings.update('appearance', { uiFont: (e.target as HTMLSelectElement).value as UiFont })}>
-              <option value="space-grotesk">Space Grotesk</option>
-              <option value="system">System</option>
-              <option value="mono">PT Mono</option>
-            </select>
+            <div class="stack">
+              <select class="control" value={s.appearance.uiFont} onchange={(e) => setAppearance({ uiFont: (e.target as HTMLSelectElement).value as UiFont })} aria-label="Interface font">
+                <option value="space-grotesk">Space Grotesk</option>
+                <option value="system">System</option>
+                <option value="serif">Serif</option>
+                <option value="mono">PT Mono</option>
+                <option value="custom">Installed font…</option>
+              </select>
+              {#if s.appearance.uiFont === 'custom'}
+                <input class="control" type="text" placeholder="Font name, e.g. Inter" value={s.appearance.customUiFont}
+                  aria-label="Installed interface font" onchange={(e) => setAppearance({ customUiFont: (e.target as HTMLInputElement).value.trim() })} />
+              {/if}
+            </div>
           </div>
           <div class="row">
             <div class="text"><span>Code font</span><small>Font for code blocks, ids and the code editor.</small></div>
-            <select class="control" value={s.appearance.monoFont} onchange={(e) => settings.update('appearance', { monoFont: (e.target as HTMLSelectElement).value as MonoFont })}>
-              <option value="pt-mono">PT Mono</option>
-              <option value="system">System monospace</option>
-            </select>
+            <div class="stack">
+              <select class="control" value={s.appearance.monoFont} onchange={(e) => setAppearance({ monoFont: (e.target as HTMLSelectElement).value as MonoFont })} aria-label="Code font">
+                <option value="pt-mono">PT Mono</option>
+                <option value="space-mono">Space Mono</option>
+                <option value="system">System monospace</option>
+                <option value="custom">Installed font…</option>
+              </select>
+              {#if s.appearance.monoFont === 'custom'}
+                <input class="control" type="text" placeholder="Font name, e.g. JetBrains Mono" value={s.appearance.customMonoFont}
+                  aria-label="Installed code font" onchange={(e) => setAppearance({ customMonoFont: (e.target as HTMLInputElement).value.trim() })} />
+              {/if}
+            </div>
+          </div>
+
+          <h3>Icons</h3>
+          <div class="row">
+            <div class="text"><span>Icon size</span><small>Icons in the ribbon, toolbars, menus and panels.</small></div>
+            {@render slider('iconScale', 'Icon size')}
           </div>
           <div class="row">
+            <div class="text"><span>Icon color</span><small>Default follows the text around each icon.</small></div>
+            <div class="swatches">
+              <div class="seg">
+                {#each [['default', 'Default'], ['accent', 'Accent'], ['custom', 'Custom']] as [value, label] (value)}
+                  <button class:active={s.appearance.iconColor === value} onclick={() => setAppearance({ iconColor: value as AppearanceSettings['iconColor'] })}>{label}</button>
+                {/each}
+              </div>
+              {#if s.appearance.iconColor === 'custom'}
+                {@render colorPicker(s.appearance.customIconColor, (v) => setAppearance({ customIconColor: v }), 'Icon color')}
+              {/if}
+            </div>
+          </div>
+          <div class="row">
+            <div class="text"><span>Icon weight</span><small>Line thickness of icons.</small></div>
+            <div class="seg">
+              {#each [['thin', 'Thin'], ['regular', 'Regular'], ['bold', 'Bold']] as [value, label] (value)}
+                <button class:active={s.appearance.iconWeight === value} onclick={() => setAppearance({ iconWeight: value as AppearanceSettings['iconWeight'] })}>{label}</button>
+              {/each}
+            </div>
+          </div>
+
+          <h3>Advanced</h3>
+          <div class="row">
             <div class="text"><span>Reduce motion</span><small>Turn off animations and transitions.</small></div>
-            {@render toggle(s.appearance.reduceMotion, (v) => settings.update('appearance', { reduceMotion: v }), 'Reduce motion')}
+            {@render toggle(s.appearance.reduceMotion, (v) => setAppearance({ reduceMotion: v }), 'Reduce motion')}
+          </div>
+          <div class="row column">
+            <div class="text">
+              <span>Custom CSS</span>
+              <small>Applied on top of everything, like Obsidian snippets. Use variables such as <code>--mf-bg</code>, <code>--mf-text</code> or <code>--mf-accent</code>; see the plugin API docs for the full list.</small>
+            </div>
+            <textarea class="css-editor" spellcheck="false" placeholder={':root {\n  --mf-bg: #101418;\n}'} value={cssDraft}
+              aria-label="Custom CSS" oninput={(e) => editCss((e.target as HTMLTextAreaElement).value)}></textarea>
           </div>
 
         {:else if ui.settingsSection === 'canvas'}
@@ -215,7 +366,7 @@
     display: flex;
     flex-direction: column;
     gap: 1px;
-    width: 210px;
+    width: calc(210px * var(--mf-text-scale, 1));
     flex-shrink: 0;
     padding: 12px 8px;
     border-right: 1px solid var(--mf-border);
@@ -242,6 +393,7 @@
     color: var(--mf-text-2);
     font-size: 13px;
     text-align: left;
+    white-space: nowrap;
   }
 
   .nav-item :global(svg) {
@@ -501,6 +653,65 @@
     border: none;
     opacity: 0;
     cursor: pointer;
+  }
+
+  h3 {
+    margin: 22px 0 2px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--mf-text-3);
+  }
+
+  h3:first-child {
+    margin-top: 0;
+  }
+
+  .row.column {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .value.link {
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .value.link:hover {
+    color: var(--mf-accent);
+  }
+
+  .text code {
+    font-family: var(--mf-font-mono);
+    font-size: 11px;
+  }
+
+  .css-editor {
+    min-height: 140px;
+    padding: 10px;
+    border: 1px solid var(--mf-border-strong);
+    border-radius: var(--mf-radius);
+    background: var(--mf-bg);
+    color: var(--mf-text);
+    font-family: var(--mf-font-mono);
+    font-size: 12px;
+    line-height: 1.5;
+    resize: vertical;
+    tab-size: 2;
+  }
+
+  .css-editor:focus {
+    outline: none;
+    border-color: var(--mf-accent);
   }
 
   .about {

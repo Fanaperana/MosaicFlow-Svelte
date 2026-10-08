@@ -12,11 +12,13 @@ import { commandRegistry, type CommandRegistration } from './registries/command-
 import {
   layoutRegistry,
   templateRegistry,
+  themeRegistry,
   type LayoutRegistration,
   type TemplateRegistration,
+  type ThemeRegistration,
 } from './registries/contribution-registry';
 import ExternalNode from '$lib/plugins/ExternalNode.svelte';
-import { settings, type PluginSettingDef } from '$lib/stores/settings.svelte';
+import { settings, type AppearanceSettings, type PluginSettingDef } from '$lib/stores/settings.svelte';
 import { workspace } from '$lib/stores/workspace.svelte';
 import { toast } from 'svelte-sonner';
 import type { MosaicNode, MosaicEdge, NodeType } from '$lib/types';
@@ -92,6 +94,18 @@ export interface PluginAPI {
   registerTemplates: (templates: Omit<TemplateRegistration, 'pluginId'>[]) => void;
   /** Register layouts ("Arrange: …" in the command palette) */
   registerLayouts: (layouts: Omit<LayoutRegistration, 'pluginId'>[]) => void;
+  /** Register colour themes, selectable in Settings → Appearance → Theme */
+  registerThemes: (themes: Omit<ThemeRegistration, 'pluginId'>[]) => void;
+  /** Read and change every Settings → Appearance option (saved for the user, like changes made by hand). */
+  appearance: {
+    get: () => AppearanceSettings;
+    /** Invalid values are ignored. */
+    set: (patch: Partial<AppearanceSettings>) => void;
+    reset: () => void;
+    onChange: (listener: (appearance: AppearanceSettings) => void) => () => void;
+    /** Installed themes: built in and from plugins. */
+    themes: () => { id: string; name: string; description?: string; pluginId: string }[];
+  };
   /** Read and change the open page. Every change is saved and can be undone. */
   workspace: {
     getNodes: () => PluginNodeView[];
@@ -108,6 +122,8 @@ export interface PluginAPI {
   };
   ui: {
     notify: (message: string, kind?: 'info' | 'success' | 'warning' | 'error') => void;
+    /** Inject CSS while the plugin is on; returns a function that removes it. */
+    addStyles: (css: string) => () => void;
   };
   commands: {
     /** Runs any command by id, e.g. "view.fit" or another plugin's command. */
@@ -332,8 +348,13 @@ class PluginLoader {
     commandRegistry.unregisterByPlugin(pluginId);
     templateRegistry.unregisterByPlugin(pluginId);
     layoutRegistry.unregisterByPlugin(pluginId);
+    themeRegistry.unregisterByPlugin(pluginId);
     settings.unregisterPlugin(pluginId);
+    for (const el of this.pluginStyles.get(pluginId) ?? []) el.remove();
+    this.pluginStyles.delete(pluginId);
   }
+
+  private pluginStyles = new Map<string, Set<HTMLStyleElement>>();
 
   /**
    * Create the plugin API for a specific plugin
@@ -374,6 +395,23 @@ class PluginLoader {
         for (const l of layouts) layoutRegistry.register({ ...l, id: scoped(l.id), pluginId });
       },
 
+      registerThemes: (themes) => {
+        for (const t of themes) {
+          const variables = Object.fromEntries(
+            Object.entries(t.variables ?? {}).filter(([key]) => /^--[\w-]+$/.test(key)).map(([key, value]) => [key, String(value)]),
+          );
+          themeRegistry.register({ id: scoped(t.id), name: t.name, description: t.description, variables, css: t.css, pluginId });
+        }
+      },
+
+      appearance: {
+        get: () => ({ ...settings.current.appearance }),
+        set: (patch) => settings.update('appearance', patch ?? {}),
+        reset: () => settings.resetSection('appearance'),
+        onChange: (listener) => settings.onAppearanceChange(pluginId, listener),
+        themes: () => themeRegistry.getAll().map(({ id, name, description, pluginId: owner }) => ({ id, name, description, pluginId: owner })),
+      },
+
       workspace: {
         getNodes: () => workspace.nodes.map(nodeView),
         getEdges: () => workspace.edges.map(edgeView),
@@ -398,6 +436,19 @@ class PluginLoader {
           else if (kind === 'warning') toast.warning(title, opts);
           else if (kind === 'error') toast.error(title, opts);
           else toast(title, opts);
+        },
+        addStyles: (css) => {
+          const el = document.createElement('style');
+          el.dataset.pluginStyles = pluginId;
+          el.textContent = String(css);
+          document.head.appendChild(el);
+          const set = this.pluginStyles.get(pluginId) ?? new Set();
+          set.add(el);
+          this.pluginStyles.set(pluginId, set);
+          return () => {
+            el.remove();
+            set.delete(el);
+          };
         },
       },
 

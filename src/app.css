@@ -76,6 +76,10 @@
   --mf-danger-soft: rgba(239, 100, 97, 0.14);
   --mf-radius: 6px;
   --mf-row: 28px;
+  --mf-canvas: var(--mf-bg);
+  --mf-canvas-pattern: #333;
+  --mf-text-scale: 1;
+  --mf-icon-scale: 1;
 
   --radius: 0.625rem;
   --background: oklch(1 0 0);
@@ -190,6 +194,25 @@ html.reduce-motion *::after {
   animation-duration: 0.001ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important;
+}
+
+/* Settings → Appearance: text and icon size, icon colour and weight. Blocks on the canvas keep their own look. */
+.svelte-flow__viewport,
+.svelte-flow__edgelabel-renderer {
+  --mf-text-scale: 1;
+  --mf-icon-scale: 1;
+}
+
+svg.lucide {
+  zoom: var(--mf-icon-scale, 1);
+}
+
+html.mf-icon-colored svg.lucide:not(.svelte-flow__viewport *) {
+  color: var(--mf-icon-color);
+}
+
+html.mf-icon-weighted svg.lucide:not(.svelte-flow__viewport *) {
+  stroke-width: var(--mf-icon-stroke);
 }
 
 @media (prefers-reduced-motion: reduce) {

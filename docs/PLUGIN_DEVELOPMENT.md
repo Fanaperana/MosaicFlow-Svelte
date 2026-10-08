@@ -31,13 +31,16 @@ A plugin can combine any of these:
 | **Command** | Command palette (`Ctrl+P`), keyboard shortcut | Any action, run on demand | Clean up a page, insert today's date, export to another format, bulk-tag the selection |
 | **Template** | Palette → "Insert template: …" | A ready-made set of nodes, groups and edges, placed in one undo step | Meeting notes, weekly plan, research board, study set, project kick-off |
 | **Layout** | Palette → "Arrange: …" | Positions of the selected (or all) nodes, in one undo step | Columns, circles, timelines, kanban lanes, mind-map trees |
+| **Theme** | Settings → Appearance → Theme | Colours of the whole interface and canvas (CSS variables), plus optional CSS | Dark variants, brand colours, high contrast, seasonal themes |
+| **Appearance** | Settings → Appearance | Every appearance option: theme, accent, scale, text and icon size, icon colour and weight, fonts, corner radius, density, motion | Presentation mode, per-task looks, theme switchers |
+| **Styles** | Anywhere | CSS you inject at runtime (and your `styles.css`) | Restyle parts of the app, highlight things, custom looks for your blocks |
 | **Settings** | Settings → Plugins | Options for your plugin, saved per user | Defaults, API keys for a service, display preferences |
 
 Through the [`workspace` API](PLUGIN_API.md#apiworkspace) every one of these can read the open page and create,
 change, move, connect, select or delete nodes. Changes are saved and undoable, like edits made by hand.
 
-Plugins **can't** (yet): change the app's own menus or built-in blocks, add themes beyond their own CSS, read
-other pages than the open one, or access the file system directly.
+Plugins **can't** (yet): change the app's own menus or built-in blocks, read other pages than the open one, or
+access the file system directly.
 
 ## Start in two minutes
 
@@ -301,6 +304,24 @@ api.settings.register([{ key: 'goal', label: 'Default goal', type: 'number', def
 const goal = api.settings.get('goal');
 const stop = api.settings.onChange((key, value) => { /* redraw */ });   // call stop() in destroy()
 ```
+
+### Themes and appearance
+
+```js
+api.registerThemes([{
+  id: 'forest', name: 'Forest',
+  variables: { '--mf-bg': '#0f1a14', '--mf-surface': '#13221a', '--mf-text': '#e7f2ea' },
+}]);
+
+// Read or change anything in Settings → Appearance (saved for the user):
+api.appearance.set({ theme: 'my-name.my-plugin.forest', textScale: 1.1, iconColor: 'accent' });
+api.appearance.onChange((a) => { /* react to the user's changes */ });
+
+// Runtime CSS, removed automatically when the plugin is switched off:
+const remove = api.ui.addStyles('.ribbon { background: #0b120e; }');
+```
+
+All variables and appearance options are listed in [PLUGIN_API.md](PLUGIN_API.md#apiappearance).
 
 ## Recipes
 

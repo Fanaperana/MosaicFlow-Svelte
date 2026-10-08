@@ -227,7 +227,8 @@ plugin is installed.
 
 ## Plugins
 
-Plugins add blocks, sidebar panels, commands, templates, layouts and settings.
+Plugins add blocks, sidebar panels, commands, templates, layouts, themes and settings, and can adjust the
+appearance options.
 
 - Open **Plugins** (puzzle icon at the bottom of the ribbon, or Settings → Plugins).
 - **Open plugins folder**, drop a plugin's folder in it, click **Rescan**, then switch the plugin on. New plugins
@@ -241,17 +242,27 @@ Want to build one? See the [plugin guide](PLUGIN_DEVELOPMENT.md).
 ## Settings
 
 `Ctrl+,` or the gear at the bottom of the ribbon. Settings are saved in `settings.json` in the app data folder,
-so you can back them up or copy them to another computer.
+so you can back them up or copy them to another computer. Click a percentage to reset that slider to 100%;
+**Reset** restores a whole section.
 
 | Section | Setting | Default |
 |---------|---------|---------|
 | **General** | Link hover previews | On |
 | | Preview delay | 380 ms |
 | | Confirm before deleting pages | On |
-| **Appearance** | Accent colour | Blue `#5b8def` |
-| | Interface font | Space Grotesk (or System, PT Mono) |
-| | Code font | PT Mono (or System monospace) |
+| **Appearance** | Theme | MosaicFlow (or Midnight, Graphite, Nord, Solarized dark, High contrast, and plugin themes) |
+| | Accent colour | Blue `#5b8def` |
+| | Interface scale (zooms the whole window) | 100% |
+| | Text size (menus, panels, dialogs) | 100% |
+| | Density (row height of menus and lists) | Default (or Compact, Comfortable) |
+| | Corner radius | 6 px |
+| | Interface font | Space Grotesk (or System, Serif, PT Mono, or any installed font by name) |
+| | Code font | PT Mono (or Space Mono, System monospace, or any installed font) |
+| | Icon size | 100% |
+| | Icon colour | Default (or Accent, Custom) |
+| | Icon weight | Regular (or Thin, Bold) |
 | | Reduce motion | Off |
+| | Custom CSS | Your own CSS on top of everything, e.g. `:root { --mf-bg: #101418; }` |
 | **Canvas** | Background | Dots (or Lines, Cross, None) |
 | | Grid size | 20 px |
 | | Snap to grid | Off |

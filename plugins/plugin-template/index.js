@@ -8,6 +8,7 @@
  *   4. a template        ("Insert template: …" in the palette)
  *   5. a layout          ("Arrange: …" in the palette)
  *   6. settings          (Settings → Plugins)
+ *   7. a theme           (Settings → Appearance → Theme; api.appearance changes any appearance option)
  *
  * After editing, open Plugins (puzzle icon) → Rescan. No build step and no restart needed.
  * Full reference: docs/PLUGIN_API.md
@@ -116,6 +117,25 @@ export function activate(api) {
           y += n.height + 40;
         }
         return positions;
+      },
+    },
+  ]);
+
+  // ---------------------------------------------------------------------------
+  // 7. Theme: pick it in Settings → Appearance → Theme.
+  // ---------------------------------------------------------------------------
+  api.registerThemes([
+    {
+      id: 'dusk',
+      name: 'My Plugin dusk',
+      variables: {
+        '--mf-bg': '#14111c',
+        '--mf-surface': '#1a1624',
+        '--mf-surface-2': '#211c2e',
+        '--mf-text': '#ece8f5',
+        '--mf-text-2': '#aaa3bd',
+        '--mf-text-3': '#736c86',
+        '--mf-canvas-pattern': '#2f2840',
       },
     },
   ]);

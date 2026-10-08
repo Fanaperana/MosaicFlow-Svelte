@@ -65,9 +65,27 @@ function stripCssLayers() {
   };
 }
 
+/**
+ * Vite plugin: make every `font-size: Npx` follow the "Text size" setting.
+ *
+ * Rewrites it to `calc(Npx * var(--mf-text-scale, 1))`. Runs before Vite's CSS handling so it sees
+ * plain CSS in dev and build. Blocks on the canvas reset the variable to 1 (see app.css).
+ */
+function scalableFontSizes() {
+  return {
+    name: 'scalable-font-sizes',
+    enforce: /** @type {const} */ ('pre'),
+    transform(/** @type {string} */ code, /** @type {string} */ id) {
+      if (!/\.css($|\?)/.test(id) && !/[&?]lang\.(css|postcss)/.test(id)) return;
+      if (!code.includes('font-size')) return;
+      return code.replace(/font-size:\s*(\d*\.?\d+)px/g, 'font-size: calc($1px * var(--mf-text-scale, 1))');
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [tailwindcss(), sveltekit(), stripCssLayers()],
+  plugins: [scalableFontSizes(), tailwindcss(), sveltekit(), stripCssLayers()],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
