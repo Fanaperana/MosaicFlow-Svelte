@@ -5,6 +5,7 @@ import {
   KnowledgeIndex,
   absoluteRects,
   autoLayout,
+  gridLayout,
   wrapLayout,
   importMermaid,
   boundsOf,
@@ -629,32 +630,34 @@ export class MosaicOps {
     }
 
     const edgeIds: string[] = [];
+    const explicitPaths = new Set<string>();
     const warnings: string[] = [];
     for (const e of edges) {
       try {
         const created = await this.connect({ canvas, source: ids.get(e.from)!, target: ids.get(e.to)!, label: e.label, style: e.style });
         edgeIds.push(created.id);
+        if (e.style?.path) explicitPaths.add(created.id);
       } catch (error) {
         warnings.push(`${e.from} -> ${e.to}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
     if (input.layout !== 'none') {
-      const direction = input.layout ?? 'LR';
-      for (const g of groups) {
-        if (input.nodes.filter((n) => n.group === g.key).length >= 2) {
-          await this.autoLayout({ canvas, parentId: ids.get(g.key), direction });
-        }
-      }
-      // New pages: blocks (groups and loose nodes) in reading order, wrapped into rows. Existing pages keep their layout.
       if (!existing) {
+        // New page: arrange groups and nodes around their connections. Existing pages keep their layout.
         const order: string[] = [];
         for (const n of input.nodes) {
           const id = ids.get(n.group ?? n.key)!;
           if (!order.includes(id)) order.push(id);
         }
         for (const g of groups) if (!order.includes(ids.get(g.key)!)) order.push(ids.get(g.key)!);
-        if (order.length >= 2) await this.autoLayout({ canvas, nodeIds: order, mode: 'wrap' });
+        await this.arrangePage(canvas, order, explicitPaths, input.layout ?? 'TB');
+      } else {
+        for (const g of groups) {
+          if (input.nodes.filter((n) => n.group === g.key).length >= 2) {
+            await this.autoLayout({ canvas, parentId: ids.get(g.key), direction: input.layout ?? 'LR' });
+          }
+        }
       }
     }
     if (input.story !== false && input.nodes.length > 0) {
@@ -668,6 +671,111 @@ export class MosaicOps {
       edges: edgeIds.length,
       ...(warnings.length ? { warnings } : {}),
     };
+  }
+
+  /**
+   * Lays out a whole page so edges stay short and readable:
+   * 1. inside groups: a flow layout when members link to each other, otherwise rows;
+   * 2. top-level blocks (groups and loose nodes) layered along their connections, unconnected blocks in a side column;
+   * 3. members of link-free groups re-ordered to line up with what they connect to (fewer crossings);
+   * 4. every edge leaves from the side facing its partner; straight when aligned, step otherwise.
+   */
+  private async arrangePage(canvas: string, order: string[], explicitPaths: Set<string>, direction: 'LR' | 'TB') {
+    const { entry, repo, nodes } = await this.open(canvas);
+    const edges = await repo.readAllEdges();
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    const dims = (n: StoredNode) => ({ width: n.width ?? FALLBACK_SIZE.width, height: n.height ?? FALLBACK_SIZE.height });
+    const topOf = (id: string): string | undefined => {
+      let n = byId.get(id);
+      for (let i = 0; n?.parentId && i < nodes.length; i++) n = byId.get(n.parentId);
+      return n?.id;
+    };
+    const kidsOf = (gid: string) => nodes.filter((n) => n.parentId === gid);
+    const containers = order.filter((id) => kidsOf(id).length > 0);
+    const innerEdges = (kids: StoredNode[]) => {
+      const set = new Set(kids.map((k) => k.id));
+      return edges.filter((e) => set.has(e.source) && set.has(e.target));
+    };
+
+    const layoutGroup = (gid: string, kids: StoredNode[]) => {
+      const inner = innerEdges(kids);
+      const items = kids.map((k) => ({ id: k.id, ...dims(k) }));
+      const origin = { x: GROUP_PAD.side, y: GROUP_PAD.top };
+      const pos = inner.length
+        ? autoLayout(items, inner, { direction: 'LR', origin, nodeGap: 40, layerGap: 110 })
+        : gridLayout(items, { origin, nodeGap: 40, gridColumns: Math.min(kids.length, direction === 'TB' ? 5 : 2) });
+      for (const k of kids) k.position = pos.get(k.id)!;
+      const b = boundsOf(kids.map((k) => ({ ...k.position, ...dims(k) })))!;
+      const g = byId.get(gid)!;
+      g.width = b.x + b.width + GROUP_PAD.side;
+      g.height = b.y + b.height + GROUP_PAD.bottom;
+    };
+
+    const placeBlocks = () => {
+      const links = edges
+        .map((e) => ({ source: topOf(e.source)!, target: topOf(e.target)! }))
+        .filter((e) => e.source && e.target && e.source !== e.target && order.includes(e.source) && order.includes(e.target));
+      const linked = order.filter((id) => links.some((l) => l.source === id || l.target === id));
+      const loose = order.filter((id) => !linked.includes(id));
+      const items = (list: string[]) => list.map((id) => ({ id, ...dims(byId.get(id)!) }));
+      const pos = linked.length >= 2
+        ? autoLayout(items(linked), links, { direction, nodeGap: 120, layerGap: 180 })
+        : wrapLayout(items(order), { nodeGap: 160 });
+      if (linked.length >= 2 && loose.length) {
+        // Unconnected blocks stack in a column beside the flow instead of under it.
+        const right = Math.max(...linked.map((id) => pos.get(id)!.x + dims(byId.get(id)!).width)) + 180;
+        let y = 0;
+        for (const id of loose) {
+          pos.set(id, { x: right, y });
+          y += dims(byId.get(id)!).height + 120;
+        }
+      }
+      for (const id of order) if (pos.has(id)) byId.get(id)!.position = pos.get(id)!;
+    };
+
+    for (const gid of containers) layoutGroup(gid, kidsOf(gid));
+    placeBlocks();
+    for (let pass = 0; pass < 2; pass++) {
+      const rects = absoluteRects(nodes, FALLBACK_SIZE);
+      const centre = (id: string) => {
+        const r = rects.get(id)!;
+        return direction === 'TB' ? r.x + r.width / 2 : r.y + r.height / 2;
+      };
+      for (const gid of containers) {
+        const kids = kidsOf(gid);
+        if (innerEdges(kids).length) continue;
+        const key = (k: StoredNode) => {
+          const partners = edges
+            .flatMap((e) => (e.source === k.id ? [e.target] : e.target === k.id ? [e.source] : []))
+            .filter((o) => topOf(o) !== gid && rects.has(o));
+          return partners.length ? partners.reduce((s, o) => s + centre(o), 0) / partners.length : Infinity;
+        };
+        const sorted = kids.map((k, i) => ({ k, i, key: key(k) })).sort((a, b) => a.key - b.key || a.i - b.i).map((s) => s.k);
+        layoutGroup(gid, sorted);
+      }
+      placeBlocks();
+    }
+
+    const rects = absoluteRects(nodes, FALLBACK_SIZE);
+    for (const e of edges) {
+      const a = rects.get(e.source);
+      const b = rects.get(e.target);
+      if (!a || !b) continue;
+      const sides = facingSides(a, b);
+      e.sourceHandle = `${sides.source}-source`;
+      e.targetHandle = `${sides.target}-target`;
+      if (!explicitPaths.has(e.id)) {
+        const horizontal = sides.source === 'left' || sides.source === 'right';
+        const offset = horizontal ? (a.y + a.height / 2) - (b.y + b.height / 2) : (a.x + a.width / 2) - (b.x + b.width / 2);
+        const path = Math.abs(offset) < 24 ? 'straight' : 'smoothstep';
+        e.type = path;
+        e.data = { ...(e.data ?? {}), pathType: path };
+      }
+    }
+
+    for (const n of nodes) await repo.writeNode(n);
+    for (const e of edges) await repo.writeEdge(e);
+    await this.vault.touchCanvas(entry);
   }
 
   /** Creates a canvas from a Mermaid flowchart (nodes become notes, subgraphs become groups). */

@@ -7,7 +7,17 @@ async function writeAtomic(file: string, content: string) {
   const tmp = `${file}.tmp-${process.pid}-${Date.now()}`;
   await fs.writeFile(tmp, content, 'utf8');
   try {
-    await fs.rename(tmp, file);
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await fs.rename(tmp, file);
+        return;
+      } catch (error) {
+        // Windows refuses to replace a file another process (e.g. the app's watcher) has open for a moment.
+        const code = (error as NodeJS.ErrnoException).code;
+        if (attempt >= 8 || !['EPERM', 'EACCES', 'EBUSY'].includes(code ?? '')) throw error;
+        await new Promise((r) => setTimeout(r, 25 * (attempt + 1)));
+      }
+    }
   } catch (error) {
     await fs.rm(tmp, { force: true });
     throw error;
