@@ -27,9 +27,30 @@
     const field = nodeRegistry.getBodyMapping(target.type).field;
     if (target.type === 'code' && typeof d.code === 'string') return { kind: 'code' as const, text: d.code };
     if (typeof d[field] === 'string' && d[field]) return { kind: 'md' as const, html: renderMarkdown(String(d[field])) };
-    const rest = target.text.startsWith(target.title) ? target.text.slice(target.title.length) : target.text;
-    return { kind: 'md' as const, html: renderMarkdown(rest.trim()) };
+    return { kind: 'md' as const, html: renderMarkdown(fieldSummary(target.type, d)) };
   });
+
+  // Structured nodes (person, timestamp, …): list the type's meaningful fields instead of every raw value.
+  function fieldSummary(type: string, d: Record<string, unknown>): string {
+    const fields = nodeRegistry.get(type)?.knowledge?.fields ?? {};
+    const seen = new Set<string>([String(d.title ?? '').trim()]);
+    const lines: string[] = [];
+    for (const [key, schema] of Object.entries(fields)) {
+      let value = d[key];
+      if (value == null || value === '' || typeof value === 'boolean' || typeof value === 'object') continue;
+      if (schema.type === 'date') {
+        const date = new Date(String(value));
+        if (Number.isNaN(date.getTime())) continue;
+        value = date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+      }
+      const text = String(value).trim();
+      if (seen.has(text)) continue;
+      seen.add(text);
+      const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
+      lines.push(schema.type === 'markdown' ? text : schema.type === 'date' ? `- 📅 ${text}` : `- **${label}:** ${text}`);
+    }
+    return lines.join('\n');
+  }
 
   let editing = $state(false);
   let draft = $state('');
