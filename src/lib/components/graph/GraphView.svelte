@@ -151,10 +151,10 @@
   }
 
   // Layout tuning (Obsidian-like: compact round clusters, short links, dots packed but not overlapping).
-  const REPULSION = 350;
+  const REPULSION = 120;
   const LINK_DISTANCE = 40;
   const HUB_DISTANCE = 30;
-  const CENTER_PULL = 0.012;
+  const CENTER_PULL = 0.02;
   const COLLIDE_PAD = 3;
 
   function tick() {
@@ -187,7 +187,9 @@
 
   // Many-body repulsion via a Barnes-Hut quadtree: near nodes exactly, far clusters as one mass.
   type Cell = { x: number; y: number; s: number; m: number; mx: number; my: number; leaf: GNode | null; extra: GNode[] | null; kids: Cell[] | null };
-  const CUTOFF2 = 260 * 260;
+  // Long range on purpose: with a short one, distant clusters never push each other and the whole
+  // graph packs into a uniform disc with a sharp edge. Barnes-Hut keeps the far field cheap.
+  const CUTOFF2 = 1000 * 1000;
   const THETA2 = 0.81;
   const cell = (x: number, y: number, s: number): Cell => ({ x, y, s, m: 0, mx: 0, my: 0, leaf: null, extra: null, kids: null });
 
