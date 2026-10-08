@@ -149,11 +149,14 @@
     opacity: 0;
   }
 
+  /* Centred absolutely: the anchor inherits the edge-label padding. */
   .reconnect-dot {
-    display: block;
+    position: absolute;
+    top: 50%;
+    left: 50%;
     width: 10px;
     height: 10px;
-    margin: 4px;
+    margin: -5px 0 0 -5px;
     border-radius: 50%;
     background: var(--mf-surface, #111318);
     border: 2px solid var(--mf-accent, #5b8def);
