@@ -27,6 +27,7 @@
   import { setWikilinkLabelResolver } from '@mosaicflow/node-sdk';
   import GraphView from '$lib/components/graph/GraphView.svelte';
   import { startReminders } from '$lib/services/reminders';
+  import { watchVaultPages } from '$lib/services/vaultWatcher';
 
   setWikilinkLabelResolver(wikilinkLabel);
   import { initOpenFiles, processOpenFiles } from '$lib/services/openFiles';
@@ -74,6 +75,19 @@
   // Vault-wide index for search, wikilinks, backlinks and tags
   $effect(() => {
     if (vaultStore.currentVault && vaultStore.canvases) knowledge.loadVault();
+  });
+
+  // Pages added, renamed or removed by other tools (e.g. the MCP server) appear without a reload.
+  $effect(() => {
+    const path = vaultStore.currentVault?.path;
+    if (!path) return;
+    let stop: (() => void) | undefined;
+    let cancelled = false;
+    watchVaultPages(path, () => vaultStore.refreshCanvases()).then((s) => (cancelled ? s() : (stop = s)));
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
   });
 
   $effect(() => {
