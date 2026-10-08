@@ -121,6 +121,12 @@ class VaultStore {
     return this.currentCanvas?.path ?? null;
   }
 
+  /** The page last opened in the current vault, if it still exists. */
+  get lastCanvas(): CanvasInfo | null {
+    const path = this.currentVault ? readLastCanvases()[this.currentVault.path] : undefined;
+    return this.canvases.find((c) => c.path === path) ?? null;
+  }
+
   /**
    * Initialize the vault store
    */
@@ -291,14 +297,15 @@ class VaultStore {
 
   /**
    * Make an opened vault current and pick a canvas: the one last used there,
-   * the only one, or a fresh one if the vault is empty.
+   * the only one, or a fresh one if the vault is empty. With `openPage: false`
+   * it shows the vault's page list instead.
    */
-  private async activateVault(vault: VaultInfo): Promise<void> {
+  private async activateVault(vault: VaultInfo, openPage = true): Promise<void> {
     const canvases = await listCanvasesApi(vault.path);
     const lastPath = readLastCanvases()[vault.path];
     let next = canvases.find((c) => c.path === lastPath) ?? (canvases.length === 1 ? canvases[0] : undefined);
 
-    if (canvases.length === 0) {
+    if (canvases.length === 0 && openPage) {
       const created = await createCanvasApi(vault.path, vault.id, generateUniqueCanvasName(canvases));
       if (created) {
         canvases.push(created);
@@ -311,7 +318,7 @@ class VaultStore {
     this._config.current_vault_path = vault.path;
     this.addToRecent(vault);
 
-    if (next) {
+    if (next && openPage) {
       this.openCanvas(next);
     } else {
       this.currentCanvas = null;
@@ -338,7 +345,7 @@ class VaultStore {
    * Switch to another vault in place (no loading screen); the current vault
    * stays open if the target can't be opened.
    */
-  async switchVault(path: string): Promise<VaultInfo | null> {
+  async switchVault(path: string, { openPage = true }: { openPage?: boolean } = {}): Promise<VaultInfo | null> {
     if (this.currentVault?.path === path) return this.currentVault;
     this.error = null;
 
@@ -350,7 +357,7 @@ class VaultStore {
         return null;
       }
       this.releaseCurrent();
-      await this.activateVault(vault);
+      await this.activateVault(vault, openPage);
       return vault;
     } catch (err) {
       this.error = String(err);
