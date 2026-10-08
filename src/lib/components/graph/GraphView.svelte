@@ -58,7 +58,8 @@
   }
 
   function radius(n: GNode): number {
-    return (n.kind === 'page' ? 7 : 3.5) + Math.sqrt(n.degree) * 1.7;
+    // Grows with connections but capped, so a hub with thousands of links stays a dot, not a blob.
+    return (n.kind === 'page' ? 7 : 3.5) + Math.min(Math.sqrt(n.degree) * 1.7, 14);
   }
 
   function build() {
@@ -149,13 +150,20 @@
     dirty = true;
   }
 
+  // Layout tuning (Obsidian-like: compact round clusters, short links, dots packed but not overlapping).
+  const REPULSION = 350;
+  const LINK_DISTANCE = 40;
+  const HUB_DISTANCE = 30;
+  const CENTER_PULL = 0.012;
+  const COLLIDE_PAD = 3;
+
   function tick() {
-    repel(1200 * alpha);
+    repel(REPULSION * alpha);
     for (const l of links) {
       const dx = l.b.x - l.a.x;
       const dy = l.b.y - l.a.y;
       const d = Math.sqrt(dx * dx + dy * dy) || 1;
-      const target = l.kind === 'page' ? 55 : 80;
+      const target = l.kind === 'page' ? HUB_DISTANCE : LINK_DISTANCE;
       const k = (l.kind === 'page' ? 0.04 : 0.07) * alpha;
       const f = ((d - target) / d) * k * 2;
       // Like d3-force: the better-connected end moves less, so a page hub with 2000 springs
@@ -165,8 +173,8 @@
       l.b.vx -= dx * f * bias; l.b.vy -= dy * f * bias;
     }
     for (const node of nodes) {
-      node.vx -= node.x * 0.006 * alpha;
-      node.vy -= node.y * 0.006 * alpha;
+      node.vx -= node.x * CENTER_PULL * alpha;
+      node.vy -= node.y * CENTER_PULL * alpha;
       if (node === dragging) { node.vx = node.vy = 0; continue; }
       node.vx *= 0.55;
       node.vy *= 0.55;
@@ -179,7 +187,7 @@
 
   // Many-body repulsion via a Barnes-Hut quadtree: near nodes exactly, far clusters as one mass.
   type Cell = { x: number; y: number; s: number; m: number; mx: number; my: number; leaf: GNode | null; extra: GNode[] | null; kids: Cell[] | null };
-  const CUTOFF2 = 160_000;
+  const CUTOFF2 = 260 * 260;
   const THETA2 = 0.81;
   const cell = (x: number, y: number, s: number): Cell => ({ x, y, s, m: 0, mx: 0, my: 0, leaf: null, extra: null, kids: null });
 
@@ -211,6 +219,13 @@
         const d2 = dx * dx + dy * dy + 0.01;
         if (d2 > CUTOFF2) continue;
         a.vx += (dx * strength) / d2; a.vy += (dy * strength) / d2;
+        // Collision: push overlapping dots apart regardless of alpha so they never sit on top of each other.
+        const minD = radius(a) + radius(b) + COLLIDE_PAD;
+        if (d2 < minD * minD) {
+          const d = Math.sqrt(d2);
+          const overlap = (minD - d) / d / 2;
+          a.vx += dx * overlap; a.vy += dy * overlap;
+        }
       }
       return;
     }
@@ -313,10 +328,17 @@
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     const fontPx = 11 / Math.max(view.k, 0.6);
+    // Like Obsidian, note labels fade in as you zoom (from 1x, fully visible at 1.6x); page labels always show.
+    const zoomFade = Math.min(1, Math.max(0, (view.k - 1) / 0.6));
+    // With many pages their labels pile up; then they follow the same zoom fade as notes.
+    const pageCount = legend.length;
+    const pageFade = pageCount <= 40 ? 1 : Math.min(1, Math.max(0, (view.k - 0.4) / 0.6));
     for (const n of nodes) {
-      const show = n === focus || near?.has(n) || n.kind === 'page' || view.k > 1.1 || (q && matches(n));
-      if (!show) continue;
-      ctx.globalAlpha = lit(n) ? (n.kind === 'page' ? 0.95 : 0.85) : 0.15;
+      const forced = n === focus || near?.has(n) || (q && matches(n));
+      const fade = forced ? 1 : n.kind === 'page' ? pageFade : zoomFade;
+      if (fade === 0) continue;
+      const base = lit(n) ? (n.kind === 'page' ? 0.95 : 0.85) : 0.15;
+      ctx.globalAlpha = base * fade;
       ctx.fillStyle = n.kind === 'page' ? '#ffffff' : '#d4d4dc';
       ctx.font = `${n.kind === 'page' ? 600 : 400} ${fontPx}px Inter, system-ui, sans-serif`;
       const label = n.label.length > 40 ? `${n.label.slice(0, 39)}…` : n.label;
