@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick, onMount } from 'svelte';
-  import { vaultStore } from '$lib/stores/vault.svelte';
+  import { vaultStore, samePath } from '$lib/stores/vault.svelte';
   import { pageNav } from '$lib/stores/pages.svelte';
   import { formatRelativeTime, isValidVault, type CanvasInfo } from '$lib/services/vaultService';
   import {
@@ -137,7 +137,7 @@
 
   onMount(() => {
     for (const v of vaultStore.recentVaults) {
-      if (v.path !== vaultStore.currentVault?.path) {
+      if (!samePath(v.path, vaultStore.currentVault?.path)) {
         isValidVault(v.path).then((ok) => { if (!ok) missing.add(v.path); }).catch(() => {});
       }
     }
@@ -150,7 +150,7 @@
   }
 
   async function browseVault(path: string) {
-    if (switchingPath || path === vaultStore.currentVault?.path) return;
+    if (switchingPath || samePath(path, vaultStore.currentVault?.path)) return;
     switchingPath = path;
     vaultError = null;
     query = '';
@@ -180,7 +180,7 @@
     const selected = await open({ directory: true, multiple: false, title: `Locate "${vault.name}"` });
     if (typeof selected !== 'string') return;
     await browseVault(selected);
-    if (vaultStore.currentVault?.path === selected) {
+    if (samePath(vaultStore.currentVault?.path, selected)) {
       vaultStore.removeFromRecent(vault.path);
       missing.delete(vault.path);
     }
@@ -282,7 +282,7 @@
     <div class="rail-title">Vaults</div>
     <nav class="rail-list" bind:this={vaultList}>
       {#each vaultStore.recentVaults as vault (vault.path)}
-        {@const current = vault.path === vaultStore.currentVault?.path}
+        {@const current = samePath(vault.path, vaultStore.currentVault?.path)}
         {@const gone = missing.has(vault.path)}
         <div
           class="vault-item"

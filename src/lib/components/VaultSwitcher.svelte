@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { open } from '@tauri-apps/plugin-dialog';
-  import { vaultStore } from '$lib/stores/vault.svelte';
+  import { vaultStore, samePath } from '$lib/stores/vault.svelte';
   import { keybindings } from '$lib/kernel/keybindings.svelte';
   import { formatRelativeTime } from '$lib/services/vaultService';
   import { confirmDanger } from '$lib/utils/confirm';
@@ -22,7 +22,7 @@
   let searchInput = $state<HTMLInputElement>();
 
   let current = $derived(vaultStore.currentVault);
-  let others = $derived(vaultStore.recentVaults.filter((v) => v.path !== current?.path));
+  let others = $derived(vaultStore.recentVaults.filter((v) => !samePath(v.path, current?.path)));
   let filtered = $derived.by(() => {
     const q = query.trim().toLowerCase();
     if (!q) return others;

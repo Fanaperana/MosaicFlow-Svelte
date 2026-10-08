@@ -27,6 +27,16 @@ export type AppView = 'vault-picker' | 'canvas-list' | 'canvas';
 
 const LAST_CANVAS_KEY = 'mosaicflow:last-canvas-by-vault';
 
+/** Comparison key for a folder path: "E:\\Vault\\" and "e:/vault" are the same folder on Windows. */
+export function pathKey(path: string): string {
+  const p = path.replace(/\\/g, '/').replace(/\/+$/, '');
+  return /^[a-zA-Z]:\//.test(p) ? p.toLowerCase() : p;
+}
+
+export function samePath(a: string | null | undefined, b: string | null | undefined): boolean {
+  return !!a && !!b && pathKey(a) === pathKey(b);
+}
+
 function readLastCanvases(): Record<string, string> {
   try {
     return JSON.parse(localStorage.getItem(LAST_CANVAS_KEY) ?? '{}');
@@ -35,9 +45,14 @@ function readLastCanvases(): Record<string, string> {
   }
 }
 
+function lastCanvasFor(vaultPath: string): string | undefined {
+  const saved = readLastCanvases();
+  return saved[pathKey(vaultPath)] ?? saved[vaultPath];
+}
+
 function rememberLastCanvas(vaultPath: string, canvasPath: string): void {
   try {
-    localStorage.setItem(LAST_CANVAS_KEY, JSON.stringify({ ...readLastCanvases(), [vaultPath]: canvasPath }));
+    localStorage.setItem(LAST_CANVAS_KEY, JSON.stringify({ ...readLastCanvases(), [pathKey(vaultPath)]: canvasPath }));
   } catch {
     // Storage unavailable; switching still works, it just opens the canvas list.
   }
@@ -123,7 +138,7 @@ class VaultStore {
 
   /** The page last opened in the current vault, if it still exists. */
   get lastCanvas(): CanvasInfo | null {
-    const path = this.currentVault ? readLastCanvases()[this.currentVault.path] : undefined;
+    const path = this.currentVault ? lastCanvasFor(this.currentVault.path) : undefined;
     return this.canvases.find((c) => c.path === path) ?? null;
   }
 
@@ -139,6 +154,13 @@ class VaultStore {
     try {
       // Load configuration
       this._config = await loadAppConfig();
+      // Older builds could store one folder under two spellings ("E:\\V" and "E:/V"); keep the most recent.
+      const seen = new Set<string>();
+      const unique = this._config.recent_vaults.filter((v) => !seen.has(pathKey(v.path)) && !!seen.add(pathKey(v.path)));
+      if (unique.length !== this._config.recent_vaults.length) {
+        this._config.recent_vaults = unique;
+        void this.saveConfig();
+      }
       
       // If there's a current vault path, try to open it
       if (this._config.current_vault_path) {
@@ -205,7 +227,7 @@ class VaultStore {
   private addToRecent(vault: VaultInfo): void {
     // Remove if already exists
     this._config.recent_vaults = this._config.recent_vaults.filter(
-      (v) => v.path !== vault.path
+      (v) => !samePath(v.path, vault.path)
     );
     
     // Add to front
@@ -226,7 +248,7 @@ class VaultStore {
    */
   removeFromRecent(path: string): void {
     this._config.recent_vaults = this._config.recent_vaults.filter(
-      (v) => v.path !== path
+      (v) => !samePath(v.path, path)
     );
     this.saveConfig();
   }
@@ -302,7 +324,7 @@ class VaultStore {
    */
   private async activateVault(vault: VaultInfo, openPage = true): Promise<void> {
     const canvases = await listCanvasesApi(vault.path);
-    const lastPath = readLastCanvases()[vault.path];
+    const lastPath = lastCanvasFor(vault.path);
     let next = canvases.find((c) => c.path === lastPath) ?? (canvases.length === 1 ? canvases[0] : undefined);
 
     if (canvases.length === 0 && openPage) {
@@ -346,7 +368,7 @@ class VaultStore {
    * stays open if the target can't be opened.
    */
   async switchVault(path: string, { openPage = true }: { openPage?: boolean } = {}): Promise<VaultInfo | null> {
-    if (this.currentVault?.path === path) return this.currentVault;
+    if (samePath(this.currentVault?.path, path)) return this.currentVault;
     this.error = null;
 
     try {

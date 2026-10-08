@@ -48,6 +48,8 @@
   let pan: { sx: number; sy: number; vx: number; vy: number } | null = null;
   let downAt: { x: number; y: number } | null = null;
   let fitted = false;
+  // Set whenever the picture may have changed; idle frames skip drawing.
+  let dirty = true;
 
   function colorFor(canvasId: string): string {
     // Golden-angle hues keep neighbouring pages distinct.
@@ -144,32 +146,23 @@
     legend = canvases.map((c) => ({ id: c.id, name: c.name, color: colorFor(c.id) }));
     if (hover && !next.has(hover.key)) hover = null;
     alpha = Math.max(alpha, 0.6);
+    dirty = true;
   }
 
   function tick() {
-    const n = nodes.length;
-    for (let i = 0; i < n; i++) {
-      const a = nodes[i];
-      for (let j = i + 1; j < n; j++) {
-        const b = nodes[j];
-        const dx = a.x - b.x;
-        const dy = a.y - b.y;
-        const d2 = dx * dx + dy * dy + 0.01;
-        if (d2 > 160_000) continue;
-        const f = (1200 * alpha) / d2;
-        a.vx += dx * f; a.vy += dy * f;
-        b.vx -= dx * f; b.vy -= dy * f;
-      }
-    }
+    repel(1200 * alpha);
     for (const l of links) {
       const dx = l.b.x - l.a.x;
       const dy = l.b.y - l.a.y;
       const d = Math.sqrt(dx * dx + dy * dy) || 1;
       const target = l.kind === 'page' ? 55 : 80;
       const k = (l.kind === 'page' ? 0.04 : 0.07) * alpha;
-      const f = ((d - target) / d) * k;
-      l.a.vx += dx * f; l.a.vy += dy * f;
-      l.b.vx -= dx * f; l.b.vy -= dy * f;
+      const f = ((d - target) / d) * k * 2;
+      // Like d3-force: the better-connected end moves less, so a page hub with 2000 springs
+      // doesn't get yanked back and forth by all of them every frame.
+      const bias = l.a.degree / (l.a.degree + l.b.degree || 1);
+      l.a.vx += dx * f * (1 - bias); l.a.vy += dy * f * (1 - bias);
+      l.b.vx -= dx * f * bias; l.b.vy -= dy * f * bias;
     }
     for (const node of nodes) {
       node.vx -= node.x * 0.006 * alpha;
@@ -181,6 +174,62 @@
       node.y += Math.max(-40, Math.min(40, node.vy));
     }
     alpha = dragging ? Math.max(alpha, 0.25) : alpha * 0.992;
+    dirty = true;
+  }
+
+  // Many-body repulsion via a Barnes-Hut quadtree: near nodes exactly, far clusters as one mass.
+  type Cell = { x: number; y: number; s: number; m: number; mx: number; my: number; leaf: GNode | null; extra: GNode[] | null; kids: Cell[] | null };
+  const CUTOFF2 = 160_000;
+  const THETA2 = 0.81;
+  const cell = (x: number, y: number, s: number): Cell => ({ x, y, s, m: 0, mx: 0, my: 0, leaf: null, extra: null, kids: null });
+
+  function insert(c: Cell, n: GNode, depth: number) {
+    c.m++; c.mx += n.x; c.my += n.y;
+    if (c.m === 1) { c.leaf = n; return; }
+    if (depth > 24) { (c.extra ??= []).push(n); return; } // coincident points
+    if (!c.kids) {
+      const h = c.s / 2;
+      c.kids = [cell(c.x, c.y, h), cell(c.x + h, c.y, h), cell(c.x, c.y + h, h), cell(c.x + h, c.y + h, h)];
+      const old = c.leaf!;
+      c.leaf = null;
+      insert(child(c, old), old, depth + 1);
+    }
+    insert(child(c, n), n, depth + 1);
+  }
+
+  function child(c: Cell, n: GNode): Cell {
+    const h = c.s / 2;
+    return c.kids![(n.x >= c.x + h ? 1 : 0) + (n.y >= c.y + h ? 2 : 0)];
+  }
+
+  function push(c: Cell, a: GNode, strength: number) {
+    if (c.m === 0) return;
+    if (!c.kids) {
+      for (const b of c.extra ? [c.leaf!, ...c.extra] : [c.leaf!]) {
+        if (b === a) continue;
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const d2 = dx * dx + dy * dy + 0.01;
+        if (d2 > CUTOFF2) continue;
+        a.vx += (dx * strength) / d2; a.vy += (dy * strength) / d2;
+      }
+      return;
+    }
+    const dx = a.x - c.mx / c.m, dy = a.y - c.my / c.m;
+    const d2 = dx * dx + dy * dy + 0.01;
+    if ((c.s * c.s) / d2 > THETA2) {
+      for (const k of c.kids) push(k, a, strength);
+    } else if (d2 <= CUTOFF2) {
+      a.vx += (dx * strength * c.m) / d2; a.vy += (dy * strength * c.m) / d2;
+    }
+  }
+
+  function repel(strength: number) {
+    if (nodes.length < 2) return;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const n of nodes) { x0 = Math.min(x0, n.x); y0 = Math.min(y0, n.y); x1 = Math.max(x1, n.x); y1 = Math.max(y1, n.y); }
+    const root = cell(x0, y0, Math.max(x1 - x0, y1 - y0) + 1);
+    for (const n of nodes) insert(root, n, 0);
+    for (const n of nodes) push(root, n, strength);
   }
 
   function size() {
@@ -210,6 +259,7 @@
     for (const n of nodes) { x0 = Math.min(x0, n.x); y0 = Math.min(y0, n.y); x1 = Math.max(x1, n.x); y1 = Math.max(y1, n.y); }
     const k = Math.min(2, Math.max(0.1, Math.min((w - 120) / (x1 - x0 || 1), (h - 160) / (y1 - y0 || 1))));
     view = { k, x: -((x0 + x1) / 2) * k, y: -((y0 + y1) / 2) * k };
+    dirty = true;
   }
 
   function draw() {
@@ -288,6 +338,7 @@
   }
 
   function onPointerMove(e: PointerEvent) {
+    dirty = true;
     if (dragging) {
       const p = toWorld(e.offsetX, e.offsetY);
       dragging.x = p.x;
@@ -319,6 +370,7 @@
     const p = toWorld(e.offsetX, e.offsetY);
     const k = Math.min(6, Math.max(0.05, view.k * Math.exp(-e.deltaY * 0.0015)));
     view = { k, x: e.offsetX - w / 2 - p.x * k, y: e.offsetY - h / 2 - p.y * k };
+    dirty = true;
   }
 
   function open(n: GNode) {
@@ -345,18 +397,27 @@
     untrack(build);
   });
 
+  $effect(() => {
+    void query;
+    dirty = true;
+  });
+
   onMount(() => {
     knowledge.loadVault();
     let frame = 0;
     let warm = 0;
+    let lastSize = '';
     const loop = () => {
       if (alpha > 0.01 || dragging) tick();
       if (!fitted && ++warm > 90) { fit(); fitted = true; }
-      draw();
+      const { w, h } = size();
+      if (`${w}x${h}` !== lastSize) { lastSize = `${w}x${h}`; dirty = true; }
+      if (dirty) { dirty = false; draw(); }
       frame = requestAnimationFrame(loop);
     };
-    // Settle most of the layout before the first paint so it doesn't explode on screen.
-    for (let i = 0; i < 120; i++) tick();
+    // Settle most of the layout before the first paint so it doesn't explode on screen (time-boxed for huge vaults).
+    const t0 = performance.now();
+    for (let i = 0; i < 120 && performance.now() - t0 < 250; i++) tick();
     fit();
     frame = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frame);
@@ -371,7 +432,7 @@
     onpointerdown={onPointerDown}
     onpointermove={onPointerMove}
     onpointerup={onPointerUp}
-    onpointerleave={() => { if (!dragging && !pan) { hover = null; hoverLabel = null; } }}
+    onpointerleave={() => { if (!dragging && !pan) { hover = null; hoverLabel = null; dirty = true; } }}
     onwheel={onWheel}
   ></canvas>
 
