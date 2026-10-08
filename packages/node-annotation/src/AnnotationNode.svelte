@@ -42,32 +42,35 @@
     return baseFontSize;
   });
 
-  // Arrow symbols for different positions
-  const arrowSymbols: Record<string, string> = {
-    'top-left': '↖',
-    'top-right': '↗',
-    'bottom-left': '↙',
-    'bottom-right': '↘',
-    'left': '←',
-    'right': '→',
-    'none': '',
+  // Direction the arrow points to (degrees, 0 = right, clockwise) for each preset position.
+  const arrowAngles: Record<string, number> = {
+    'top-left': -135,
+    'top-right': -45,
+    'bottom-left': 135,
+    'bottom-right': 45,
+    'left': 180,
+    'right': 0,
   };
 
   const arrowPosition = $derived(data.arrowPosition || 'bottom-left');
-  const arrowSymbol = $derived(data.arrow || arrowSymbols[arrowPosition] || '⤹');
+  // A custom text glyph in data.arrow still wins over the drawn arrow.
+  const customGlyph = $derived(data.arrow || '');
   const currentRotation = $derived(data.arrowRotation || 0);
-  
-  // Arrow transform (rotation and flip)
+
+  // The drawn arrow points right with its curve bowing up; left-facing arrows are mirrored so the bow stays up.
   const arrowTransform = $derived(() => {
+    const angle = typeof data.arrowRotation === 'number' ? data.arrowRotation : (arrowAngles[arrowPosition] ?? 0);
+    const a = ((angle % 360) + 360) % 360;
+    const facesLeft = !customGlyph && a > 90 && a < 270;
     const transforms: string[] = [];
-    if (data.arrowRotation) {
-      transforms.push(`rotate(${data.arrowRotation}deg)`);
-    }
-    if (data.arrowFlipX) {
-      transforms.push('scaleX(-1)');
-    }
-    if (data.arrowFlipY) {
-      transforms.push('scaleY(-1)');
+    if (data.arrowFlipX) transforms.push('scaleX(-1)');
+    if (data.arrowFlipY) transforms.push('scaleY(-1)');
+    if (customGlyph) {
+      if (data.arrowRotation) transforms.push(`rotate(${data.arrowRotation}deg)`);
+    } else if (facesLeft) {
+      transforms.push('scaleX(-1)', `rotate(${180 - a}deg)`);
+    } else {
+      transforms.push(`rotate(${a}deg)`);
     }
     return transforms.length > 0 ? transforms.join(' ') : 'none';
   });
@@ -218,9 +221,10 @@
     {/if}
   </div>
 
-  {#if arrowPosition !== 'none' && arrowSymbol}
+  {#if arrowPosition !== 'none'}
     <div 
       class="annotation-arrow" 
+      class:glyph={!!customGlyph}
       class:top-left={arrowPosition === 'top-left'}
       class:top-right={arrowPosition === 'top-right'}
       class:bottom-left={arrowPosition === 'bottom-left'}
@@ -229,7 +233,14 @@
       class:right={arrowPosition === 'right'}
       style="{data.arrowStyle || ''}; transform: {arrowTransform()};"
     >
-      {arrowSymbol}
+      {#if customGlyph}
+        {customGlyph}
+      {:else}
+        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 34 C 14 12, 32 10, 44 22" />
+          <path d="M34.3 19.4 L44 22 L41.4 12.3" />
+        </svg>
+      {/if}
       
       <!-- Rotation handle - visible when selected -->
       {#if selected}
@@ -310,43 +321,58 @@
   }
 
   .annotation-arrow {
+    --arrow-size: max(40px, calc(var(--font-size) * 3));
     position: absolute;
-    font-size: calc(var(--font-size) * 1.5);
+    width: var(--arrow-size);
+    height: var(--arrow-size);
     color: var(--text-color);
     line-height: 1;
-    opacity: 0.7;
+    opacity: 0.85;
+    transform-origin: center;
+  }
+
+  .annotation-arrow svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .annotation-arrow.glyph {
+    --arrow-size: calc(var(--font-size) * 1.5);
+    width: auto;
+    height: auto;
+    font-size: var(--arrow-size);
   }
 
   .annotation-arrow.top-left {
-    top: -0.5em;
-    left: -0.5em;
+    top: calc(var(--arrow-size) * -0.75);
+    left: calc(var(--arrow-size) * -0.75);
   }
 
   .annotation-arrow.top-right {
-    top: -0.5em;
-    right: -0.5em;
+    top: calc(var(--arrow-size) * -0.75);
+    right: calc(var(--arrow-size) * -0.75);
   }
 
   .annotation-arrow.bottom-left {
-    bottom: -0.5em;
-    left: -0.5em;
+    bottom: calc(var(--arrow-size) * -0.75);
+    left: calc(var(--arrow-size) * -0.75);
   }
 
   .annotation-arrow.bottom-right {
-    bottom: -0.5em;
-    right: -0.5em;
+    bottom: calc(var(--arrow-size) * -0.75);
+    right: calc(var(--arrow-size) * -0.75);
   }
 
   .annotation-arrow.left {
-    top: 50%;
-    left: -1em;
-    transform: translateY(-50%);
+    top: calc(50% - var(--arrow-size) / 2);
+    left: calc(var(--arrow-size) * -1);
   }
 
   .annotation-arrow.right {
-    top: 50%;
-    right: -1em;
-    transform: translateY(-50%);
+    top: calc(50% - var(--arrow-size) / 2);
+    right: calc(var(--arrow-size) * -1);
   }
 
   /* Rotation handle styles */
