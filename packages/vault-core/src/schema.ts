@@ -58,6 +58,7 @@ export function buildNodeTypesDocument(nodeTypes: NodeTypeSchema[]): NodeTypesDo
   return {
     schemaVersion: 1,
     format: {
+      spec: 'https://github.com/Fanaperana/MosaicFlow-Svelte/blob/main/docs/VAULT_FORMAT.md (full format and editing rules)',
       vault: '<vault>/vault.json holds vault metadata; canvases live in <vault>/canvases/<canvas>/ with metadata and settings in <canvas>/canvas.json',
       node: '<canvas>/nodes/<id>.md: YAML frontmatter {id, type, title, layout, data} followed by a markdown body holding the data field named by knowledge.bodyField (default "notes")',
       edge: '<canvas>/edges/<id>.json: {source, target, sourceHandle, targetHandle, label, type, animated, data}',

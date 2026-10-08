@@ -62,7 +62,7 @@ Press <kbd>/</kbd> or double-click empty canvas space to open the block menu: ty
 Select a node or edge to edit it in a dense side panel: page-style title, typed properties, tags, links and backlinks, colors, borders, layout and locks.
 
 ### 📁 Your data, as plain files
-- A **vault** is a folder; each page is a folder; each node is a **Markdown file** with frontmatter. Edit them in any editor and changes sync live.
+- A **vault** is a folder; each page is a folder; each node is a **Markdown file** with frontmatter. Edit them in any editor (or let an AI agent do it) and changes sync live. The full format is in [docs/VAULT_FORMAT.md](docs/VAULT_FORMAT.md).
 - **Import** `.mosaic` packages, Obsidian `.canvas`, MosaicFlow JSON, Mermaid flowcharts, or a whole folder of Markdown notes (e.g. an Obsidian vault, where `[[links]]` become edges). Drag & drop works too.
 - **Export** a page or a whole vault as `.mosaic`, or a page as Obsidian canvas, JSON, PNG or SVG.
 
@@ -194,6 +194,8 @@ pnpm --filter @mosaicflow/mcp-server build
 node packages/mcp-server/dist/mosaicflow-mcp.mjs "/path/to/your/vault"
 ```
 
+Agents without MCP can edit the files directly by following [docs/VAULT_FORMAT.md](docs/VAULT_FORMAT.md).
+
 ---
 
 ## Development
@@ -234,7 +236,7 @@ pnpm --filter ./packages/vault-core exec vitest run   # vault-core unit tests
 cd src-tauri && cargo check                  # Rust
 ```
 
-More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/API.md](docs/API.md) and [docs/PLUGIN_DEVELOPMENT.md](docs/PLUGIN_DEVELOPMENT.md).
+More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/API.md](docs/API.md), [docs/VAULT_FORMAT.md](docs/VAULT_FORMAT.md) and [docs/PLUGIN_DEVELOPMENT.md](docs/PLUGIN_DEVELOPMENT.md).
 
 ---
 

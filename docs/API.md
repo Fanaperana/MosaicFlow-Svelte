@@ -463,6 +463,8 @@ interface MosaicEdge {
 
 ### Vault Structure (format v3)
 
+The complete specification, with editing rules for scripts and AI agents, is in [VAULT_FORMAT.md](VAULT_FORMAT.md).
+
 ```
 MyVault/
 ├── vault.json                    # Vault metadata (id, name, timestamps)
