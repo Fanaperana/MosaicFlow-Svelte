@@ -13,6 +13,7 @@
   <a href="#keyboard-shortcuts">Shortcuts</a> •
   <a href="#plugins">Plugins</a> •
   <a href="#ai-assistants-mcp">AI / MCP</a> •
+  <a href="docs/README.md">Docs</a> •
   <a href="#development">Development</a>
 </p>
 
@@ -90,7 +91,7 @@ pnpm tauri dev      # run the desktop app in development
 pnpm tauri build    # build an installer
 ```
 
-On first launch, create a vault (any folder) or open an existing one, then start adding blocks with <kbd>/</kbd>.
+On first launch, create a vault (any folder) or open an existing one, then start adding blocks with <kbd>/</kbd>. The [user guide](docs/USER_GUIDE.md) covers everything else.
 
 ---
 
@@ -123,6 +124,7 @@ Every shortcut can be changed in **Settings → Keyboard shortcuts** (<kbd>Ctrl<
 | Shortcut | Action |
 |----------|--------|
 | <kbd>/</kbd> or double-click | Insert a block |
+| <kbd>Ctrl</kbd> + <kbd>P</kbd> | Command palette (commands, templates, layouts, panels) |
 | <kbd>Ctrl</kbd> + <kbd>K</kbd> / <kbd>Ctrl</kbd> + <kbd>O</kbd> | Search pages and nodes |
 | <kbd>Ctrl</kbd> + <kbd>,</kbd> | Settings |
 | <kbd>Ctrl</kbd> + <kbd>/</kbd> | Keyboard shortcuts |
@@ -166,7 +168,24 @@ Open **Plugins** (puzzle icon at the bottom of the left ribbon) to open that fol
   <img src="docs/images/plugins.png" alt="The Plugins dialog" width="100%">
 </p>
 
-A plugin is a folder with a `plugin.json` and a single ES module. Nodes are framework-free:
+A plugin is a folder with a `plugin.json` and a single ES module. It can add:
+
+| | Where it shows up |
+|-|-------------------|
+| **Blocks** (node types) | The `/` menu; saved as Markdown like built-in blocks |
+| **Panels** | A ribbon button that opens a sidebar next to the canvas |
+| **Commands** | The command palette (`Ctrl + P`) and optional shortcuts |
+| **Templates** | "Insert template: …" in the palette |
+| **Layouts** | "Arrange: …" in the palette |
+| **Settings** | Settings → Plugins |
+
+Start from the ready-made template:
+
+```bash
+pnpm create-plugin "My Plugin" --author "Your Name"   # copies plugins/plugin-template into your plugins folder
+```
+
+Then **Plugins → Rescan**, switch it on, and edit `index.js`. A node is a few lines:
 
 ```js
 export function activate(api) {
@@ -181,7 +200,10 @@ export function activate(api) {
 }
 ```
 
-Share a plugin by publishing its folder on GitHub; users drop it into their plugins folder and enable it. See the [plugin guide](docs/PLUGIN_DEVELOPMENT.md) and the [Flashcard example](plugins/example-flashcard/).
+Plugins travel with your pages: exported `.mosaic` files include the plugins they use, and whoever imports them
+is asked before they're installed. Read the [plugin guide](docs/PLUGIN_DEVELOPMENT.md), the
+[API reference](docs/PLUGIN_API.md), the [starter template](plugins/plugin-template/) and the
+[Flashcard example](plugins/example-flashcard/).
 
 ---
 
@@ -290,7 +312,7 @@ pnpm --filter ./packages/vault-core exec vitest run   # vault-core unit tests
 cd src-tauri && cargo check                  # Rust
 ```
 
-More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/API.md](docs/API.md), [docs/VAULT_FORMAT.md](docs/VAULT_FORMAT.md) and [docs/PLUGIN_DEVELOPMENT.md](docs/PLUGIN_DEVELOPMENT.md).
+More in [docs/](docs/README.md): the [user guide](docs/USER_GUIDE.md), [architecture](docs/ARCHITECTURE.md), [internal API](docs/API.md), [vault format](docs/VAULT_FORMAT.md) and [plugin guide](docs/PLUGIN_DEVELOPMENT.md).
 
 ---
 

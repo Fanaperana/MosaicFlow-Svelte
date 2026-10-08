@@ -1,6 +1,11 @@
 # Example plugin: Flashcard
 
-Adds a **Flashcard** block: a question on the front and a markdown answer on the back, with a flip button and a review counter.
+Adds a **Flashcard** block: a question on the front and a markdown answer on the back, with a flip button and a review counter. Also:
+
+- **Flashcard review** panel (lightbulb in the ribbon): step through the page's cards, least-reviewed first
+- **Study set** template: `Ctrl+P` → "Insert template: Study set"
+- **Flashcard deck** layout: `Ctrl+P` → "Arrange: Flashcard deck (rows of 4)"
+- **Reset review counts** command: `Ctrl+P` → "Flashcards: reset…"
 
 ## Install
 
@@ -19,4 +24,5 @@ example-flashcard/
 └── styles.css    # optional, injected while the plugin is enabled
 ```
 
-See [docs/PLUGIN_DEVELOPMENT.md](../../docs/PLUGIN_DEVELOPMENT.md) for the full API.
+See the [plugin guide](../../docs/PLUGIN_DEVELOPMENT.md) and the [API reference](../../docs/PLUGIN_API.md). To start
+your own plugin, use the [starter template](../plugin-template/) (`pnpm create-plugin "Name"`).

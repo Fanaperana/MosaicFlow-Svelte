@@ -1,0 +1,15 @@
+{
+  "id": "my-name.my-plugin",
+  "name": "My Plugin",
+  "version": "0.1.0",
+  "description": "A MosaicFlow plugin starter: a node, a panel, a command, a template, a layout and settings.",
+  "author": "Your Name",
+  "license": "MIT",
+  "homepage": "https://github.com/my-name/my-plugin",
+  "apiVersion": "0.1.0",
+  "capabilities": [{ "type": "nodeTypes", "types": ["my-plugin-card"] }],
+  "frontend": {
+    "main": "./index.js",
+    "styles": "./styles.css"
+  }
+}

@@ -14,6 +14,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "pnpm -r --if-present test",
+    "create-plugin": "node scripts/create-plugin.mjs",
     "tauri": "tauri"
   },
   "license": "MIT",

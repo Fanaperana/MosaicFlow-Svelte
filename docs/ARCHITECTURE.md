@@ -120,39 +120,34 @@ The runtime implements the kernel services:
 
 ### Frontend Registries
 
-Frontend registries manage UI contributions:
+Frontend registries manage UI contributions (`src/lib/kernel/registries/`):
 
-- **NodeRegistry**: Node type components
-- **PanelRegistry**: Panel components
-- **CommandRegistry**: Commands and shortcuts
+- **NodeRegistry**: node types (Svelte components for built-in nodes, `render` functions for user plugins)
+- **PanelRegistry**: sidebar panels (`render` functions), shown via `src/lib/plugins/PluginPanel.svelte`
+- **CommandRegistry**: commands and shortcuts, listed in the command palette
+- **Template / layout registries** (`contribution-registry.ts`): applied by `src/lib/services/contributions.ts`
+
+Each registration carries a `pluginId`; `pluginLoader.unloadPlugin()` removes all of a plugin's
+contributions at once.
 
 ## Plugin Types
 
 ### Core Plugins
 
-Core plugins are bundled with the application:
+Built-in node sets and features, bundled with the app and registered at startup (`src/lib/plugins/`). They may
+use Svelte components and are trusted.
 
-```typescript
-// Loaded at startup
-import { initializePluginSystem } from '$lib/plugins';
-await initializePluginSystem();
-```
+### User Plugins
 
-### Community Plugins
+Folders in `{APP_DATA}/plugins` with a `plugin.json`. The Rust `plugin_service` discovers them and reads files
+confined to each folder; `pluginStore` (`src/lib/stores/plugins.svelte.ts`) tracks which are enabled (off by
+default), injects their CSS and asks `pluginLoader` to import the module from a blob URL and call
+`activate(api)`. User plugins are framework-free: nodes and panels draw into a container element. They run in
+the web view without a sandbox. See [PLUGIN_DEVELOPMENT.md](PLUGIN_DEVELOPMENT.md) and
+[PLUGIN_API.md](PLUGIN_API.md).
 
-Community plugins are loaded from the plugins directory:
-
-```typescript
-// Load from external folder
-await pluginLoader.loadExternalPlugin(manifest, moduleUrl);
-```
-
-### Premium Plugins
-
-Premium plugins use the same mechanism but may include:
-- License validation
-- Encrypted modules
-- Additional permissions
+Plugins can travel inside `.mosaic` packages (`.plugins/<id>/`); `packageService` lists them in the import
+preview and installs the ones the user ticks.
 
 ## Command Routing
 
@@ -195,50 +190,16 @@ kernel.subscribe((event) => {
 
 ## Plugin API
 
-Plugins receive an API object for registration:
-
-```typescript
-export function activate(api: PluginAPI) {
-    // Register node types
-    api.registerNodeTypes([
-        {
-            type: 'myNode',
-            label: 'My Node',
-            component: MyNodeComponent,
-            // ...
-        }
-    ]);
-    
-    // Register commands
-    api.registerCommands([
-        {
-            id: 'myPlugin.doSomething',
-            label: 'Do Something',
-            handler: () => { /* ... */ }
-        }
-    ]);
-}
-```
+Plugins receive an API object in `activate(api)` (`src/lib/kernel/plugin-loader.ts`): `registerNodeTypes`,
+`registerPanels`, `registerCommands`, `registerTemplates`, `registerLayouts`, `workspace`, `settings`, `ui`,
+`commands` and `manifest`. Ids of commands, panels, templates and layouts are prefixed with the plugin id.
+The full reference is [PLUGIN_API.md](PLUGIN_API.md).
 
 ## Permissions
 
-Plugins declare required permissions in their manifest:
-
-```json
-{
-    "permissions": [
-        "file_read",
-        "file_write",
-        "network"
-    ]
-}
-```
-
-The PolicyChecker validates permissions before operations:
-
-```rust
-policy.check_permission(plugin_id, &PluginPermission::Network, "fetch_url")?;
-```
+The kernel crates define permission types and a `PolicyChecker` for backend plugins. Frontend user plugins are
+not permission-checked: they run with the app's access, so users must enable them explicitly and are warned
+before installing plugins bundled in packages.
 
 ## Future Enhancements
 
@@ -268,5 +229,4 @@ impl Plugin for WasmPlugin {
 
 ### Hot Reload
 
-- Reload plugins without restarting
-- Development mode with file watching
+- Reload plugins on file change (today: **Rescan** in the Plugins dialog reloads them without a restart)

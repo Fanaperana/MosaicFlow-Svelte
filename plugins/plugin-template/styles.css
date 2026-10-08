@@ -1,0 +1,58 @@
+/* Plugin CSS is global: prefix every class with your plugin name.
+   App colours are available as CSS variables: --mf-text, --mf-text-2, --mf-text-3,
+   --mf-surface, --mf-border, --mf-hover, --mf-accent, --mf-accent-soft, --mf-radius. */
+
+.my-plugin-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  font-size: 13px;
+}
+
+.my-plugin-card__text {
+  flex: 1;
+  min-height: 40px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  resize: none;
+  outline: none;
+}
+
+.my-plugin-card__button {
+  align-self: flex-start;
+  height: 24px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 6px;
+  background: var(--mf-accent-soft);
+  color: var(--mf-accent);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.my-plugin-outline {
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+}
+
+.my-plugin-outline button {
+  width: 100%;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--mf-text-2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.my-plugin-outline button:hover {
+  background: var(--mf-hover);
+  color: var(--mf-text);
+}
