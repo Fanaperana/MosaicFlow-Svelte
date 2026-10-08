@@ -317,6 +317,14 @@
     }
   }
 
+  // Dragging an end of a selected edge onto another handle moves that end (undoable, saved).
+  let reconnecting = false;
+  function handleBeforeReconnect(next: Edge, previous: Edge): Edge | null {
+    workspace.reconnectEdge(previous.id, next);
+    // The store change flows back into the canvas; returning null stops Svelte Flow applying it twice.
+    return null;
+  }
+
   // Handle connection start - track the source for edge drop
   function handleConnectStart(event: MouseEvent | TouchEvent, params: { nodeId: string | null; handleId: string | null; handleType: 'source' | 'target' | null }) {
     if (params.nodeId && params.handleType) {
@@ -331,6 +339,11 @@
   // Handle connection end - show menu if dropped on empty canvas
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function handleConnectEnd(event: MouseEvent | TouchEvent, connectionState: any) {
+    // Releasing a reconnect drag anywhere leaves the edge as it was; no "create node" menu.
+    if (reconnecting) {
+      pendingConnectionSource = null;
+      return;
+    }
     // If connection was successful (connected to a node), do nothing
     if (connectionState.isValid) {
       pendingConnectionSource = null;
@@ -809,6 +822,9 @@
         {isValidConnection}
         onconnectstart={handleConnectStart}
         onconnectend={handleConnectEnd}
+        onbeforereconnect={handleBeforeReconnect}
+        onreconnectstart={() => (reconnecting = true)}
+        onreconnectend={() => setTimeout(() => (reconnecting = false))}
         onselectionchange={handleSelectionChange}
         onnodedragstart={handleNodeDragStart}
         onnodedrag={handleNodeDrag}

@@ -6,7 +6,8 @@
   Supports all edge path types: bezier, straight, step, smoothstep
 -->
 <script lang="ts">
-  import { BaseEdge, EdgeLabel, getBezierPath, getStraightPath, getSmoothStepPath, type EdgeProps } from '@xyflow/svelte';
+  import { BaseEdge, EdgeLabel, EdgeReconnectAnchor, getBezierPath, getStraightPath, getSmoothStepPath, type EdgeProps } from '@xyflow/svelte';
+  import { workspace } from '$lib/stores/workspace.svelte';
 
   let {
     id,
@@ -71,9 +72,13 @@
   
   // Get edge properties from data
   const strokeWidth = $derived((data?.strokeWidth as number) || 2);
+
+  // Either end of a selected edge can be dragged onto another handle.
+  let reconnecting = $state(false);
+  const canReconnect = $derived(!!selected && !workspace.locked);
 </script>
 
-<g class="glow-edge" class:selected>
+<g class="glow-edge" class:selected class:reconnecting>
   <!-- Glow layer - rendered first (behind), uses svelte-flow__edge-interaction class to prevent animation on glow -->
   {#if selected}
     <path
@@ -98,7 +103,7 @@
 </g>
 
 <!-- Edge label using EdgeLabel for proper positioning -->
-{#if label}
+{#if label && !reconnecting}
   <EdgeLabel x={labelX} y={labelY} style={labelStyle}>
     <div 
       class="edge-label-content"
@@ -109,7 +114,37 @@
   </EdgeLabel>
 {/if}
 
+{#if canReconnect}
+  <EdgeReconnectAnchor bind:reconnecting type="source" position={{ x: sourceX, y: sourceY }} size={18} title="Drag to another connection point">
+    <span class="reconnect-dot"></span>
+  </EdgeReconnectAnchor>
+  <EdgeReconnectAnchor bind:reconnecting type="target" position={{ x: targetX, y: targetY }} size={18} title="Drag to another connection point">
+    <span class="reconnect-dot"></span>
+  </EdgeReconnectAnchor>
+{/if}
+
 <style>
+  .glow-edge.reconnecting {
+    opacity: 0;
+  }
+
+  .reconnect-dot {
+    display: block;
+    width: 10px;
+    height: 10px;
+    margin: 4px;
+    border-radius: 50%;
+    background: var(--mf-surface, #111318);
+    border: 2px solid var(--mf-accent, #5b8def);
+    box-shadow: 0 0 0 3px rgba(91, 141, 239, 0.25);
+    cursor: grab;
+    transition: transform 0.1s;
+  }
+
+  .reconnect-dot:hover {
+    transform: scale(1.3);
+  }
+
   .glow-edge .glow-path-inner {
     filter: blur(2px);
     pointer-events: none;

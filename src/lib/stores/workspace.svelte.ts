@@ -485,6 +485,23 @@ class WorkspaceStore {
     return edge;
   }
 
+  // Move one or both ends of an existing edge to other handles (keeps its label and style)
+  reconnectEdge(id: string, connection: { source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }) {
+    if (this.settings.locked) return;
+    const edge = this.edges.find(e => e.id === id);
+    if (!edge) return;
+    this.saveToHistory();
+    const updated: MosaicEdge = {
+      ...edge,
+      source: connection.source,
+      target: connection.target,
+      sourceHandle: connection.sourceHandle ?? undefined,
+      targetHandle: connection.targetHandle ?? undefined,
+    };
+    this.edges = this.edges.map(e => (e.id === id ? updated : e));
+    if (this.workspacePath) saveEdgeImmediate(updated);
+  }
+
   // Update an edge
   updateEdge(id: string, updates: Partial<MosaicEdge>) {
     if (this.settings.locked) return;
