@@ -251,6 +251,7 @@
     bottom: 0;
     z-index: 1000;
     min-width: 220px;
+    width: max-content;
     padding: 4px;
     border: 1px solid var(--mf-border-strong);
     border-radius: 8px;
@@ -283,13 +284,17 @@
 
   .menu-item span {
     flex: 1;
+    white-space: nowrap;
   }
 
   .menu-item :global(svg) {
+    flex-shrink: 0;
     color: var(--mf-text-2);
   }
 
   .menu-item kbd {
+    flex-shrink: 0;
+    margin-left: 16px;
     font-family: var(--mf-font-mono);
     font-size: 10.5px;
     color: var(--mf-text-3);
