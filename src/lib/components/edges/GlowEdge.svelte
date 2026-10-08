@@ -73,6 +73,20 @@
   // Get edge properties from data
   const strokeWidth = $derived((data?.strokeWidth as number) || 2);
 
+  // Arrowheads are drawn here rather than by xyflow: its marker ids embed the colour ("color=#8b5cf6&..."),
+  // which WebKit (macOS/Linux webviews) may fail to resolve in url(#...), so arrows vanish there.
+  const markerColor = $derived((data?.color as string) || '#555555');
+  const shapeOf = (shape: unknown, fallback: unknown): string => {
+    if (typeof shape === 'string') return shape;
+    const ref = typeof fallback === 'string' ? fallback : '';
+    return ref.includes('type=arrowclosed') ? 'arrowclosed' : ref.includes('type=arrow') ? 'arrow' : 'none';
+  };
+  const startShape = $derived(shapeOf(data?.markerStart, markerStart));
+  const endShape = $derived(shapeOf(data?.markerEnd, markerEnd));
+  const markerBase = $derived(`mf-arrow-${id.replace(/[^A-Za-z0-9_-]/g, '_')}`);
+  const markerStartUrl = $derived(startShape === 'none' ? undefined : `url(#${markerBase}-start)`);
+  const markerEndUrl = $derived(endShape === 'none' ? undefined : `url(#${markerBase}-end)`);
+
   // Either end of a selected edge can be dragged onto another handle.
   let reconnecting = $state(false);
   const canReconnect = $derived(!!selected && !workspace.locked);
@@ -100,6 +114,25 @@
 </script>
 
 <g class="glow-edge" class:selected class:reconnecting>
+  {#if markerStartUrl || markerEndUrl}
+    <defs>
+      {#each [['start', startShape, '5,-4 0,0 5,4'], ['end', endShape, '-5,-4 0,0 -5,4']] as [end, shape, points] (end)}
+        {#if shape !== 'none'}
+          <!-- orient="auto" with a pre-mirrored start arrow: older WebKit lacks auto-start-reverse -->
+          <marker id="{markerBase}-{end}" markerWidth="20" markerHeight="20" viewBox="-10 -10 20 20" markerUnits="strokeWidth" orient="auto" refX="0" refY="0">
+            <polyline
+              points={shape === 'arrowclosed' ? `${points} ${points.split(' ')[0]}` : points}
+              stroke={markerColor}
+              fill={shape === 'arrowclosed' ? markerColor : 'none'}
+              stroke-width="1"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </marker>
+        {/if}
+      {/each}
+    </defs>
+  {/if}
   <!-- Glow layer - rendered first (behind), uses svelte-flow__edge-interaction class to prevent animation on glow -->
   {#if selected}
     <path
@@ -117,8 +150,8 @@
     {id}
     path={edgePath}
     {style}
-    {markerStart}
-    {markerEnd}
+    markerStart={markerStartUrl}
+    markerEnd={markerEndUrl}
     {interactionWidth}
   />
 </g>

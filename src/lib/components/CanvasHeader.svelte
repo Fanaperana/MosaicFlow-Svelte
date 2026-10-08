@@ -142,6 +142,7 @@
     justify-content: center;
     gap: 0.5rem;
     background: color-mix(in srgb, var(--mf-surface) 88%, transparent);
+    -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
     border-bottom: 1px solid var(--mf-border);
     z-index: 100;

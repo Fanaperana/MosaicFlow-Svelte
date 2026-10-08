@@ -441,6 +441,7 @@
     padding: 0 8px 0 14px;
     border-bottom: 1px solid var(--mf-border, #2a2a30);
     background: color-mix(in srgb, var(--mf-surface, #16171c) 85%, transparent);
+    -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
   }
 
@@ -488,6 +489,7 @@
     border: 1px solid var(--mf-border, #2a2a30);
     border-radius: 9px;
     background: color-mix(in srgb, var(--mf-surface-2, #1b1c22) 92%, transparent);
+    -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
     font-size: 12px;
     color: var(--mf-text-2, #bbb);

@@ -115,6 +115,7 @@
     background: color-mix(in srgb, var(--mf-surface-2) 92%, transparent);
     border: 1px solid var(--mf-border-strong);
     border-radius: 10px;
+    -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
     z-index: 100;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);

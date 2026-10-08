@@ -15,6 +15,11 @@ const DISPLAY: Record<string, string> = {
   ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓', Escape: 'Esc', Delete: 'Del', Backspace: '⌫', Enter: '↵',
 };
 
+export const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent);
+
+// Chords are stored as "Ctrl+..."; on macOS that is the Command key, and the Control key is "Meta".
+const MAC_DISPLAY: Record<string, string> = { Ctrl: '⌘', Meta: '⌃', Alt: '⌥', Shift: '⇧' };
+
 /** "Ctrl+Shift+O" style chord for a key event, or null for a bare modifier press. */
 export function eventToChord(e: KeyboardEvent): string | null {
   if (['Control', 'Alt', 'Shift', 'Meta', 'AltGraph', 'CapsLock'].includes(e.key)) return null;
@@ -25,7 +30,9 @@ export function eventToChord(e: KeyboardEvent): string | null {
   else if (CODE_KEYS[e.code]) key = CODE_KEYS[e.code];
   else key = e.key.length === 1 ? e.key.toUpperCase() : e.key;
 
-  const mods = [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Meta'].filter(Boolean);
+  const ctrl = isMac ? e.metaKey : e.ctrlKey;
+  const meta = isMac ? e.ctrlKey : e.metaKey;
+  const mods = [ctrl && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', meta && 'Meta'].filter(Boolean);
   return [...mods, key].join('+');
 }
 
@@ -39,7 +46,7 @@ export function normalizeChord(chord: string): string {
 
 /** Pieces to render as <kbd> chips. */
 export function chordParts(chord: string): string[] {
-  return chord.split('+').map((p) => DISPLAY[p] ?? p);
+  return chord.split('+').map((p) => (isMac && MAC_DISPLAY[p]) || DISPLAY[p] || p);
 }
 
 function defaultsOf(cmd: CommandRegistration): string[] {
