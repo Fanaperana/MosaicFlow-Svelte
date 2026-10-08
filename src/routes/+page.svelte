@@ -14,6 +14,8 @@
   import LinkPreview from '$lib/components/LinkPreview.svelte';
   import SettingsDialog from '$lib/components/settings/SettingsDialog.svelte';
   import CommandPalette from '$lib/components/CommandPalette.svelte';
+  import PluginPanel from '$lib/plugins/PluginPanel.svelte';
+  import { panels } from '$lib/stores/panels.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import { keybindings } from '$lib/kernel/keybindings.svelte';
   import { pageNav } from '$lib/stores/pages.svelte';
@@ -263,6 +265,13 @@
       {#if workspace.propertiesPanelOpen}
         <div class="panel-slot right" transition:slide={PANEL_TRANSITION}>
           <PropertiesPanel onClose={() => workspace.propertiesPanelOpen = false} />
+        </div>
+      {/if}
+      {#if panels.open}
+        <div class="panel-slot right" transition:slide={PANEL_TRANSITION}>
+          {#key panels.open.id}
+            <PluginPanel panel={panels.open} />
+          {/key}
         </div>
       {/if}
     </div>

@@ -84,7 +84,7 @@ export interface PluginEdgeView {
 export interface PluginAPI {
   /** Register node types */
   registerNodeTypes: (types: PluginNodeType[]) => void;
-  /** Register panels */
+  /** Register sidebar panels (ribbon button + "Toggle panel" in the command palette) */
   registerPanels: (panels: Omit<PanelRegistration, 'pluginId'>[]) => void;
   /** Register commands; they appear in the command palette (Ctrl+P) and Settings → Keyboard shortcuts */
   registerCommands: (commands: Omit<CommandRegistration, 'pluginId'>[]) => void;
@@ -413,10 +413,8 @@ class PluginLoader {
 
       registerPanels: (panels) => {
         for (const panel of panels) {
-          panelRegistry.register({
-            ...panel,
-            pluginId,
-          });
+          if (typeof panel.render !== 'function') throw new Error(`Panel "${panel.id}" needs a render(container, ctx) function`);
+          panelRegistry.register({ ...panel, id: scoped(panel.id), pluginId });
         }
       },
 

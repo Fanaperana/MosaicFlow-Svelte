@@ -95,3 +95,63 @@
   font-size: 11px;
   color: #77779a;
 }
+
+/* Review panel */
+.mf-review {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+}
+
+.mf-review__status {
+  margin: 0;
+  font-size: 11.5px;
+  color: #8b8bb0;
+}
+
+.mf-review__card {
+  padding: 14px;
+  border: 1px solid #5a4a8a;
+  border-radius: 10px;
+  background: #1d1a2e;
+}
+
+.mf-review__question {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: pre-wrap;
+}
+
+.mf-review__answer {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.15);
+  color: #cfcfe0;
+}
+
+.mf-review__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mf-review__actions button {
+  height: 26px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(124, 108, 220, 0.2);
+  color: #b9adff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.mf-review__actions button:hover {
+  background: rgba(124, 108, 220, 0.32);
+}
+
+.mf-review [hidden] {
+  display: none;
+}

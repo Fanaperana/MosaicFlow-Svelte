@@ -57,6 +57,76 @@ function renderFlashcard(container, ctx) {
   return { update: sync, destroy: () => card.remove() };
 }
 
+/** Sidebar panel: steps through the page's flashcards, least-reviewed first. */
+function reviewPanel(api) {
+  return (container, ctx) => {
+    const root = document.createElement('div');
+    root.className = 'mf-review';
+    root.innerHTML = `
+      <p class="mf-review__status"></p>
+      <div class="mf-review__card">
+        <p class="mf-review__question"></p>
+        <div class="mf-review__answer markdown-content"></div>
+      </div>
+      <div class="mf-review__actions">
+        <button type="button" data-action="reveal">Show answer</button>
+        <button type="button" data-action="next">Got it → next</button>
+        <button type="button" data-action="locate">Show on canvas</button>
+      </div>`;
+    container.appendChild(root);
+
+    const status = root.querySelector('.mf-review__status');
+    const card = root.querySelector('.mf-review__card');
+    const question = root.querySelector('.mf-review__question');
+    const answer = root.querySelector('.mf-review__answer');
+    const actions = root.querySelector('.mf-review__actions');
+    let current = ctx;
+    let queue = [];
+    let index = 0;
+    let revealed = false;
+
+    function render(next) {
+      current = next;
+      const cards = api.workspace.getNodes().filter((n) => n.type === 'flashcard' && n.data.question);
+      // Keep the order stable while reviewing; re-sort only when cards are added or removed.
+      if (cards.length !== queue.length || cards.some((c) => !queue.includes(c.id))) {
+        queue = [...cards].sort((a, b) => (a.data.reviews ?? 0) - (b.data.reviews ?? 0)).map((c) => c.id);
+        index = 0;
+        revealed = false;
+      }
+      const node = cards.find((c) => c.id === queue[index]);
+      card.hidden = actions.hidden = !node;
+      if (!node) {
+        status.textContent = current.page ? 'No flashcards with a question on this page.' : 'Open a page to review.';
+        return;
+      }
+      status.textContent = `Card ${index + 1} of ${queue.length} · reviewed ${node.data.reviews ?? 0}×`;
+      question.textContent = node.data.question;
+      answer.hidden = !revealed;
+      // renderMarkdown sanitizes, so the result is safe to assign.
+      answer.innerHTML = revealed ? current.renderMarkdown(node.data.answer || '_No answer yet_') : '';
+    }
+
+    actions.addEventListener('click', (e) => {
+      const action = e.target.closest('button')?.dataset.action;
+      const id = queue[index];
+      if (!id) return;
+      if (action === 'reveal') revealed = !revealed;
+      if (action === 'locate') api.workspace.select([id]);
+      if (action === 'next') {
+        const node = api.workspace.getNodes().find((n) => n.id === id);
+        index = (index + 1) % queue.length;
+        revealed = false;
+        if (node) api.workspace.updateNodeData(id, { reviews: (node.data.reviews ?? 0) + 1 });
+      }
+      render(current);
+    });
+
+    render(ctx);
+    return { update: render, destroy: () => root.remove() };
+  };
+}
+
 export function activate(api) {
   api.registerNodeTypes([
     {
@@ -115,6 +185,17 @@ export function activate(api) {
           sorted.map((n, i) => [n.id, { x: left + (i % 4) * 310, y: top + Math.floor(i / 4) * 230 }]),
         );
       },
+    },
+  ]);
+
+  // Panels get a ribbon button and a "Toggle panel: …" entry in the command palette.
+  api.registerPanels([
+    {
+      id: 'review',
+      label: 'Flashcard review',
+      description: 'Study the flashcards on this page',
+      iconName: 'Lightbulb',
+      render: reviewPanel(api),
     },
   ]);
 

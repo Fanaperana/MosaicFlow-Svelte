@@ -32,7 +32,7 @@ export {
   type NodeDimensions, 
   type NodeColors 
 } from './registries/node-registry';
-export { panelRegistry, type PanelRegistration, type PanelLocation } from './registries/panel-registry';
+export { panelRegistry, type PanelRegistration, type PanelContext, type PanelRenderer } from './registries/panel-registry';
 export { commandRegistry, type CommandRegistration } from './registries/command-registry';
 
 // Plugin loader

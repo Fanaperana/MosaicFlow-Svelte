@@ -162,21 +162,40 @@ api.registerNodeTypes([
 ]);
 ```
 
-### Panels (Coming Soon)
+### Panels
 
-Register sidebar panels:
+Sidebar views shown to the right of the canvas. Each panel gets a ribbon button (its icon, with the label as
+tooltip) and a **Toggle panel: …** entry in the command palette; one panel is open at a time and users can resize
+it. Like nodes, panels are framework-free: draw into `container` and keep it in sync in `update(ctx)`, which runs
+whenever the page changes or its nodes or edges are edited.
 
 ```javascript
 api.registerPanels([
   {
-    id: 'my-panel',
-    label: 'My Panel',
-    icon: 'Settings',
-    component: MyPanelComponent,
-    position: 'right',
-  }
+    id: 'outline',                 // becomes "<plugin id>.outline"
+    label: 'Outline',
+    iconName: 'List',              // built-in icon name (falls back to a box)
+    defaultWidth: 300,
+    render: (container, ctx) => {
+      const list = document.createElement('ul');
+      container.appendChild(list);
+      const draw = (c) => {
+        list.replaceChildren(...api.workspace.getNodes().map((n) => {
+          const li = document.createElement('li');
+          li.textContent = n.data.title ?? n.type;   // textContent: never put node data in innerHTML
+          li.onclick = () => api.workspace.select([n.id]);
+          return li;
+        }));
+      };
+      draw(ctx);
+      return { update: draw, destroy: () => list.remove() };
+    },
+  },
 ]);
 ```
+
+`ctx` contains `page` (`{ id, name }` or `null`), `renderMarkdown(text)` (sanitized HTML), `openWikilink(ref)` and
+`close()`. Errors thrown by a panel are shown inside it.
 
 ### Commands
 

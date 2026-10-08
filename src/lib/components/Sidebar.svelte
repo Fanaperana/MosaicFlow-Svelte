@@ -26,6 +26,8 @@
   import { pageNav } from '$lib/stores/pages.svelte';
   import SimpleTooltip from '$lib/components/ui/SimpleTooltip.svelte';
   import { keybindings } from '$lib/kernel/keybindings.svelte';
+  import { getIconByName } from '$lib/kernel/registries/node-registry';
+  import { panels } from '$lib/stores/panels.svelte';
 
   interface Props {
     onSearch: () => void;
@@ -117,6 +119,25 @@
       </button>
     </SimpleTooltip>
   </div>
+
+  {#if panels.list.length}
+    <div class="ribbon-section" aria-label="Plugin panels">
+      {#each panels.list as panel (panel.id)}
+        {@const Icon = getIconByName(panel.iconName ?? 'Puzzle')}
+        <SimpleTooltip text={panel.label} position="right">
+          <button
+            class="ribbon-btn"
+            class:active={ui.openPanel === panel.id}
+            aria-pressed={ui.openPanel === panel.id}
+            aria-label={panel.label}
+            onclick={() => ui.togglePanel(panel.id)}
+          >
+            <Icon size={17} strokeWidth={1.6} />
+          </button>
+        </SimpleTooltip>
+      {/each}
+    </div>
+  {/if}
 
   <div class="ribbon-spacer"></div>
 

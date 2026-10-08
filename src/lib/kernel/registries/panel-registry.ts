@@ -1,43 +1,37 @@
 /**
- * Panel Registry
- * 
- * Registry for panel components provided by plugins.
- * Panels are UI components that can be displayed in sidebars, modals, etc.
+ * Panel Registry: sidebar views contributed by plugins (shown right of the canvas).
+ * Panels are framework-free, like plugin nodes: render(container, ctx) → { update?, destroy? }.
  */
 
-import type { Component } from 'svelte';
+/** What a panel receives on render and on every update. */
+export interface PanelContext {
+  /** The open page, or null when none is open. */
+  page: { id: string; name: string } | null;
+  /** Sanitized markdown → HTML, with [[wikilinks]] and #tags. */
+  renderMarkdown: (text: string) => string;
+  /** Navigate to "[[ref]]" (a node title, "Page#Title" or a page name). */
+  openWikilink: (ref: string) => void;
+  close: () => void;
+}
 
-// =============================================================================
-// TYPES
-// =============================================================================
-
-export type PanelLocation = 
-  | 'left-sidebar'
-  | 'right-sidebar'
-  | 'bottom-panel'
-  | 'modal'
-  | 'floating';
+/** `update` runs again whenever the page or its nodes/edges change. */
+export type PanelRenderer = (
+  container: HTMLElement,
+  ctx: PanelContext
+) => { update?: (ctx: PanelContext) => void; destroy?: () => void } | void;
 
 export interface PanelRegistration {
-  /** Unique panel identifier */
   id: string;
-  /** Display label */
+  /** Ribbon tooltip and panel header */
   label: string;
-  /** Description */
   description?: string;
-  /** Icon name (Lucide) */
+  /** Lucide icon name for the ribbon button */
   iconName?: string;
-  /** Svelte component */
-  component: Component;
-  /** Preferred location */
-  location: PanelLocation;
-  /** Default width (for sidebars) */
+  render: PanelRenderer;
+  /** Initial width in px (users can resize) */
   defaultWidth?: number;
-  /** Default height (for bottom panels) */
-  defaultHeight?: number;
-  /** Plugin that provides this panel */
   pluginId: string;
-  /** Priority for ordering (higher = first) */
+  /** Ribbon order (higher = first) */
   priority?: number;
 }
 
@@ -51,16 +45,11 @@ class PanelRegistry {
 
   register(registration: PanelRegistration): void {
     const existing = this.registrations.get(registration.id);
-    if (existing) {
-      console.warn(
-        `[PanelRegistry] Panel "${registration.id}" already registered by "${existing.pluginId}", overwriting`
-      );
+    if (existing && existing.pluginId !== registration.pluginId) {
+      throw new Error(`Panel "${registration.id}" is already registered by "${existing.pluginId}"`);
     }
-
     this.registrations.set(registration.id, registration);
     this.notifyListeners();
-    
-    console.log(`[PanelRegistry] Registered panel: ${registration.id} from ${registration.pluginId}`);
   }
 
   unregister(id: string): boolean {
@@ -94,13 +83,9 @@ class PanelRegistry {
   }
 
   getAll(): PanelRegistration[] {
-    return Array.from(this.registrations.values());
-  }
-
-  getByLocation(location: PanelLocation): PanelRegistration[] {
-    return this.getAll()
-      .filter(reg => reg.location === location)
-      .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+    return Array.from(this.registrations.values()).sort(
+      (a, b) => (b.priority ?? 0) - (a.priority ?? 0) || a.label.localeCompare(b.label)
+    );
   }
 
   subscribe(listener: () => void): () => void {

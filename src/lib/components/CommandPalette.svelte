@@ -5,19 +5,20 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { toast } from 'svelte-sonner';
-  import { Command, LayoutTemplate, Network, Search } from 'lucide-svelte';
+  import { Command, LayoutTemplate, Network, PanelRight, Search } from 'lucide-svelte';
   import { commandRegistry } from '$lib/kernel/registries/command-registry';
   import { layoutRegistry, templateRegistry } from '$lib/kernel/registries/contribution-registry';
   import { keybindings, chordParts } from '$lib/kernel/keybindings.svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import { applyLayout, insertTemplate } from '$lib/services/contributions';
+  import { panels } from '$lib/stores/panels.svelte';
 
   type Item = {
     key: string;
     label: string;
     detail: string;
-    kind: 'command' | 'template' | 'layout';
+    kind: 'command' | 'template' | 'layout' | 'panel';
     shortcut?: string;
     run: () => unknown;
   };
@@ -49,6 +50,9 @@
       }
       for (const l of layoutRegistry.getAll()) {
         out.push({ key: `lay:${l.id}`, label: `Arrange: ${l.name}`, detail: l.description ?? 'Layout', kind: 'layout', run: () => applyLayout(l.id) });
+      }
+      for (const p of panels.list) {
+        out.push({ key: `pnl:${p.id}`, label: `Toggle panel: ${p.label}`, detail: p.description ?? 'Panel', kind: 'panel', run: () => ui.togglePanel(p.id) });
       }
     }
     return out;
@@ -96,7 +100,7 @@
     return () => offs.forEach((off) => off());
   });
 
-  const ICONS = { command: Command, template: LayoutTemplate, layout: Network };
+  const ICONS = { command: Command, template: LayoutTemplate, layout: Network, panel: PanelRight };
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
