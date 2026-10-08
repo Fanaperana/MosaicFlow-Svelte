@@ -50,8 +50,17 @@
     wasSelected = selected ?? false;
   });
 
-  // Sanitized markdown with [[wikilinks]] and #tags
-  const renderedHtml = $derived(renderMarkdown(content));
+  // Sanitized markdown with [[wikilinks]] and #tags. Very long notes only render their start on the
+  // canvas (cut at a paragraph break); the full text is still saved, searched and editable.
+  const PREVIEW_CHARS = 50_000;
+  let showAll = $state(false);
+  const previewSource = $derived.by(() => {
+    if (showAll || content.length <= PREVIEW_CHARS) return content;
+    const cut = content.lastIndexOf('\n\n', PREVIEW_CHARS);
+    return content.slice(0, cut > PREVIEW_CHARS / 2 ? cut : PREVIEW_CHARS);
+  });
+  const truncated = $derived(previewSource.length < content.length);
+  const renderedHtml = $derived(renderMarkdown(previewSource));
   
   function toggleEdit() {
     if (viewMode === 'edit') {
@@ -140,6 +149,11 @@
           <div class="markdown-content">
             {@html renderedHtml}
           </div>
+          {#if truncated}
+            <button class="show-all nodrag" onclick={() => (showAll = true)}>
+              Showing {Math.round(previewSource.length / 1000)} of {Math.round(content.length / 1000).toLocaleString()} KB · Show all
+            </button>
+          {/if}
         {:else}
           <span class="placeholder">Double-click to edit...</span>
         {/if}
@@ -233,6 +247,24 @@
   .editor-wrapper {
     width: 100%;
     height: 100%;
+  }
+
+  .show-all {
+    display: block;
+    margin: 12px 0 4px;
+    padding: 4px 8px;
+    border: 1px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background: transparent;
+    color: #9aa4b2;
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  .show-all:hover {
+    border-color: #3b82f6;
+    color: #e0e0e0;
   }
 
   .note-preview {

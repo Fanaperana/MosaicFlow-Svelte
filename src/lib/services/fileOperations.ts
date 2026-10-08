@@ -293,6 +293,12 @@ async function prepareForCapture(): Promise<{
   // Wait for DOM to update with forced LOD
   await new Promise(resolve => setTimeout(resolve, 300));
 
+  // Large pages only mount on-screen nodes until exportStart turns that off; wait for the rest.
+  const expected = workspace.nodes.length;
+  for (let waited = 0; waited < 10000 && document.querySelectorAll('#mosaic-flow .svelte-flow__node').length < expected; waited += 100) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
   // ---------------------------------------------------------------------------
   // Convert all <img> elements to base64 data URLs so they survive the
   // html-to-image SVG foreignObject serialisation.  asset:// and http(s)://

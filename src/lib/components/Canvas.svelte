@@ -20,7 +20,6 @@
   import type { NodeType, MosaicNode, MosaicEdge } from '$lib/types';
   import { resolveCollisions, findNonOverlappingPosition } from '$lib/utils/resolve-collisions';
   import { calculateSnapGuides, calculateSelectionSnapGuides, calculateSnapOffset, calculateResizeSnap, type ResizeEdges, type SnapGuide } from '$lib/utils/snap-guides';
-  import { SpatialIndex } from '$lib/utils/spatial-index';
   import SnapGuides from '$lib/components/SnapGuides.svelte';
   import NodeListSidebar from '$lib/components/NodeListSidebar.svelte';
   import FlowHelper from '$lib/components/FlowHelper.svelte';
@@ -194,10 +193,6 @@
   const SNAP_THRESHOLD = 8; // Distance in pixels to show guides
   const SNAP_DISTANCE = 12; // Screen pixels within which Shift-drag snaps to a guide
   
-  // Spatial index for efficient node culling at extreme zoom
-  let spatialIndex = $state(new SpatialIndex());
-  let rebuildIndexScheduled = $state(false);
-  
   // LOD (Level of Detail) state
   let isExporting = $state(false);
   
@@ -208,6 +203,10 @@
     viewport.zoom > 0.08 ? 'medium' :
     'simplified'
   );
+
+  // Large pages only mount on-screen nodes; small pages keep everything mounted so embeds don't reload.
+  const CULL_THRESHOLD = 300;
+  let cullOffscreen = $derived(!isExporting && nodes.length > CULL_THRESHOLD);
   
   // Listen for export start/end events
   $effect(() => {
@@ -227,17 +226,6 @@
       window.removeEventListener('mosaicflow:exportStart', handleExportStart);
       window.removeEventListener('mosaicflow:exportEnd', handleExportEnd);
     };
-  });
-  
-  // Rebuild spatial index when nodes change significantly
-  $effect(() => {
-    if (nodes.length > 50 && !rebuildIndexScheduled) {
-      rebuildIndexScheduled = true;
-      queueMicrotask(() => {
-        spatialIndex.rebuild(workspace.nodes);
-        rebuildIndexScheduled = false;
-      });
-    }
   });
   
   // Edge drop menu state - for creating nodes when dropping connection on empty canvas
@@ -903,7 +891,9 @@
         onnodedrag={handleNodeDrag}
         onnodedragstop={handleNodeDragStop}
         fitView
-        fitViewOptions={{ maxZoom: 1, padding: 0.2 }}        elevateNodesOnSelect={false}
+        fitViewOptions={{ maxZoom: 1, padding: 0.2 }}
+        onlyRenderVisibleElements={cullOffscreen}
+        elevateNodesOnSelect={false}
         zoomOnDoubleClick={false}
         nodesDraggable={!workspace.locked}
         nodesConnectable={!workspace.locked}
