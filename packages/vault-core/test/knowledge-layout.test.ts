@@ -54,6 +54,13 @@ describe('KnowledgeIndex', () => {
     expect(index.search('nothing-like-this')).toEqual([]);
   });
 
+  it('answers natural-language questions with match "any"', () => {
+    expect(index.search('who explained what one owner per value means?')).toEqual([]);
+    const hits = index.search('who explained what one owner per value means?', { match: 'any' });
+    expect(hits[0].node.id).toBe('ownership');
+    expect(index.search('the and what', { match: 'any' })).toEqual([]);
+  });
+
   it('counts tags', () => {
     expect(index.tagCounts('c1')).toEqual([{ tag: 'rust', count: 2 }, { tag: 'memory', count: 1 }]);
   });

@@ -164,9 +164,17 @@ export class KnowledgeIndex {
     return [...counts].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
   }
 
-  /** Every word must match; title hits rank higher. `#tag` words match tags exactly. */
-  search(query: string, opts: { canvasId?: string; limit?: number } = {}): SearchHit[] {
-    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  /**
+   * match "all" (default): every word must match. match "any": natural-language questions; common
+   * words are ignored and nodes rank by how many query words they contain. Title hits rank higher;
+   * `#tag` words match tags exactly.
+   */
+  search(query: string, opts: { canvasId?: string; limit?: number; match?: 'all' | 'any' } = {}): SearchHit[] {
+    const any = opts.match === 'any';
+    let words = query.toLowerCase().split(any ? /[\s,.;:!?()"']+/ : /\s+/).filter(Boolean);
+    if (any) {
+      words = [...new Set(words.filter((w) => w.startsWith('#') || (w.length > 1 && !STOP_WORDS.has(w))))];
+    }
     if (words.length === 0) return [];
     const hits: SearchHit[] = [];
     for (const n of this.nodes) {
@@ -174,18 +182,25 @@ export class KnowledgeIndex {
       const title = n.title.toLowerCase();
       const text = n.text.toLowerCase();
       let score = 0;
+      let matched = 0;
       let ok = true;
       for (const w of words) {
-        if (w.startsWith('#') && w.length > 1) {
-          if (n.tags.includes(w.slice(1))) score += 2;
-          else ok = false;
-        } else if (title.includes(w)) score += title === w ? 6 : title.startsWith(w) ? 4 : 3;
-        else if (text.includes(w)) score += 1;
-        else ok = false;
-        if (!ok) break;
+        let s = 0;
+        if (w.startsWith('#') && w.length > 1) s = n.tags.includes(w.slice(1)) ? 2 : 0;
+        else if (title.includes(w)) s = title === w ? 6 : title.startsWith(w) ? 4 : 3;
+        else if (text.includes(w)) s = 1;
+        if (s > 0) {
+          score += s;
+          matched++;
+        } else if (!any) {
+          ok = false;
+          break;
+        }
       }
-      if (!ok) continue;
-      const first = words.find((w) => !w.startsWith('#')) ?? '';
+      if (!ok || matched === 0) continue;
+      // Nodes covering more of the question rank first.
+      if (any) score += (matched / words.length) * 10;
+      const first = words.find((w) => !w.startsWith('#') && text.includes(w)) ?? '';
       // Snippet from the body, not the title shown next to it.
       const body = n.text.startsWith(n.title) ? n.text.slice(n.title.length) : n.text;
       const at = first ? Math.max(0, body.toLowerCase().indexOf(first) - 50) : 0;
@@ -194,3 +209,7 @@ export class KnowledgeIndex {
     return hits.sort((a, b) => b.score - a.score || a.node.title.localeCompare(b.node.title)).slice(0, opts.limit ?? 50);
   }
 }
+
+const STOP_WORDS = new Set(
+  ('a an as at be by do if in is it me my no of on or so to up us we the and for are but not you all any can had her was one our out has him his how its may new now old see two way who did get let put say she too use what when where which while with why does from have into just like more most much only over some such than that them then they this those very will your about after again also been being both could each even every here other should their there these through under until upon were would yours tell show give know find list explain describe').split(' ')
+);

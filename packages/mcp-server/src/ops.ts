@@ -183,12 +183,35 @@ export class MosaicOps {
     };
   }
 
-  async search(query: string, opts: { canvas?: string; limit?: number } = {}) {
+  async search(query: string, opts: { canvas?: string; limit?: number; match?: 'all' | 'any' } = {}) {
     const index = await this.buildIndex();
     const canvasId = opts.canvas ? (await this.vault.findCanvas(opts.canvas)).id : undefined;
-    return index.search(query, { canvasId, limit: opts.limit ?? 20 }).map((h) => ({
+    return index.search(query, { canvasId, limit: opts.limit ?? 20, match: opts.match }).map((h) => ({
       canvas: h.node.canvasName, nodeId: h.node.id, type: h.node.type, title: h.node.title, tags: h.node.tags, snippet: h.snippet, score: h.score,
     }));
+  }
+
+  /** Full content of specific nodes (any canvases) with their resolved links and backlinks, for answering questions. */
+  async readNodes(refs: { canvas: string; nodeId: string }[]) {
+    const index = await this.buildIndex();
+    const canvases = await this.vault.listCanvases();
+    const ref = (n: { canvasName: string; id: string; title: string }) => ({ canvas: n.canvasName, nodeId: n.id, title: n.title });
+    return refs.map(({ canvas, nodeId }) => {
+      const lower = canvas.trim().toLowerCase();
+      const entry = canvases.find((c) => c.id === canvas || c.name.toLowerCase() === lower || c.folder.toLowerCase() === lower);
+      const node = entry && index.nodes.find((n) => n.canvasId === entry.id && n.id === nodeId);
+      if (!entry || !node) return { canvas, nodeId, error: 'not found' };
+      return {
+        canvas: node.canvasName,
+        nodeId: node.id,
+        type: node.type,
+        title: node.title,
+        tags: node.tags,
+        text: node.text,
+        links: index.outgoing(entry.id, node.id).flatMap(({ node: target }) => (target ? [ref(target)] : [])),
+        backlinks: index.backlinks(entry.id, node.id).map(ref),
+      };
+    });
   }
 
   private async buildIndex(): Promise<KnowledgeIndex> {

@@ -87,6 +87,11 @@ async function main() {
 
     const hits = await call('search', { query: 'borrow references' });
     assert(hits[0]?.nodeId === 'borrowing', 'search finds content across canvases');
+    assert((await call('search', { query: 'what does borrowing mean for references?' })).length === 0, 'strict search needs every word');
+    const question = await call('search', { query: 'what does borrowing mean for references?', match: 'any' });
+    assert(question[0]?.nodeId === 'borrowing', 'search match "any" answers a question');
+    const read = await call('read_nodes', { nodes: [{ canvas: 'MCP Test', nodeId: 'borrowing' }, { canvas: 'MCP Test', nodeId: 'nope' }] });
+    assert(read[0].text.includes('References borrow') && read[1].error === 'not found', 'read_nodes returns full text and reports missing nodes');
 
     await call('create_node', { canvas: 'MCP Test', type: 'note', title: 'Smart pointers', data: { content: 'Builds on [[Borrowing]] and [[Missing note]]. #rust #memory' } });
     const links = await call('get_links', { canvas: 'MCP Test', nodeId: 'smart-pointers' });
@@ -154,7 +159,7 @@ async function main() {
     assert(again.created === 'added to existing canvas', 'build_knowledge adds to an existing canvas');
 
     const prompts = (await client.listPrompts()).prompts.map((p) => p.name);
-    assert(prompts.includes('knowledge_map'), 'knowledge_map prompt listed');
+    assert(prompts.includes('knowledge_map') && prompts.includes('ask_vault'), 'knowledge_map and ask_vault prompts listed');
     const prompt = await client.getPrompt({ name: 'knowledge_map', arguments: { topic: 'Rust ownership' } });
     assert(JSON.stringify(prompt.messages).includes('build_knowledge'), 'prompt points to build_knowledge');
 

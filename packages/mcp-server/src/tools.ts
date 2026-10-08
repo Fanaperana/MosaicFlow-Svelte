@@ -64,10 +64,26 @@ export function registerTools(server: McpServer, ops: MosaicOps) {
 
   server.registerTool('search', {
     title: 'Search vault',
-    description: 'Full-text search over node titles and content in all canvases (or one). Every word must match; "#tag" words match tags.',
-    inputSchema: { query: z.string().min(1), canvas: canvas.optional(), limit: z.number().int().positive().max(100).optional() },
+    description:
+      'Search node titles and content in all canvases (or one). match "all" (default): every word must match, "#tag" words match tags. ' +
+      'match "any": for natural-language questions; common words are ignored and the best-covering nodes rank first. Use read_nodes on the hits to get their full text.',
+    inputSchema: {
+      query: z.string().min(1),
+      canvas: canvas.optional(),
+      limit: z.number().int().positive().max(100).optional(),
+      match: z.enum(['all', 'any']).optional(),
+    },
     annotations: readOnly,
-  }, ({ query, canvas: ref, limit }) => run(() => ops.search(query, { canvas: ref, limit })));
+  }, ({ query, canvas: ref, limit, match }) => run(() => ops.search(query, { canvas: ref, limit, match })));
+
+  server.registerTool('read_nodes', {
+    title: 'Read nodes',
+    description: 'Full text, tags, resolved [[links]] and backlinks of specific nodes (from search results or links), across canvases. Use this to answer questions from the vault.',
+    inputSchema: {
+      nodes: z.array(z.object({ canvas, nodeId: z.string() })).min(1).max(30),
+    },
+    annotations: readOnly,
+  }, ({ nodes }) => run(() => ops.readNodes(nodes)));
 
   server.registerTool('get_links', {
     title: 'Links and backlinks',
@@ -217,6 +233,27 @@ export function registerTools(server: McpServer, ops: MosaicOps) {
     },
     annotations: write,
   }, (args) => run(() => ops.buildKnowledge(args)));
+
+  server.registerPrompt('ask_vault', {
+    title: 'Ask my vault',
+    description: 'Answer a question from the knowledge stored in this MosaicFlow vault, with sources.',
+    argsSchema: { question: z.string().describe('What you want to know') },
+  }, ({ question }) => ({
+    messages: [{
+      role: 'user',
+      content: {
+        type: 'text',
+        text: [
+          `Answer this question using my MosaicFlow vault as the source: ${question}`,
+          '',
+          '1. search with match "any" using the key terms of the question (try 2-3 phrasings or synonyms if results are thin; use #tags if relevant).',
+          '2. read_nodes on the most relevant hits; follow their links/backlinks with read_nodes when they add context.',
+          '3. Answer from what the notes say. Cite each fact as (Canvas › Node title).',
+          '4. Say clearly what the vault does not cover; only add outside knowledge if labelled "not in your vault".',
+        ].join('\n'),
+      },
+    }],
+  }));
 
   server.registerPrompt('knowledge_map', {
     title: 'Build a knowledge map',

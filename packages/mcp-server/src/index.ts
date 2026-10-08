@@ -20,7 +20,15 @@ async function main() {
   }
 
   const ops = new MosaicOps(new VaultRepository(nodeFsAdapter, root));
-  const server = new McpServer({ name: 'mosaicflow', version: '0.1.0' });
+  const server = new McpServer(
+    { name: 'mosaicflow', version: '0.1.0' },
+    {
+      instructions:
+        'MosaicFlow vault: a personal knowledge base of canvases (pages) made of linked notes. ' +
+        'When the user asks a question that their notes may cover, look it up first: search (match "any"), then read_nodes on the hits, and cite (Canvas › Node title). ' +
+        'To add knowledge, call get_guide, then build_knowledge for a whole map or create_node/connect for small edits.',
+    }
+  );
   registerTools(server, ops);
   await server.connect(new StdioServerTransport());
   console.error(`[mosaicflow-mcp] serving vault ${root}`);

@@ -236,13 +236,14 @@ pnpm --filter @mosaicflow/mcp-server build
 Use the same `command` and `args` in the client's MCP settings (`~/.cursor/mcp.json`, `~/.codeium/windsurf/mcp_config.json`, …). The vault can also be passed as the `MOSAICFLOW_VAULT` environment variable instead of the second argument.
 </details>
 
-**3. Ask for knowledge.** For example: *"Build a MosaicFlow knowledge map about the history of cryptography, with people, algorithms and a timeline."* Clients that support MCP prompts also offer a **knowledge_map** prompt that walks the model through it.
+**3. Ask for knowledge, or ask your knowledge.** For example: *"Build a MosaicFlow knowledge map about the history of cryptography, with people, algorithms and a timeline."* or *"What do my notes say about shortest paths?"* The server tells the model to look things up in the vault before answering and to cite the pages and nodes it used. Clients that support MCP prompts also offer **knowledge_map** (build a map) and **ask_vault** (answer from your notes).
 
 | Tool | What it does |
 |------|--------------|
 | `get_guide` | Node types, fields, palette and layout rules (called first) |
 | `build_knowledge` | Creates a whole map in one call: page, groups, nodes, labelled edges, auto layout and story order |
-| `list_canvases`, `read_canvas`, `search`, `get_links`, `list_tags` | Read the vault, follow `[[links]]`, backlinks and `#tags` |
+| `search`, `read_nodes`, `get_links`, `list_tags` | Find notes (strict, or `match: "any"` for questions), read their full text with links and backlinks, follow `#tags` |
+| `list_canvases`, `read_canvas` | List pages and read a whole page |
 | `create_canvas`, `create_node`, `update_node`, `delete_node` | Edit pages and nodes |
 | `connect`, `update_edge`, `delete_edge` | Edit edges |
 | `create_group`, `set_story_order`, `auto_layout`, `import_mermaid` | Structure and tidy a page |
