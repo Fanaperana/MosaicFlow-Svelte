@@ -4,12 +4,14 @@
 -->
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
+  import { toast } from 'svelte-sonner';
   import { open } from '@tauri-apps/plugin-dialog';
-  import { Package, FileText, X, FolderOpen, Loader2, TriangleAlert, Vault, FolderPlus } from 'lucide-svelte';
+  import { Package, FileText, X, FolderOpen, Loader2, TriangleAlert, Vault, FolderPlus, Puzzle, ShieldAlert } from 'lucide-svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
   import {
     importPackageAsNewVault,
     importPackagePages,
+    installPackagePlugins,
     reportImport,
     type ConflictPolicy,
     type PackagePreview,
@@ -51,6 +53,19 @@
   );
   let canImport = $derived(chosen.length > 0 && !busy && (target === 'current' || (!!parentPath && newVaultName.trim() !== '')));
 
+  // Plugins bundled in the file; ticked ones are installed and enabled with the import.
+  const STATUS: Record<string, string> = { new: 'New', update: 'Update', same: 'Installed', newer: 'Newer installed' };
+  let installable = $derived(preview.plugins.filter((p) => !p.problem && (p.status === 'new' || p.status === 'update')));
+  let installIds = $state(untrack(() => new Set(preview.plugins.filter((p) => !p.problem && (p.status === 'new' || p.status === 'update')).map((p) => p.id))));
+  let installing = $derived(installable.filter((p) => installIds.has(p.id)));
+
+  function toggleInstall(id: string) {
+    const next = new Set(installIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    installIds = next;
+  }
+
   function toggle(index: number) {
     const next = new Set(selected);
     if (next.has(index)) next.delete(index);
@@ -72,9 +87,16 @@
     error = null;
     try {
       const pages = chosen.map((p) => p.index);
+      // Plugins first so their node types are registered when the pages open.
+      const pluginIds = [
+        ...installing.map((p) => p.id),
+        ...preview.plugins.filter((p) => !p.problem && (p.status === 'same' || p.status === 'newer') && !p.installedEnabled && installIds.has(p.id)).map((p) => p.id),
+      ];
+      const installed = pluginIds.length ? await installPackagePlugins(preview, pluginIds) : [];
       const outcome = target === 'new'
         ? await importPackageAsNewVault(preview, parentPath!, newVaultName.trim(), pages)
         : await importPackagePages(preview, { pages, conflict });
+      if (installed.length) toastPlugins(preview.plugins.filter((p) => installed.includes(p.id)).map((p) => p.name));
       reportImport(outcome);
       onClose();
     } catch (e) {
@@ -89,6 +111,10 @@
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
+
+  function toastPlugins(names: string[]) {
+    toast.success(`Plugin${names.length === 1 ? '' : 's'} installed and enabled`, { description: names.join(', ') });
+  }
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -161,6 +187,41 @@
         </div>
       {/if}
 
+      {#if preview.plugins.length}
+        <div class="plugins">
+          <div class="plugins-title"><Puzzle size={13} />Plugins in this file ({preview.plugins.length})</div>
+          {#each preview.plugins as plugin (plugin.folder)}
+            {@const canInstall = !plugin.problem && (plugin.status === 'new' || plugin.status === 'update' || !plugin.installedEnabled)}
+            <label class="plugin" class:disabled={!canInstall}>
+              <input
+                type="checkbox"
+                class="check"
+                checked={canInstall && installIds.has(plugin.id)}
+                disabled={!canInstall}
+                onchange={() => toggleInstall(plugin.id)}
+              />
+              <span class="plugin-text">
+                <span class="plugin-name">
+                  <strong>{plugin.name}</strong> <span class="ver">v{plugin.version}</span>
+                  {#if plugin.author}<span class="by">by {plugin.author}</span>{/if}
+                  <span class="badge status-{plugin.status}">{plugin.problem ? 'Can\'t install' : STATUS[plugin.status]}{plugin.status === 'update' && plugin.installedVersion ? ` (from v${plugin.installedVersion})` : ''}</span>
+                </span>
+                {#if plugin.description}<span class="desc">{plugin.description}</span>{/if}
+                <span class="types">Adds node types: {plugin.nodeTypes.join(', ') || '(none listed)'}{plugin.usedBy.length ? ` · used by ${plugin.usedBy.length === 1 ? plugin.usedBy[0] : `${plugin.usedBy.length} pages`}` : ''}</span>
+                {#if plugin.problem}<span class="problem">{plugin.problem}</span>{/if}
+              </span>
+            </label>
+          {/each}
+          <p class="plugins-warn">
+            <ShieldAlert size={13} />
+            <span>Plugins run code with full access to the app and your files. Only install plugins from people you trust. Unticked plugins are skipped; their nodes show as placeholders.</span>
+          </p>
+        </div>
+      {/if}
+      {#if preview.missingTypes.length}
+        <p class="warn"><TriangleAlert size={13} />Some nodes need plugins that aren't in this file or installed here: {preview.missingTypes.join(', ')}</p>
+      {/if}
+
       {#if preview.warnings.length}
         <p class="warn"><TriangleAlert size={13} />{preview.warnings.length} warning{preview.warnings.length === 1 ? '' : 's'}: {preview.warnings[0]}</p>
       {/if}
@@ -174,7 +235,7 @@
       <button class="ghost" onclick={onClose} disabled={busy}>Cancel</button>
       <button class="primary" onclick={run} disabled={!canImport}>
         {#if busy}<Loader2 size={14} class="animate-spin" />{/if}
-        Import {chosen.length} page{chosen.length === 1 ? '' : 's'}
+        Import {chosen.length} page{chosen.length === 1 ? '' : 's'}{installing.length ? ` + install ${installing.length} plugin${installing.length === 1 ? '' : 's'}` : ''}
       </button>
     </footer>
   </div>
@@ -462,6 +523,100 @@
     width: 7px;
     height: 1.5px;
     background: #fff;
+  }
+
+  .plugins {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+    border: 1px solid var(--mf-border);
+    border-radius: 8px;
+    background: var(--mf-surface-2);
+  }
+
+  .plugins-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    color: var(--mf-text);
+  }
+
+  .plugins-title :global(svg) {
+    color: var(--mf-accent);
+  }
+
+  .plugin {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 4px 0;
+    cursor: pointer;
+  }
+
+  .plugin.disabled {
+    cursor: default;
+  }
+
+  .plugin .check {
+    margin-top: 2px;
+  }
+
+  .plugin-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .plugin-name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px;
+    color: var(--mf-text);
+  }
+
+  .ver,
+  .by {
+    font-size: 11.5px;
+    color: var(--mf-text-3);
+  }
+
+  .desc {
+    font-size: 11.5px;
+    color: var(--mf-text-2);
+  }
+
+  .types {
+    font-size: 11px;
+    color: var(--mf-text-3);
+  }
+
+  .problem {
+    font-size: 11px;
+    color: var(--mf-danger);
+  }
+
+  .status-new,
+  .status-update {
+    border-color: color-mix(in srgb, var(--mf-accent) 50%, transparent) !important;
+    color: var(--mf-accent) !important;
+  }
+
+  .plugins-warn {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 2px 0 0;
+    font-size: 11px;
+    color: #f59e0b;
+  }
+
+  .plugins-warn :global(svg) {
+    flex-shrink: 0;
+    margin-top: 1px;
   }
 
   .warn {

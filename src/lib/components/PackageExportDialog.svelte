@@ -2,9 +2,10 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
   import { toast } from 'svelte-sonner';
-  import { Package, FileText, X, Loader2, TriangleAlert } from 'lucide-svelte';
+  import { Package, FileText, X, Loader2, TriangleAlert, Puzzle } from 'lucide-svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
-  import { exportPagesDialog } from '$lib/services/packageService';
+  import { knowledge } from '$lib/stores/knowledge.svelte';
+  import { exportPagesDialog, pluginUsage } from '$lib/services/packageService';
 
   interface Props {
     preselect: 'current' | 'all';
@@ -43,13 +44,28 @@
     selected = new Set(on ? vaultStore.canvases.map((c) => c.id) : []);
   }
 
+  // Custom node types used by the chosen pages, from the search index (the export re-reads the files).
+  let includePlugins = $state(true);
+  let usage = $derived.by(() => {
+    const ids = new Set(chosen.map((c) => c.id));
+    return pluginUsage(new Set(knowledge.index.nodes.filter((n) => ids.has(n.canvasId)).map((n) => n.type)));
+  });
+
+  onMount(() => {
+    void knowledge.loadVault();
+  });
+
   async function run() {
     busy = true;
     error = null;
     try {
-      const path = await exportPagesDialog(chosen);
-      if (path) {
-        toast.success(`Exported ${chosen.length} page${chosen.length === 1 ? '' : 's'}`, { description: path });
+      const result = await exportPagesDialog(chosen, { includePlugins });
+      if (result) {
+        const extra = result.plugins.length ? ` with ${result.plugins.length} plugin${result.plugins.length === 1 ? '' : 's'} (${result.plugins.join(', ')})` : '';
+        toast.success(`Exported ${chosen.length} page${chosen.length === 1 ? '' : 's'}${extra}`, { description: result.path });
+        if (result.missingTypes.length) {
+          toast.warning('Some nodes need plugins you don\'t have installed', { description: `Not included: ${result.missingTypes.join(', ')}` });
+        }
         onClose();
       }
     } catch (e) {
@@ -99,6 +115,33 @@
       </div>
 
       <p class="summary">{chosen.length ? summary : 'Choose at least one page.'}</p>
+
+      {#if usage.plugins.length}
+        <div class="plugins">
+          <label class="plugins-head">
+            <input type="checkbox" class="check" bind:checked={includePlugins} />
+            <Puzzle size={13} />
+            <span>Include the custom plugin{usage.plugins.length === 1 ? '' : 's'} these pages use</span>
+          </label>
+          <ul>
+            {#each usage.plugins as { plugin, nodeTypes } (plugin.manifest.id)}
+              <li>
+                <strong>{plugin.manifest.name}</strong> <span class="ver">v{plugin.manifest.version}</span>
+                {#if plugin.manifest.author}<span class="by">by {plugin.manifest.author}</span>{/if}
+                <span class="types">{nodeTypes.join(', ')}</span>
+              </li>
+            {/each}
+          </ul>
+          <p class="plugins-note">
+            {includePlugins
+              ? 'Whoever imports the file is asked before the plugins are installed.'
+              : 'Without them, these nodes show as placeholders until the plugin is installed.'}
+          </p>
+        </div>
+      {/if}
+      {#if usage.missing.length}
+        <p class="error"><TriangleAlert size={13} />Some nodes use plugins that aren't installed here, so they can't be included: {usage.missing.join(', ')}</p>
+      {/if}
       {#if error}<p class="error"><TriangleAlert size={13} />{error}</p>{/if}
     </div>
 
@@ -302,6 +345,62 @@
     margin: 0;
     font-size: 12px;
     color: var(--mf-text-2);
+  }
+
+  .plugins {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+    border: 1px solid var(--mf-border);
+    border-radius: 8px;
+    background: var(--mf-surface-2);
+  }
+
+  .plugins-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    color: var(--mf-text);
+    cursor: pointer;
+  }
+
+  .plugins-head :global(svg) {
+    color: var(--mf-accent);
+  }
+
+  .plugins ul {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin: 0;
+    padding: 0 0 0 24px;
+    list-style: none;
+  }
+
+  .plugins li {
+    font-size: 12px;
+    color: var(--mf-text-2);
+  }
+
+  .ver,
+  .by {
+    color: var(--mf-text-3);
+  }
+
+  .types {
+    display: block;
+    font-family: var(--mf-font-mono);
+    font-size: 11px;
+    color: var(--mf-text-3);
+  }
+
+  .plugins-note {
+    margin: 0;
+    padding-left: 24px;
+    font-size: 11px;
+    color: var(--mf-text-3);
   }
 
   .error {

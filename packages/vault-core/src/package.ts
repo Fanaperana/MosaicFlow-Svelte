@@ -3,6 +3,7 @@
 //   mimetype         "application/vnd.mosaicflow+zip" (first entry, stored) so tools can sniff it
 //   manifest.json    PackageManifest
 //   <Canvas>/...     canvas.json, nodes/*.md, edges/*.json, ... (v2 packages: .mosaic/meta.json, edges/*/joined.json)
+//   .plugins/<id>/   plugin folders (plugin.json + its files) for custom node types the pages use
 //
 // A hand-made zip of a canvas folder (no manifest) is accepted too.
 
@@ -13,6 +14,21 @@ export const PACKAGE_EXTENSION = 'mosaic';
 export const PACKAGE_MIMETYPE = 'application/vnd.mosaicflow+zip';
 export const PACKAGE_FORMAT = 'mosaicflow-package';
 export const PACKAGE_FORMAT_VERSION = 1;
+/** Prefix of bundled plugin folders; page folders are sanitized and can never start with a dot. */
+export const PACKAGE_PLUGINS_DIR = '.plugins';
+
+/** A plugin bundled with a package so its custom node types render after import. */
+export interface PackagedPluginInfo {
+  id: string;
+  name: string;
+  version: string;
+  author?: string;
+  description?: string;
+  /** Folder inside `.plugins/`. */
+  folder: string;
+  /** Node types it provides that the packaged pages use. */
+  nodeTypes: string[];
+}
 
 export interface PackageManifest {
   format: typeof PACKAGE_FORMAT;
@@ -24,6 +40,8 @@ export interface PackageManifest {
   /** Vault the pages were exported from. */
   vault?: { name: string };
   canvases: { name: string; folder: string }[];
+  /** Plugins bundled under `.plugins/`. */
+  plugins?: PackagedPluginInfo[];
   /** sha256 (hex) of every packaged file, keyed by its path inside the zip. */
   files?: Record<string, string>;
 }
@@ -39,6 +57,18 @@ export interface PackOptions {
   kind?: PackageManifest['kind'];
   vaultName?: string;
   app?: string;
+  plugins?: PackPluginInput[];
+}
+
+export interface PackPluginInput {
+  id: string;
+  name: string;
+  version: string;
+  author?: string;
+  description?: string;
+  nodeTypes: string[];
+  /** The plugin folder's files (plugin.json, module, styles, ...), relative, '/' separators. */
+  files: Record<string, Uint8Array>;
 }
 
 export interface UnpackLimits {
@@ -55,9 +85,21 @@ export interface UnpackedCanvas {
   files: Map<string, Uint8Array>;
 }
 
+export interface UnpackedPlugin {
+  /** Folder inside `.plugins/`. */
+  folder: string;
+  /** Parsed plugin.json, or null if missing/invalid. */
+  manifest: Record<string, unknown> | null;
+  /** Entry from the package manifest, when present. */
+  info: PackagedPluginInfo | null;
+  /** Files relative to the plugin folder. */
+  files: Map<string, Uint8Array>;
+}
+
 export interface UnpackResult {
   manifest: PackageManifest | null;
   canvases: UnpackedCanvas[];
+  plugins: UnpackedPlugin[];
   warnings: string[];
 }
 
@@ -122,6 +164,19 @@ export async function packPages(inputs: PackCanvasInput[], options: PackOptions 
     }
   }
 
+  const plugins: PackagedPluginInfo[] = [];
+  const usedPluginFolders = new Set<string>();
+  for (const plugin of options.plugins ?? []) {
+    let folder = sanitizeFolderName(plugin.id);
+    for (let i = 2; usedPluginFolders.has(folder.toLowerCase()); i++) folder = `${sanitizeFolderName(plugin.id)} ${i}`;
+    usedPluginFolders.add(folder.toLowerCase());
+    const { files, ...info } = plugin;
+    plugins.push({ ...info, folder });
+    for (const [rel, data] of Object.entries(files)) {
+      entries[`${PACKAGE_PLUGINS_DIR}/${folder}/${safeEntryPath(rel)}`] = data;
+    }
+  }
+
   const hashes: Record<string, string> = {};
   for (const [path, data] of Object.entries(entries)) {
     const hash = await sha256Hex(data);
@@ -136,6 +191,7 @@ export async function packPages(inputs: PackCanvasInput[], options: PackOptions 
     createdAt: new Date().toISOString(),
     ...(options.vaultName ? { vault: { name: options.vaultName } } : {}),
     canvases: listed,
+    ...(plugins.length ? { plugins } : {}),
     ...(Object.keys(hashes).length ? { files: hashes } : {}),
   };
 
@@ -206,7 +262,8 @@ export async function unpackPackage(bytes: Uint8Array, limits: UnpackLimits = DE
   }
 
   // Outermost folders that look like canvases; nested matches belong to their parent canvas.
-  const roots = [...new Set([...files.keys()].map(canvasRootOf).filter((r): r is string => r !== null))]
+  const isPluginPath = (path: string) => path.startsWith(`${PACKAGE_PLUGINS_DIR}/`);
+  const roots = [...new Set([...files.keys()].filter((p) => !isPluginPath(p)).map(canvasRootOf).filter((r): r is string => r !== null))]
     .sort((a, b) => a.length - b.length)
     .filter((root, i, all) => !all.slice(0, i).some((p) => p === '' || root.startsWith(`${p}/`)));
 
@@ -214,6 +271,7 @@ export async function unpackPackage(bytes: Uint8Array, limits: UnpackLimits = DE
     const prefix = root ? `${root}/` : '';
     const canvasFiles = new Map<string, Uint8Array>();
     for (const [path, data] of files) {
+      if (isPluginPath(path)) continue;
       if (path.startsWith(prefix) && !(root === '' && (path === 'mimetype' || path === 'manifest.json'))) {
         canvasFiles.set(path.slice(prefix.length), data);
       }
@@ -233,7 +291,44 @@ export async function unpackPackage(bytes: Uint8Array, limits: UnpackLimits = DE
     return { name: name.trim() || 'Imported canvas', files: canvasFiles };
   });
 
-  return { manifest, canvases, warnings };
+  const pluginFolders = new Map<string, Map<string, Uint8Array>>();
+  for (const [path, data] of files) {
+    if (!isPluginPath(path)) continue;
+    const [, folder, ...rest] = path.split('/');
+    if (!folder || rest.length === 0) continue;
+    if (!pluginFolders.has(folder)) pluginFolders.set(folder, new Map());
+    pluginFolders.get(folder)!.set(rest.join('/'), data);
+  }
+  const plugins: UnpackedPlugin[] = [...pluginFolders].map(([folder, pluginFiles]) => {
+    let pluginManifest: Record<string, unknown> | null = null;
+    const raw = pluginFiles.get('plugin.json');
+    if (raw) {
+      try {
+        pluginManifest = JSON.parse(strFromU8(raw));
+      } catch {
+        warnings.push(`Bundled plugin ${folder}: plugin.json is not valid JSON`);
+      }
+    } else {
+      warnings.push(`Bundled plugin ${folder} has no plugin.json`);
+    }
+    const info = manifest?.plugins?.find((p) => p.folder === folder) ?? null;
+    return { folder, manifest: pluginManifest, info, files: pluginFiles };
+  });
+
+  return { manifest, canvases, plugins, warnings };
+}
+
+/** Node types used by a page, read from the `type:` of each nodes/*.md file. */
+export function nodeTypesOfPage(files: Map<string, Uint8Array> | Record<string, Uint8Array>): Set<string> {
+  const types = new Set<string>();
+  const entries = files instanceof Map ? files.entries() : Object.entries(files);
+  for (const [path, data] of entries) {
+    if (!/^nodes\/[^/]+\.md$/.test(path)) continue;
+    const head = strFromU8(data.subarray(0, 4096));
+    const match = /^type:\s*["']?([^"'\r\n]+?)["']?\s*$/m.exec(head);
+    if (match) types.add(match[1].trim());
+  }
+  return types;
 }
 
 export interface LinkRewrite {

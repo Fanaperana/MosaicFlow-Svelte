@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { strToU8, zipSync } from 'fflate';
-import { packCanvas, packPages, packVault, rewritePackageLinks, safeEntryPath, unpackPackage } from '../src/package';
+import { nodeTypesOfPage, packCanvas, packPages, packVault, rewritePackageLinks, safeEntryPath, unpackPackage } from '../src/package';
 
 const files = {
   '.mosaic/meta.json': strToU8(JSON.stringify({ id: 'x', name: 'Demo' })),
@@ -89,5 +89,40 @@ describe('package', () => {
 
   it('normalises backslashes', () => {
     expect(safeEntryPath('a\\b\\c.md')).toBe('a/b/c.md');
+  });
+
+  it('bundles plugins under .plugins/ and keeps them out of the pages', async () => {
+    const plugin = {
+      id: 'example.flashcard',
+      name: 'Flashcard',
+      version: '1.0.0',
+      nodeTypes: ['flashcard'],
+      files: { 'plugin.json': strToU8(JSON.stringify({ id: 'example.flashcard', name: 'Flashcard', version: '1.0.0' })), 'index.js': strToU8('export function activate() {}') },
+    };
+    const out = await unpackPackage(await packPages([{ name: 'One', files }], { plugins: [plugin] }));
+    expect(out.warnings).toEqual([]);
+    expect(out.canvases).toHaveLength(1);
+    expect([...out.canvases[0].files.keys()].some((k) => k.includes('plugin'))).toBe(false);
+    expect(out.manifest?.plugins).toEqual([{ id: 'example.flashcard', name: 'Flashcard', version: '1.0.0', nodeTypes: ['flashcard'], folder: 'example_flashcard' }]);
+    expect(out.plugins).toHaveLength(1);
+    expect(out.plugins[0].manifest?.id).toBe('example.flashcard');
+    expect(out.plugins[0].info?.nodeTypes).toEqual(['flashcard']);
+    expect([...out.plugins[0].files.keys()].sort()).toEqual(['index.js', 'plugin.json']);
+  });
+
+  it('ignores .plugins/ when a hand-made zip has the page at its root', async () => {
+    const out = await unpackPackage(zipSync({ 'canvas.json': strToU8('{"name":"Root"}'), 'nodes/a.md': strToU8('---\nid: a\ntype: note\n---\n'), '.plugins/x/plugin.json': strToU8('{"id":"x"}') }));
+    expect(out.canvases).toHaveLength(1);
+    expect([...out.canvases[0].files.keys()].sort()).toEqual(['canvas.json', 'nodes/a.md']);
+    expect(out.plugins.map((p) => p.manifest?.id)).toEqual(['x']);
+  });
+
+  it('lists the node types a page uses', () => {
+    const page = {
+      'nodes/a.md': strToU8('---\nid: a\ntype: note\n---\nHi'),
+      'nodes/b.md': strToU8('---\nid: b\ntype: "flashcard"\ntitle: B\n---\n'),
+      'edges/e.json': strToU8('{}'),
+    };
+    expect([...nodeTypesOfPage(page)].sort()).toEqual(['flashcard', 'note']);
   });
 });

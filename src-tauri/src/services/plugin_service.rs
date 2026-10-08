@@ -34,10 +34,11 @@ pub struct PluginManifest {
     pub core: bool,
     #[serde(default)]
     pub capabilities: Vec<PluginCapability>,
+    /// Strings or objects (`{"custom": ...}`, `{"id","version"}`) as documented; not interpreted here.
     #[serde(default)]
-    pub permissions: Vec<String>,
+    pub permissions: Vec<serde_json::Value>,
     #[serde(default)]
-    pub dependencies: Vec<String>,
+    pub dependencies: Vec<serde_json::Value>,
     #[serde(default)]
     pub frontend: Option<FrontendConfig>,
 }

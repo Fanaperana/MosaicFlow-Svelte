@@ -10,15 +10,21 @@ import {
   CANVAS_FILE,
   CANVAS_FORMAT_VERSION,
   PACKAGE_EXTENSION,
+  nodeTypesOfPage,
   packPages,
   rewritePackageLinks,
   sanitizeFolderName,
   unpackPackage,
   type CanvasFile,
   type PackageManifest,
+  type PackPluginInput,
   type UnpackedCanvas,
+  type UnpackedPlugin,
 } from '@mosaicflow/vault-core';
 import { vaultStore } from '$lib/stores/vault.svelte';
+import { pluginStore, type UserPlugin } from '$lib/stores/plugins.svelte';
+import { nodeRegistry } from '$lib/kernel/registries/node-registry';
+import { getPluginsDir } from '$lib/api/plugin';
 import { deleteCanvas, type CanvasInfo } from './vaultService';
 import { flushPendingSaves as flushNodeSaves } from './nodeFileService';
 import { flushPendingSaves as flushEdgeSaves } from './edgeFileService';
@@ -44,9 +50,31 @@ export interface PackagePreview {
   fileName: string;
   manifest: PackageManifest | null;
   pages: PackagePagePreview[];
+  /** Plugins bundled in the file. */
+  plugins: PackagePluginPreview[];
+  /** Node types the pages use that no installed or bundled plugin provides. */
+  missingTypes: string[];
   warnings: string[];
   /** Suggested name when importing as a new vault. */
   vaultName: string;
+}
+
+export interface PackagePluginPreview {
+  folder: string;
+  id: string;
+  name: string;
+  version: string;
+  author: string;
+  description: string;
+  nodeTypes: string[];
+  /** Pages in the file that use it. */
+  usedBy: string[];
+  /** new: not installed; update: an older version is installed; same/newer: nothing to install. */
+  status: 'new' | 'update' | 'same' | 'newer';
+  installedVersion?: string;
+  installedEnabled: boolean;
+  /** Why it can't be installed (bad manifest, reserved id, missing module). */
+  problem?: string;
 }
 
 export interface ImportOptions {
@@ -62,20 +90,152 @@ export interface ImportOutcome {
 }
 
 const unpackedCache = new Map<string, UnpackedCanvas[]>();
+const unpackedPluginCache = new Map<string, UnpackedPlugin[]>();
 
 function fileBaseName(path: string): string {
   return path.replace(/\\/g, '/').split('/').pop()!.replace(/\.[^.]+$/, '');
 }
 
+const SKIPPED_DIRS = new Set(['.git', 'node_modules']);
+
 async function collectFiles(root: string, prefix = '', out: Record<string, Uint8Array> = {}) {
   const { readDir, readFile } = await import('@tauri-apps/plugin-fs');
   for (const entry of await readDir(`${root}/${prefix}`)) {
-    if (entry.isSymlink) continue;
+    if (entry.isSymlink || (entry.isDirectory && SKIPPED_DIRS.has(entry.name))) continue;
     const rel = `${prefix}${entry.name}`;
     if (entry.isDirectory) await collectFiles(root, `${rel}/`, out);
     else out[rel] = await readFile(`${root}/${rel}`);
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Plugins used by pages
+// ---------------------------------------------------------------------------
+
+function providedTypes(plugin: { manifest: { capabilities?: unknown } }): string[] {
+  const caps = Array.isArray(plugin.manifest.capabilities) ? plugin.manifest.capabilities : [];
+  return caps.flatMap((c: { type?: string; types?: unknown }) => (c?.type === 'nodeTypes' && Array.isArray(c.types) ? c.types.map(String) : []));
+}
+
+/** The installed user plugin that provides a node type (built-in types return undefined). */
+export function installedPluginFor(type: string): UserPlugin | undefined {
+  const owner = nodeRegistry.get(type)?.pluginId;
+  if (owner) return pluginStore.plugins.find((p) => p.manifest.id === owner);
+  return pluginStore.plugins.find((p) => providedTypes(p).includes(type));
+}
+
+export interface PluginUsage {
+  /** Installed user plugins the types need, with the types each provides. */
+  plugins: { plugin: UserPlugin; nodeTypes: string[] }[];
+  /** Types that are neither built in nor provided by an installed plugin. */
+  missing: string[];
+}
+
+export function pluginUsage(types: Iterable<string>): PluginUsage {
+  const byId = new Map<string, { plugin: UserPlugin; nodeTypes: string[] }>();
+  const missing: string[] = [];
+  for (const type of types) {
+    const plugin = installedPluginFor(type);
+    if (plugin) {
+      const entry = byId.get(plugin.manifest.id) ?? { plugin, nodeTypes: [] };
+      entry.nodeTypes.push(type);
+      byId.set(plugin.manifest.id, entry);
+    } else if (!nodeRegistry.has(type)) {
+      missing.push(type);
+    }
+  }
+  return { plugins: [...byId.values()], missing };
+}
+
+function compareVersions(a: string, b: string): number {
+  const pa = a.split(/[.+-]/).map((x) => parseInt(x, 10) || 0);
+  const pb = b.split(/[.+-]/).map((x) => parseInt(x, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d) return d;
+  }
+  return 0;
+}
+
+const PLUGIN_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+
+function describeBundledPlugin(p: UnpackedPlugin, pages: UnpackedCanvas[]): PackagePluginPreview {
+  const m = (p.manifest ?? {}) as Record<string, unknown>;
+  const id = typeof m.id === 'string' ? m.id : (p.info?.id ?? p.folder);
+  const version = typeof m.version === 'string' ? m.version : (p.info?.version ?? '0.0.0');
+  const main = (m.frontend as { main?: unknown } | undefined)?.main;
+  const nodeTypes = p.info?.nodeTypes?.length ? p.info.nodeTypes : providedTypes({ manifest: m });
+  let problem: string | undefined;
+  if (!p.manifest) problem = 'plugin.json is missing or invalid';
+  else if (!PLUGIN_ID.test(id) || id.startsWith('core.')) problem = `"${id}" is not an allowed plugin id`;
+  else if (m.core === true) problem = 'core plugins cannot be installed from a file';
+  else if (typeof main !== 'string' || !p.files.has(main.replace(/^\.\//, ''))) problem = 'its code file is missing';
+
+  const installed = pluginStore.plugins.find((x) => x.manifest.id === id);
+  const cmp = installed ? compareVersions(version, installed.manifest.version) : 1;
+  return {
+    folder: p.folder,
+    id,
+    name: typeof m.name === 'string' ? m.name : (p.info?.name ?? id),
+    version,
+    author: typeof m.author === 'string' ? m.author : (p.info?.author ?? ''),
+    description: typeof m.description === 'string' ? m.description : (p.info?.description ?? ''),
+    nodeTypes,
+    usedBy: pages.filter((c) => [...nodeTypesOfPage(c.files)].some((t) => nodeTypes.includes(t))).map((c) => c.name),
+    status: !installed ? 'new' : cmp > 0 ? 'update' : cmp === 0 ? 'same' : 'newer',
+    installedVersion: installed?.manifest.version,
+    installedEnabled: !!installed?.enabled,
+    problem,
+  };
+}
+
+/**
+ * Installs (or updates) the chosen bundled plugins into the plugins folder and enables them.
+ * Plugins run with full app access, so this only runs for plugins the user ticked in the import dialog.
+ */
+export async function installPackagePlugins(preview: PackagePreview, ids: string[]): Promise<string[]> {
+  const chosen = preview.plugins.filter((p) => ids.includes(p.id) && !p.problem);
+  if (chosen.length === 0) return [];
+  const bundled = unpackedPluginCache.get(preview.path) ?? (await unpackPackage(
+    await (await import('@tauri-apps/plugin-fs')).readFile(preview.path)
+  )).plugins;
+  const { writeFile, mkdir, exists, rename, remove } = await import('@tauri-apps/plugin-fs');
+  const root = (await getPluginsDir()).replace(/\\/g, '/');
+  const installed: string[] = [];
+
+  for (const plugin of chosen) {
+    const source = bundled.find((b) => b.folder === plugin.folder);
+    if (!source) continue;
+    if (plugin.status === 'same' || plugin.status === 'newer') {
+      installed.push(plugin.id);
+      continue;
+    }
+    const current = pluginStore.plugins.find((p) => p.manifest.id === plugin.id);
+    const target = current ? current.path.replace(/\\/g, '/') : `${root}/${sanitizeFolderName(plugin.id)}`;
+    // Written next to the target first, then swapped in, so a failed write never leaves half a plugin.
+    const staging = `${root}/.install-${crypto.randomUUID()}`;
+    try {
+      for (const [rel, data] of source.files) {
+        const slash = rel.lastIndexOf('/');
+        await mkdir(slash > 0 ? `${staging}/${rel.slice(0, slash)}` : staging, { recursive: true });
+        await writeFile(`${staging}/${rel}`, data);
+      }
+      if (await exists(target)) await remove(target, { recursive: true });
+      await rename(staging, target);
+      installed.push(plugin.id);
+    } catch (error) {
+      await remove(staging, { recursive: true }).catch(() => {});
+      throw new Error(`Could not install plugin "${plugin.name}": ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+    }
+  }
+
+  await pluginStore.rescan();
+  for (const id of installed) {
+    const p = pluginStore.plugins.find((x) => x.manifest.id === id);
+    if (p && !p.enabled) await pluginStore.setEnabled(id, true);
+  }
+  return installed;
 }
 
 function countEdges(files: Map<string, Uint8Array>): number {
@@ -144,7 +304,11 @@ function toV3Layout(files: Map<string, Uint8Array>) {
 // ---------------------------------------------------------------------------
 
 /** Packs the given pages (all of them = a vault package) and writes the file. */
-export async function exportPagesTo(filePath: string, canvases: CanvasInfo[]): Promise<void> {
+export async function exportPagesTo(
+  filePath: string,
+  canvases: CanvasInfo[],
+  options: { includePlugins?: boolean } = {}
+): Promise<{ plugins: string[]; missingTypes: string[] }> {
   const vault = vaultStore.currentVault;
   if (!vault) throw new Error('No vault is open');
   if (canvases.length === 0) throw new Error('Choose at least one page');
@@ -155,11 +319,25 @@ export async function exportPagesTo(filePath: string, canvases: CanvasInfo[]): P
   for (const c of canvases) inputs.push({ name: c.name, files: await collectFiles(c.path) });
   const whole = canvases.length === vaultStore.canvases.length && canvases.length > 1;
   const kind = canvases.length === 1 ? 'canvas' : whole ? 'vault' : 'pages';
-  await writeFile(filePath, await packPages(inputs, { kind, vaultName: vault.name }));
+
+  const types = new Set(inputs.flatMap((i) => [...nodeTypesOfPage(i.files)]));
+  const usage = pluginUsage(types);
+  const plugins: PackPluginInput[] = [];
+  if (options.includePlugins !== false) {
+    for (const { plugin, nodeTypes } of usage.plugins) {
+      const m = plugin.manifest;
+      plugins.push({ id: m.id, name: m.name, version: m.version, author: m.author, description: m.description, nodeTypes, files: await collectFiles(plugin.path) });
+    }
+  }
+  await writeFile(filePath, await packPages(inputs, { kind, vaultName: vault.name, plugins }));
+  return { plugins: plugins.map((p) => p.name), missingTypes: usage.missing };
 }
 
-/** Asks where to save, then exports. Returns the file path, or null if cancelled. */
-export async function exportPagesDialog(canvases: CanvasInfo[]): Promise<string | null> {
+/** Asks where to save, then exports. Returns the file path and what was bundled, or null if cancelled. */
+export async function exportPagesDialog(
+  canvases: CanvasInfo[],
+  options: { includePlugins?: boolean } = {}
+): Promise<{ path: string; plugins: string[]; missingTypes: string[] } | null> {
   const vault = vaultStore.currentVault;
   if (!vault || canvases.length === 0) return null;
   const { save } = await import('@tauri-apps/plugin-dialog');
@@ -170,8 +348,7 @@ export async function exportPagesDialog(canvases: CanvasInfo[]): Promise<string 
     filters: PACKAGE_FILTERS.slice(0, 1),
   });
   if (!filePath) return null;
-  await exportPagesTo(filePath, canvases);
-  return filePath;
+  return { path: filePath, ...(await exportPagesTo(filePath, canvases, options)) };
 }
 
 // ---------------------------------------------------------------------------
@@ -181,15 +358,23 @@ export async function exportPagesDialog(canvases: CanvasInfo[]): Promise<string 
 /** Reads and validates a package without changing anything. */
 export async function readPackagePreview(filePath: string): Promise<PackagePreview> {
   const { readFile } = await import('@tauri-apps/plugin-fs');
-  const { manifest, canvases, warnings } = await unpackPackage(await readFile(filePath));
+  const { manifest, canvases, plugins, warnings } = await unpackPackage(await readFile(filePath));
   if (canvases.length === 0) throw new Error('No page found in this file');
   unpackedCache.set(filePath, canvases);
+  unpackedPluginCache.set(filePath, plugins);
+
+  const bundled = plugins.map((p) => describeBundledPlugin(p, canvases));
+  const bundledTypes = new Set(bundled.flatMap((p) => p.nodeTypes));
+  const usedTypes = new Set(canvases.flatMap((c) => [...nodeTypesOfPage(c.files)]));
+  const missingTypes = pluginUsage(usedTypes).missing.filter((t) => !bundledTypes.has(t));
 
   const taken = new Set(vaultStore.canvases.map((c) => c.name.toLowerCase()));
   return {
     path: filePath,
     fileName: fileBaseName(filePath),
     manifest,
+    plugins: bundled,
+    missingTypes,
     warnings,
     vaultName: manifest?.vault?.name ?? fileBaseName(filePath),
     pages: canvases.map((c, index) => {
@@ -316,6 +501,7 @@ export async function importPackagePages(preview: PackagePreview, options: Impor
     if (again) vaultStore.openCanvas(again);
   }
   unpackedCache.delete(preview.path);
+  unpackedPluginCache.delete(preview.path);
   return outcome;
 }
 
