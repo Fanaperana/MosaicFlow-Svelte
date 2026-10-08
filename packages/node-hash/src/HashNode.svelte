@@ -16,27 +16,32 @@
   
   let copied = $state(false);
 
-  const hashTypes = ['MD5', 'SHA1', 'SHA256', 'SHA512', 'SSDEEP', 'TLSH'];
+  const hashTypes = ['md5', 'sha1', 'sha256', 'sha512', 'other'];
 
-  function updateField(field: keyof HashNodeData, value: string) {
-    workspace.updateNodeData(id, { [field]: value });
+  // Older nodes stored the hash as `value`, the algorithm as `type` and the verdict as `status`.
+  const hashValue = $derived(data.hash || data.value || '');
+  const algorithm = $derived((data.algorithm || data.type || 'sha256').toLowerCase());
+  const threat = $derived(data.threatLevel || (data.status === 'clean' ? 'safe' : data.status));
+
+  function update(patch: Partial<HashNodeData>) {
+    workspace.updateNodeData(id, patch);
   }
 
   function copyHash() {
-    if (data.value) {
-      navigator.clipboard.writeText(data.value);
+    if (hashValue) {
+      navigator.clipboard.writeText(hashValue);
       copied = true;
       setTimeout(() => copied = false, 2000);
     }
   }
 
-  const hashLength = $derived(data.value?.length ?? 0);
+  const hashLength = $derived(hashValue.length);
 </script>
 
 <NodeWrapper {data} {selected} {id} nodeType="hash" class="hash-node">
   {#snippet header()}
     <span class="node-icon"><Hash size={14} strokeWidth={1.5} /></span>
-    <span class="node-title">{data.type || 'Hash'}</span>
+    <span class="node-title">{data.title || algorithm.toUpperCase()}</span>
   {/snippet}
   
   {#snippet headerActions()}
@@ -52,11 +57,11 @@
   <div class="hash-type-select">
     <select 
       class="type-select nodrag"
-      value={data.type || 'SHA256'}
-      onchange={(e) => updateField('type', (e.target as HTMLSelectElement).value)}
+      value={hashTypes.includes(algorithm) ? algorithm : 'other'}
+      onchange={(e) => update({ algorithm: (e.target as HTMLSelectElement).value as HashNodeData['algorithm'], type: undefined })}
     >
-      {#each hashTypes as type}
-        <option value={type}>{type}</option>
+      {#each hashTypes as type (type)}
+        <option value={type}>{type.toUpperCase()}</option>
       {/each}
     </select>
   </div>
@@ -64,22 +69,22 @@
   <div class="hash-value-wrapper">
     <textarea
       class="hash-value nodrag nowheel"
-      value={data.value || ''}
+      value={hashValue}
       placeholder="Enter hash value..."
-      oninput={(e) => updateField('value', (e.target as HTMLTextAreaElement).value)}
+      oninput={(e) => update({ hash: (e.target as HTMLTextAreaElement).value, value: undefined })}
       spellcheck="false"
     ></textarea>
     <span class="char-count">{hashLength} chars</span>
   </div>
   
-  {#if data.status}
-    <div class="hash-status" class:malicious={data.status === 'malicious'} class:clean={data.status === 'clean'}>
-      {#if data.status === 'malicious'}
+  {#if threat && threat !== 'unknown'}
+    <div class="hash-status" class:malicious={threat === 'malicious'} class:clean={threat === 'safe'}>
+      {#if threat === 'malicious'}
         <XCircle size={12} />
-      {:else if data.status === 'clean'}
+      {:else if threat === 'safe'}
         <CheckCircle size={12} />
       {/if}
-      <span>{data.status}</span>
+      <span>{threat}</span>
     </div>
   {/if}
   
