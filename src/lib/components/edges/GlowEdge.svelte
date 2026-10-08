@@ -125,7 +125,7 @@
 
 <!-- Edge label using EdgeLabel for proper positioning -->
 {#if label && !reconnecting}
-  <EdgeLabel x={labelX} y={labelY} style={labelStyle}>
+  <EdgeLabel x={labelX} y={labelY} style={labelStyle} class="mf-edge-label" selectEdgeOnClick>
     <div 
       class="edge-label-content"
       style="background: {labelBgColor}; color: {labelColor}; font-size: {labelFontSize}px;"
@@ -172,6 +172,11 @@
   .glow-edge .glow-path-inner {
     filter: blur(2px);
     pointer-events: none;
+  }
+
+  /* xyflow sets the label's z-index to the edge's, which puts it under nodes nested in groups. */
+  :global(.svelte-flow__edge-label.mf-edge-label) {
+    z-index: 1000 !important;
   }
 
   .edge-label-content {
