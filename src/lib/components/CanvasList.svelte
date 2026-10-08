@@ -1,8 +1,8 @@
 <script lang="ts">
   import { tick, onMount } from 'svelte';
-  import { vaultStore, samePath } from '$lib/stores/vault.svelte';
+  import { vaultStore, samePath, pathKey } from '$lib/stores/vault.svelte';
   import { pageNav } from '$lib/stores/pages.svelte';
-  import { formatRelativeTime, isValidVault, type CanvasInfo } from '$lib/services/vaultService';
+  import { formatRelativeTime, getVaultInfo, isValidVault, type CanvasInfo } from '$lib/services/vaultService';
   import {
     Plus,
     Trash2,
@@ -18,7 +18,7 @@
     ChevronDown,
     X,
   } from 'lucide-svelte';
-  import { SvelteSet } from 'svelte/reactivity';
+  import { SvelteMap, SvelteSet } from 'svelte/reactivity';
   import { open } from '@tauri-apps/plugin-dialog';
   import { confirmDanger } from '$lib/utils/confirm';
   import { importDropped, importFileDialog, importMarkdownFolderDialog } from '$lib/services/interopService';
@@ -134,13 +134,22 @@
   let lastPage = $derived(vaultStore.lastCanvas);
   // Recent vaults whose folder is gone (moved, renamed or deleted).
   const missing = new SvelteSet<string>();
+  // Page counts of the listed vaults, by path key; the open vault's count comes from the live list.
+  const pageCounts = new SvelteMap<string, number>();
 
   onMount(() => {
     for (const v of vaultStore.recentVaults) {
       if (!samePath(v.path, vaultStore.currentVault?.path)) {
-        isValidVault(v.path).then((ok) => { if (!ok) missing.add(v.path); }).catch(() => {});
+        getVaultInfo(v.path)
+          .then((info) => (info ? pageCounts.set(pathKey(v.path), info.canvas_count) : missing.add(v.path)))
+          .catch(() => {});
       }
     }
+  });
+
+  // Keeps the count right for the vault being left after creating or deleting pages in it.
+  $effect(() => {
+    if (vaultStore.currentVault) pageCounts.set(pathKey(vaultStore.currentVault.path), vaultStore.canvases.length);
   });
 
   function hueFor(name: string): number {
@@ -313,6 +322,9 @@
           {:else if current}
             <span class="vault-meta">{vaultStore.canvases.length}</span>
           {:else}
+            {#if !gone && pageCounts.has(pathKey(vault.path))}
+              <span class="vault-meta vault-count" title="{pageCounts.get(pathKey(vault.path))} pages">{pageCounts.get(pathKey(vault.path))}</span>
+            {/if}
             <button
               class="vault-remove"
               onclick={(e) => { e.stopPropagation(); forgetVault(vault); }}
@@ -686,6 +698,10 @@
 
   .vault-item:hover .vault-remove {
     display: grid;
+  }
+
+  .vault-item:hover .vault-count {
+    display: none;
   }
 
   .vault-remove:hover {
