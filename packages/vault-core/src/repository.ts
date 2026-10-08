@@ -52,7 +52,7 @@ export function assertSafeId(id: string): void {
  * Reads and writes one canvas folder:
  *
  *   <canvas>/nodes/<id>.md            one markdown file per node
- *   <canvas>/edges/<id>/joined.json   one JSON file per edge
+ *   <canvas>/edges/<id>.json          one JSON file per edge (v2: edges/<id>/joined.json, still read)
  */
 export class CanvasRepository {
   constructor(
@@ -75,6 +75,12 @@ export class CanvasRepository {
   }
 
   edgePath(id: string): string {
+    assertSafeId(id);
+    return `${this.edgesDir}/${id}.json`;
+  }
+
+  /** v2 location of an edge, read when the v3 file does not exist. */
+  legacyEdgePath(id: string): string {
     assertSafeId(id);
     return `${this.edgesDir}/${id}/joined.json`;
   }
@@ -211,14 +217,19 @@ export class CanvasRepository {
 
   async listEdgeIds(): Promise<string[]> {
     if (!(await this.fs.exists(this.edgesDir))) return [];
-    const entries = await this.fs.list(this.edgesDir);
-    return entries.filter((e) => e.isDirectory && SAFE_ID.test(e.name)).map((e) => e.name);
+    const ids = new Set<string>();
+    for (const e of await this.fs.list(this.edgesDir)) {
+      const id = e.isDirectory ? e.name : e.name.endsWith('.json') ? e.name.slice(0, -5) : '';
+      if (SAFE_ID.test(id)) ids.add(id);
+    }
+    return [...ids];
   }
 
   async readEdge(id: string): Promise<StoredEdge | null> {
-    const path = this.edgePath(id);
-    if (!(await this.fs.exists(path))) return null;
-    return this.parseEdge(id, await this.fs.readText(path));
+    for (const path of [this.edgePath(id), this.legacyEdgePath(id)]) {
+      if (await this.fs.exists(path)) return this.parseEdge(id, await this.fs.readText(path));
+    }
+    return null;
   }
 
   async readAllEdges(): Promise<StoredEdge[]> {
@@ -237,14 +248,20 @@ export class CanvasRepository {
 
   async writeEdge(edge: StoredEdge): Promise<void> {
     const path = this.edgePath(edge.id);
-    await this.fs.mkdir(`${this.edgesDir}/${edge.id}`);
+    await this.fs.mkdir(this.edgesDir);
     const rest: Partial<StoredEdge> = { ...edge };
     delete rest.id;
     await this.fs.writeText(path, JSON.stringify(rest));
+    await this.removeLegacyEdge(edge.id);
   }
 
   async deleteEdge(id: string): Promise<void> {
-    assertSafeId(id);
+    const path = this.edgePath(id);
+    if (await this.fs.exists(path)) await this.fs.remove(path);
+    await this.removeLegacyEdge(id);
+  }
+
+  private async removeLegacyEdge(id: string): Promise<void> {
     const dir = `${this.edgesDir}/${id}`;
     if (await this.fs.exists(dir)) await this.fs.remove(dir);
   }

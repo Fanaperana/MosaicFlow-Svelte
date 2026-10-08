@@ -9,7 +9,7 @@ import { getNodesBounds, getViewportForBounds } from '@xyflow/svelte';
 import { toast } from 'svelte-sonner';
 import { loadAllNodes, readCanvasFiles } from './nodeFileService';
 import { loadAllEdges } from './edgeFileService';
-import { buildNodeTypesDocument, NODE_TYPES_FILE } from '@mosaicflow/vault-core';
+import { buildNodeTypesDocument, CANVAS_FILE, CANVAS_FORMAT_VERSION, NODE_TYPES_FILE, type CanvasFile } from '@mosaicflow/vault-core';
 import { nodeRegistry } from '$lib/kernel/registries/node-registry';
 import { vaultStore } from '$lib/stores/vault.svelte';
 
@@ -26,7 +26,7 @@ async function exportNodeTypes(vaultPath: string) {
   }
 }
 
-// Workspace manifest format (v2 - minimal)
+// v1/v2 manifest; only read now for nodes that still need migrating
 interface WorkspaceManifest {
   metadata?: {
     name: string;
@@ -41,48 +41,52 @@ interface WorkspaceManifest {
   edges: Record<string, { id: string }>;
 }
 
-// Load workspace from file (v2 format with individual node/edge files)
+/** Per-device UI state kept by the backend in <vault>/.mosaicflow/state/<canvas id>.json */
+interface CanvasUIState {
+  viewport?: { x: number; y: number; zoom: number };
+  selected_nodes?: string[];
+  selected_edges?: string[];
+}
+
+// Load a canvas: canvas.json (metadata + settings), nodes/*.md, edges/*.json
 export async function loadWorkspace(path: string): Promise<boolean> {
   try {
     const { readTextFile, exists } = await import('@tauri-apps/plugin-fs');
-    
-    // Load workspace.json (manifest)
-    const workspacePath = `${path}/workspace.json`;
-    if (!(await exists(workspacePath))) {
-      console.error('workspace.json not found');
+
+    const canvasFile = await readCanvasFile(path);
+    const manifestPath = `${path}/workspace.json`;
+    const manifest: WorkspaceManifest | null = (await exists(manifestPath))
+      ? JSON.parse(await readTextFile(manifestPath))
+      : null;
+    if (!canvasFile && !manifest) {
+      console.error('canvas.json not found');
       return false;
     }
-    
-    const workspaceContent = await readTextFile(workspacePath);
-    const manifest: WorkspaceManifest = JSON.parse(workspaceContent);
-    
-    // Legacy v1 manifests embed full node objects; everything else (v2 manifests and the
-    // empty manifest the backend writes for new canvases) keeps nodes as files on disk.
-    const nodeEntries = Array.isArray(manifest.nodes) ? [] : Object.entries(manifest.nodes ?? {});
-    const isLegacyV1 = !manifest.metadata && nodeEntries.some(([, n]) => 'position' in (n as object));
-    
+
+    // Legacy v1 manifests embed full node objects; v2 manifests only list ids and types.
+    const nodeEntries = !manifest || Array.isArray(manifest.nodes) ? [] : Object.entries(manifest.nodes ?? {});
+    const isLegacyV1 = !!manifest && !manifest.metadata && nodeEntries.some(([, n]) => 'position' in (n as object));
+
     // Initialize file services with workspace path
     workspace.initFileServices(path);
     if (vaultStore.currentVaultPath) exportNodeTypes(vaultStore.currentVaultPath);
-    
+
     if (!isLegacyV1) {
-      console.log('Loading workspace v2 format...');
-      
-      const meta = manifest.metadata;
+      const meta = canvasFile ?? manifest?.metadata;
       if (meta) {
         workspace.name = meta.name;
-        workspace.description = meta.description;
+        workspace.description = meta.description ?? '';
         workspace.createdAt = meta.createdAt;
         workspace.updatedAt = meta.updatedAt;
-        workspace.viewport = meta.viewport;
         if (meta.settings) {
-          workspace.settings = { 
-            ...workspace.settings, 
-            ...(meta.settings as unknown as typeof workspace.settings)
+          workspace.settings = {
+            ...workspace.settings,
+            ...(meta.settings as unknown as typeof workspace.settings),
           };
         }
       }
-      
+      if (manifest?.metadata?.viewport) workspace.viewport = manifest.metadata.viewport;
+
       // One round-trip for every node and edge file
       const files = await readCanvasFiles().catch((error) => {
         console.warn('Bulk canvas read failed, reading files one by one:', error);
@@ -99,9 +103,7 @@ export async function loadWorkspace(path: string): Promise<boolean> {
       console.log('Loading workspace v1 format (legacy)...');
       const workspaceData = manifest as unknown as WorkspaceData;
       workspace.loadFromData(workspaceData);
-      
-      // Migrate to v2 format by saving all nodes and edges to files
-      console.log('Migrating to v2 format...');
+
       for (const node of workspace.nodes) {
         const { saveNodeImmediate } = await import('./nodeFileService');
         await saveNodeImmediate(node);
@@ -110,28 +112,40 @@ export async function loadWorkspace(path: string): Promise<boolean> {
         const { saveEdgeImmediate } = await import('./edgeFileService');
         await saveEdgeImmediate(edge);
       }
-      // Save new manifest
       await workspace.saveWorkspaceManifest();
+      // Nodes and edges now live in their own files; the backend kept a backup of the manifest.
+      const { remove } = await import('@tauri-apps/plugin-fs');
+      await remove(manifestPath);
     }
-    
-    // Load state.json if exists (for viewport and selection state)
-    const statePath = `${path}/.mosaic/state.json`;
+
     try {
-      const stateExists = await exists(statePath);
-      if (stateExists) {
-        const stateContent = await readTextFile(statePath);
-        const uiState: UIState = JSON.parse(stateContent);
-        workspace.loadUIState(uiState);
-      }
+      const { invoke } = await import('@tauri-apps/api/core');
+      const state = await invoke<CanvasUIState>('load_canvas_state', { canvasPath: path });
+      workspace.loadUIState({
+        viewport: state.viewport ?? workspace.viewport,
+        selectedNodeIds: state.selected_nodes ?? [],
+        selectedEdgeIds: state.selected_edges ?? [],
+      } as UIState);
     } catch {
-      // State file is optional, silently ignore permission or read errors
+      // UI state is optional
     }
-    
-    console.log('Workspace loaded successfully');
+
     return true;
   } catch (error) {
     console.error('Error loading workspace:', error);
     return false;
+  }
+}
+
+async function readCanvasFile(path: string): Promise<CanvasFile | null> {
+  try {
+    const { readTextFile, exists } = await import('@tauri-apps/plugin-fs');
+    const file = `${path}/${CANVAS_FILE}`;
+    if (!(await exists(file))) return null;
+    const parsed = JSON.parse(await readTextFile(file)) as CanvasFile;
+    return parsed.formatVersion >= CANVAS_FORMAT_VERSION ? parsed : null;
+  } catch {
+    return null;
   }
 }
 
@@ -145,8 +159,8 @@ export async function createWorkspace(path: string, name: string): Promise<boole
       await mkdir(path, { recursive: true });
     }
     
-    // Create required subdirectories for v2 format
-    const dirs = ['nodes', 'edges', 'images', 'attachments', '.mosaic'];
+    // Create required subdirectories
+    const dirs = ['nodes', 'edges'];
     for (const dir of dirs) {
       const dirPath = `${path}/${dir}`;
       if (!(await exists(dirPath))) {

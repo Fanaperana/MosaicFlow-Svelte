@@ -7,11 +7,14 @@
 import { toast } from 'svelte-sonner';
 import { tick } from 'svelte';
 import {
+  CANVAS_FILE,
+  CANVAS_FORMAT_VERSION,
   PACKAGE_EXTENSION,
   packPages,
   rewritePackageLinks,
   sanitizeFolderName,
   unpackPackage,
+  type CanvasFile,
   type PackageManifest,
   type UnpackedCanvas,
 } from '@mosaicflow/vault-core';
@@ -84,14 +87,56 @@ function countEdges(files: Map<string, Uint8Array>): number {
   return ids.size;
 }
 
-function readMeta(files: Map<string, Uint8Array>): Record<string, unknown> {
-  const bytes = files.get('.mosaic/meta.json');
-  if (!bytes) return {};
+interface PackageMeta {
+  id?: string;
+  description?: string;
+  tags?: string[];
+  createdAt?: string;
+  settings?: Record<string, unknown>;
+}
+
+function readJson(files: Map<string, Uint8Array>, path: string): Record<string, unknown> | null {
+  const bytes = files.get(path);
+  if (!bytes) return null;
   try {
     return JSON.parse(new TextDecoder().decode(bytes));
   } catch {
-    return {};
+    return null;
   }
+}
+
+/** Canvas metadata from a v3 (canvas.json) or v2 (.mosaic/meta.json + workspace.json) page. */
+function readMeta(files: Map<string, Uint8Array>): PackageMeta {
+  const v3 = readJson(files, CANVAS_FILE) as Partial<CanvasFile> | null;
+  if (v3 && (v3.formatVersion ?? 0) >= CANVAS_FORMAT_VERSION) {
+    return { id: v3.id, description: v3.description, tags: v3.tags, createdAt: v3.createdAt, settings: v3.settings };
+  }
+  const v2 = readJson(files, '.mosaic/meta.json') ?? {};
+  const workspace = readJson(files, 'workspace.json') as { metadata?: { settings?: Record<string, unknown> } } | null;
+  return {
+    id: typeof v2.id === 'string' ? v2.id : undefined,
+    description: typeof v2.description === 'string' ? v2.description : undefined,
+    tags: Array.isArray(v2.tags) ? (v2.tags as string[]) : undefined,
+    createdAt: typeof v2.created_at === 'string' ? v2.created_at : undefined,
+    settings: workspace?.metadata?.settings,
+  };
+}
+
+/** Rewrites a v2 page's files to the v3 layout. */
+function toV3Layout(files: Map<string, Uint8Array>) {
+  const workspace = readJson(files, 'workspace.json');
+  for (const path of [...files.keys()]) {
+    const legacyEdge = /^edges\/([^/]+)\/joined\.json$/.exec(path);
+    if (legacyEdge) {
+      const flat = `edges/${legacyEdge[1]}.json`;
+      if (!files.has(flat)) files.set(flat, files.get(path)!);
+      files.delete(path);
+    } else if (path.startsWith('.mosaic/')) {
+      files.delete(path);
+    }
+  }
+  // v2 manifests only index files; v1 manifests (no metadata) still hold node data the app migrates.
+  if (workspace?.metadata) files.delete('workspace.json');
 }
 
 // ---------------------------------------------------------------------------
@@ -218,24 +263,23 @@ export async function importPackagePages(preview: PackagePreview, options: Impor
     const files = new Map(canvas.files);
     for (const [path, data] of rewritePackageLinks(files, { names, ids })) files.set(path, data);
 
-    const meta = {
-      description: '',
-      tags: [],
-      created_at: now,
-      version: '2.0.0',
-      ...readMeta(files),
+    const meta = readMeta(files);
+    toV3Layout(files);
+    const canvasFile: CanvasFile = {
+      formatVersion: CANVAS_FORMAT_VERSION,
       id,
-      vault_id: vault.id,
+      vaultId: vault.id,
       name,
-      updated_at: now,
+      description: meta.description ?? '',
+      tags: meta.tags ?? [],
+      createdAt: meta.createdAt ?? now,
+      updatedAt: now,
+      ...(meta.settings ? { settings: meta.settings } : {}),
     };
-    files.set('.mosaic/meta.json', encoder.encode(JSON.stringify(meta, null, 2)));
-    if (!files.has('workspace.json')) {
-      files.set('workspace.json', encoder.encode(JSON.stringify({ version: '2.0.0', nodes: [], edges: [], settings: {} }, null, 2)));
-    }
+    files.set(CANVAS_FILE, encoder.encode(JSON.stringify(canvasFile, null, 2)));
 
     try {
-      for (const dir of ['.mosaic', 'nodes', 'edges', 'images', 'attachments']) {
+      for (const dir of ['nodes', 'edges']) {
         await mkdir(`${folder}/${dir}`, { recursive: true });
       }
       for (const [rel, data] of files) {

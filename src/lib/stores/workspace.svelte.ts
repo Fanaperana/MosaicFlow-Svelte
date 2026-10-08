@@ -17,6 +17,7 @@ import type {
   CanvasMode,
 } from '$lib/types';
 import { DEFAULT_SETTINGS, DEFAULT_VIEWPORT } from '$lib/types';
+import { CANVAS_FILE, CANVAS_FORMAT_VERSION, type CanvasFile } from '@mosaicflow/vault-core';
 import {
   initNodeFileService,
   saveNodeContent,
@@ -216,8 +217,6 @@ class WorkspaceStore {
     for (const id of oldEdges.keys()) {
       if (!newEdgeIds.has(id)) deleteEdgeFolder(id);
     }
-
-    this.saveWorkspaceManifest();
   }
 
   /**
@@ -280,7 +279,6 @@ class WorkspaceStore {
     // Save node to files immediately
     if (this.workspacePath) {
       saveNodeImmediate(node);
-      this.saveWorkspaceManifest();
     }
     
     return node;
@@ -330,7 +328,6 @@ class WorkspaceStore {
     // Save nodes to files
     if (this.workspacePath) {
       newNodes.forEach(node => saveNodeImmediate(node));
-      this.saveWorkspaceManifest();
     }
     
     return newNodes;
@@ -445,7 +442,6 @@ class WorkspaceStore {
       ids.forEach(id => deleteNodeFolder(id));
       edgesToDelete.forEach(edge => deleteEdgeFolder(edge.id));
       detached.forEach(child => saveNodeProperties(child));
-      this.saveWorkspaceManifest();
     }
   }
 
@@ -805,6 +801,7 @@ class WorkspaceStore {
   // Viewport management
   setViewport(viewport: Viewport) {
     this.viewport = viewport;
+    this.scheduleUIStateSave();
   }
 
   // Fit view to show all nodes
@@ -888,7 +885,6 @@ class WorkspaceStore {
         saveNodeProperties(node);
         saveNodeContent(node);
       });
-      this.saveWorkspaceManifest();
     }
   }
 
@@ -966,49 +962,55 @@ class WorkspaceStore {
     this.saveWorkspaceManifest();
   }
 
-  // Save workspace manifest (minimal workspace.json with just node/edge IDs and types)
+  // Save name, description and settings to canvas.json; other fields (id, tags) are kept as they are.
   async saveWorkspaceManifest() {
     if (!this.workspacePath) return;
-    
+
     try {
-      const { writeTextFile } = await import('@tauri-apps/plugin-fs');
-      
-      // Create minimal node manifest (just id and type)
-      const nodesManifest: Record<string, { id: string; type: string }> = {};
-      this.nodes.forEach(node => {
-        nodesManifest[node.id] = {
-          id: node.id,
-          type: node.type as string,
-        };
-      });
-      
-      // Create edge manifest (just IDs, full data is in edge folders)
-      const edgesManifest: Record<string, { id: string }> = {};
-      this.edges.forEach(edge => {
-        edgesManifest[edge.id] = { id: edge.id };
-      });
-      
-      const manifest = {
-        metadata: {
-          name: this.name,
-          description: this.description,
-          createdAt: this.createdAt,
-          updatedAt: new Date().toISOString(),
-          version: '2.0.0', // New version for real-time format
-          viewport: this.viewport,
-          settings: this.settings,
-        },
-        nodes: nodesManifest,
-        edges: edgesManifest,
+      const { readTextFile, writeTextFile, exists } = await import('@tauri-apps/plugin-fs');
+      const path = `${this.workspacePath}/${CANVAS_FILE}`;
+      const current: Partial<CanvasFile> = (await exists(path)) ? JSON.parse(await readTextFile(path)) : {};
+      this.updatedAt = new Date().toISOString();
+      const file: Partial<CanvasFile> = {
+        ...current,
+        formatVersion: CANVAS_FORMAT_VERSION,
+        name: current.name ?? this.name,
+        description: current.description ?? this.description,
+        createdAt: current.createdAt ?? this.createdAt,
+        updatedAt: this.updatedAt,
+        settings: { ...this.settings },
       };
-      
-      await writeTextFile(
-        `${this.workspacePath}/workspace.json`,
-        JSON.stringify(manifest, null, 2)
-      );
+      await writeTextFile(path, JSON.stringify(file, null, 2));
     } catch (error) {
-      console.error('Error saving workspace manifest:', error);
+      console.error('Error saving canvas settings:', error);
     }
+  }
+
+  private stateTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Debounced save of per-device UI state (viewport, selection) to the vault's state folder. */
+  scheduleUIStateSave() {
+    const canvasPath = this.workspacePath;
+    if (!canvasPath) return;
+    if (this.stateTimer) clearTimeout(this.stateTimer);
+    this.stateTimer = setTimeout(async () => {
+      this.stateTimer = null;
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('save_canvas_state', {
+          canvasPath,
+          state: {
+            viewport: this.viewport,
+            selected_nodes: this.nodes.filter((n) => n.selected).map((n) => n.id),
+            selected_edges: this.selectedEdgeIds,
+            canvas_mode: 'select',
+            updated_at: '',
+          },
+        });
+      } catch (error) {
+        console.warn('Could not save canvas view state:', error);
+      }
+    }, 500);
   }
 
   // Load workspace from data

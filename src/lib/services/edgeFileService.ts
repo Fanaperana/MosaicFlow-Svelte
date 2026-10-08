@@ -1,6 +1,5 @@
 // Edge File Service
-// Handles real-time file operations for edges
-// Each edge has its own folder with connection data
+// Real-time persistence of edges as JSON files: <canvas>/edges/<id>.json
 
 import type { MosaicEdge } from '$lib/types';
 import type { StoredEdge } from '@mosaicflow/vault-core';
@@ -40,32 +39,21 @@ export function initEdgeFileService(path: string) {
   workspacePath = path;
 }
 
-// Get the edge folder path
-function getEdgeFolderPath(edgeId: string): string {
-  return `${workspacePath}/edges/${edgeId}`;
-}
+const edgeFile = (base: string, id: string) => `${base}/edges/${id}.json`;
+/** v2 layout: edges/<id>/joined.json */
+const legacyEdgeDir = (base: string, id: string) => `${base}/edges/${id}`;
 
-// Ensure edge folder structure exists
-async function ensureEdgeFolder(edgeId: string) {
-  if (!workspacePath) return;
-  
-  const { mkdir, exists } = await import('@tauri-apps/plugin-fs');
-  const edgePath = getEdgeFolderPath(edgeId);
-  
-  if (!(await exists(edgePath))) {
-    await mkdir(edgePath, { recursive: true });
-  }
-}
-
-// Ensure edges parent folder exists
-async function ensureEdgesFolder() {
-  if (!workspacePath) return;
-  
-  const { mkdir, exists } = await import('@tauri-apps/plugin-fs');
-  const edgesPath = `${workspacePath}/edges`;
-  
-  if (!(await exists(edgesPath))) {
-    await mkdir(edgesPath, { recursive: true });
+async function writeEdgeFile(base: string, edge: MosaicEdge) {
+  const { writeTextFile, mkdir, exists, remove } = await import('@tauri-apps/plugin-fs');
+  if (!(await exists(`${base}/edges`))) await mkdir(`${base}/edges`, { recursive: true });
+  const path = edgeFile(base, edge.id);
+  const json = JSON.stringify(extractEdgeData(edge));
+  rememberContent(path, json);
+  await writeTextFile(path, json);
+  const legacy = legacyEdgeDir(base, edge.id);
+  if (await exists(legacy)) {
+    forgetContent(legacy);
+    await remove(legacy, { recursive: true });
   }
 }
 
@@ -85,30 +73,19 @@ function extractEdgeData(edge: MosaicEdge): object {
 
 // Save edge to file (debounced)
 export function saveEdge(edge: MosaicEdge) {
-  if (!workspacePath) return;
-  
-  // Clear existing timer
+  const base = workspacePath;
+  if (!base) return;
+
   if (edgeTimers.has(edge.id)) {
     clearTimeout(edgeTimers.get(edge.id));
   }
-  
-  // Set new debounced timer
+
   pendingEdges.set(edge.id, edge);
   edgeTimers.set(edge.id, setTimeout(async () => {
     edgeTimers.delete(edge.id);
     pendingEdges.delete(edge.id);
     try {
-      await ensureEdgesFolder();
-      await ensureEdgeFolder(edge.id);
-      const { writeTextFile } = await import('@tauri-apps/plugin-fs');
-      
-      const edgeData = extractEdgeData(edge);
-      const joinedPath = `${getEdgeFolderPath(edge.id)}/joined.json`;
-      const json = JSON.stringify(edgeData);
-      rememberContent(joinedPath, json);
-      
-      // Write as NDJSON (single line JSON for this edge)
-      await writeTextFile(joinedPath, json);
+      await writeEdgeFile(base, edge);
     } catch (error) {
       console.error(`Error saving edge ${edge.id}:`, error);
     }
@@ -118,42 +95,31 @@ export function saveEdge(edge: MosaicEdge) {
 // Save edge immediately (for edge creation)
 export async function saveEdgeImmediate(edge: MosaicEdge) {
   if (!workspacePath) return;
-  
   try {
-    await ensureEdgesFolder();
-    await ensureEdgeFolder(edge.id);
-    const { writeTextFile } = await import('@tauri-apps/plugin-fs');
-    
-    const edgeData = extractEdgeData(edge);
-    const joinedPath = `${getEdgeFolderPath(edge.id)}/joined.json`;
-    const json = JSON.stringify(edgeData);
-    rememberContent(joinedPath, json);
-    await writeTextFile(joinedPath, json);
+    await writeEdgeFile(workspacePath, edge);
   } catch (error) {
     console.error(`Error saving edge ${edge.id}:`, error);
   }
 }
 
-// Delete edge folder
+// Delete the edge file (and a v2 edge folder, if any)
 export async function deleteEdgeFolder(edgeId: string) {
   if (!workspacePath) return;
-  
+
+  if (edgeTimers.has(edgeId)) {
+    clearTimeout(edgeTimers.get(edgeId));
+    edgeTimers.delete(edgeId);
+  }
+  pendingEdges.delete(edgeId);
+
   try {
     const { remove, exists } = await import('@tauri-apps/plugin-fs');
-    const edgePath = getEdgeFolderPath(edgeId);
-    forgetContent(edgePath);
-    
-    if (await exists(edgePath)) {
-      await remove(edgePath, { recursive: true });
-    }
-    
-    // Clear any pending timer
-    if (edgeTimers.has(edgeId)) {
-      clearTimeout(edgeTimers.get(edgeId));
-      edgeTimers.delete(edgeId);
+    for (const path of [edgeFile(workspacePath, edgeId), legacyEdgeDir(workspacePath, edgeId)]) {
+      forgetContent(path);
+      if (await exists(path)) await remove(path, { recursive: true });
     }
   } catch (error) {
-    console.error(`Error deleting edge folder ${edgeId}:`, error);
+    console.error(`Error deleting edge ${edgeId}:`, error);
   }
 }
 
@@ -233,23 +199,19 @@ function buildMarker(shape: string | undefined, color: string): EdgeMarker | und
   };
 }
 
-// Load a single edge from file
+// Load a single edge from file (v3 edges/<id>.json, else v2 edges/<id>/joined.json)
 export async function loadEdge(edgeId: string): Promise<MosaicEdge | null> {
   if (!workspacePath) return null;
-  
+
   try {
     const { readTextFile, exists } = await import('@tauri-apps/plugin-fs');
-    
-    const joinedPath = `${getEdgeFolderPath(edgeId)}/joined.json`;
-    
-    if (!(await exists(joinedPath))) {
-      console.warn(`Edge file not found for ${edgeId}`);
-      return null;
+    for (const path of [edgeFile(workspacePath, edgeId), `${legacyEdgeDir(workspacePath, edgeId)}/joined.json`]) {
+      if (!(await exists(path))) continue;
+      const content = await readTextFile(path);
+      rememberContent(path, content);
+      return edgeFromData(edgeId, JSON.parse(content));
     }
-    
-    const content = await readTextFile(joinedPath);
-    rememberContent(joinedPath, content);
-    return edgeFromData(edgeId, JSON.parse(content));
+    return null;
   } catch (error) {
     console.error(`Error loading edge ${edgeId}:`, error);
     return null;
@@ -296,17 +258,16 @@ export async function loadAllEdges(preloaded?: StoredEdge[]): Promise<MosaicEdge
     }
     
     const entries = await readDir(edgesPath);
+    const ids = new Set(
+      entries
+        .filter((e) => e.name && (e.isDirectory || e.name.endsWith('.json')))
+        .map((e) => (e.isDirectory ? e.name : e.name.slice(0, -5)))
+    );
     const edges: MosaicEdge[] = [];
-    
-    for (const entry of entries) {
-      if (entry.isDirectory && entry.name) {
-        const edge = await loadEdge(entry.name);
-        if (edge) {
-          edges.push(edge);
-        }
-      }
+    for (const id of ids) {
+      const edge = await loadEdge(id);
+      if (edge) edges.push(edge);
     }
-    
     return edges;
   } catch (error) {
     console.error('Error loading edges:', error);
@@ -324,14 +285,9 @@ export async function flushPendingSaves() {
   pendingEdges.clear();
   if (!base || edges.length === 0) return;
 
-  const { writeTextFile, mkdir, exists } = await import('@tauri-apps/plugin-fs');
   for (const edge of edges) {
     try {
-      const dir = `${base}/edges/${edge.id}`;
-      if (!(await exists(dir))) await mkdir(dir, { recursive: true });
-      const json = JSON.stringify(extractEdgeData(edge));
-      rememberContent(`${dir}/joined.json`, json);
-      await writeTextFile(`${dir}/joined.json`, json);
+      await writeEdgeFile(base, edge);
     } catch (error) {
       console.error(`Error flushing edge ${edge.id}:`, error);
     }

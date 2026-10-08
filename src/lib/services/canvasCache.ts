@@ -3,7 +3,7 @@
 
 import { assertSafeId, type CanvasCache } from '@mosaicflow/vault-core';
 
-const GITIGNORE = 'cache/\nstate/\n';
+const GITIGNORE = 'cache/\nstate/\nbackup/\n';
 
 const cacheDir = (vaultPath: string) => `${vaultPath}/.mosaicflow/cache/canvases`;
 

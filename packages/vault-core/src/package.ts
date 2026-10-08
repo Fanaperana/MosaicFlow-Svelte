@@ -2,7 +2,7 @@
 //
 //   mimetype         "application/vnd.mosaicflow+zip" (first entry, stored) so tools can sniff it
 //   manifest.json    PackageManifest
-//   <Canvas>/...     .mosaic/meta.json, workspace.json, nodes/*.md, edges/*/joined.json, images/...
+//   <Canvas>/...     canvas.json, nodes/*.md, edges/*.json, ... (v2 packages: .mosaic/meta.json, edges/*/joined.json)
 //
 // A hand-made zip of a canvas folder (no manifest) is accepted too.
 
@@ -152,9 +152,9 @@ function isZip(bytes: Uint8Array): boolean {
   return bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
 }
 
-/** Canvas root for a path that marks a canvas folder, e.g. "A/.mosaic/meta.json" -> "A". */
+/** Canvas root for a path that marks a canvas folder, e.g. "A/canvas.json" -> "A". */
 function canvasRootOf(path: string): string | null {
-  const match = /^(?:(.*)\/)?(?:\.mosaic\/meta\.json|nodes\/[^/]+\.md)$/.exec(path);
+  const match = /^(?:(.*)\/)?(?:canvas\.json|\.mosaic\/meta\.json|nodes\/[^/]+\.md)$/.exec(path);
   return match ? (match[1] ?? '') : null;
 }
 
@@ -220,12 +220,13 @@ export async function unpackPackage(bytes: Uint8Array, limits: UnpackLimits = DE
     }
 
     let name = '';
-    const meta = canvasFiles.get('.mosaic/meta.json');
+    // v3 canvas.json, else v2 .mosaic/meta.json
+    const meta = canvasFiles.get('canvas.json') ?? canvasFiles.get('.mosaic/meta.json');
     if (meta) {
       try {
         name = String(JSON.parse(strFromU8(meta)).name ?? '');
       } catch {
-        warnings.push(`${root || 'root'}: meta.json is not valid JSON`);
+        warnings.push(`${root || 'root'}: canvas metadata is not valid JSON`);
       }
     }
     name ||= manifest?.canvases.find((c) => c.folder === root)?.name ?? root.split('/').pop() ?? '';

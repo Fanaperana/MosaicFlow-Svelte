@@ -69,7 +69,6 @@ export interface DesignGuide {
 
 export interface NodeTypesDocument {
   schemaVersion: 1;
-  generatedAt: string;
   format: Record<string, string>;
   design: DesignGuide;
   nodeTypes: NodeTypeSchema[];

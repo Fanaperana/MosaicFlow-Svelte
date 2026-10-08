@@ -38,7 +38,7 @@ export const tauriFsAdapter: FsAdapter = {
       if (content !== null) rememberContent(`${root}/nodes/${id}.md`, content);
     }
     for (const { id, content } of files.edges) {
-      if (content !== null) rememberContent(`${root}/edges/${id}/joined.json`, content);
+      if (content !== null) rememberContent(`${root}/edges/${id}.json`, content);
     }
     return files;
   },

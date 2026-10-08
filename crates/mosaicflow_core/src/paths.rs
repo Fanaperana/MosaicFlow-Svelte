@@ -48,17 +48,24 @@ pub struct VaultPaths {
     pub assets: PathBuf,
     pub attachments: PathBuf,
     pub config: PathBuf,
+    /// Per-device canvas UI state (viewport, selection); git-ignored.
+    pub state: PathBuf,
+    /// Copies of files replaced by format migrations.
+    pub backup: PathBuf,
 }
 
 impl VaultPaths {
     pub fn from_root(root: &PathBuf) -> Self {
+        let config = root.join(".mosaicflow");
         Self {
             root: root.clone(),
             vault_json: root.join("vault.json"),
             canvases: root.join("canvases"),
             assets: root.join("assets"),
             attachments: root.join("attachments"),
-            config: root.join(".mosaicflow"),
+            state: config.join("state"),
+            backup: config.join("backup"),
+            config,
         }
     }
 
@@ -67,23 +74,32 @@ impl VaultPaths {
         self.vault_json.exists()
     }
 
-    /// Create all required directories
+    /// Create all required directories (attachments are created when first needed)
     pub fn create_all(&self) -> MosaicResult<()> {
         crate::fs::ensure_dir(&self.root)?;
         crate::fs::ensure_dir(&self.canvases)?;
-        crate::fs::ensure_dir(&self.assets)?;
-        crate::fs::ensure_dir(&self.attachments)?;
         crate::fs::ensure_dir(&self.config)?;
         Ok(())
+    }
+
+    /// UI state file of one canvas
+    pub fn canvas_state(&self, canvas_id: &str) -> PathBuf {
+        self.state.join(format!("{canvas_id}.json"))
     }
 }
 
 /// Standard paths within a canvas
 pub struct CanvasPaths {
     pub root: PathBuf,
+    /// v3 metadata + settings (also the v1 file name; told apart by `formatVersion`)
+    pub canvas_json: PathBuf,
+    /// v2 only
     pub mosaic: PathBuf,
+    /// v2 only
     pub meta_json: PathBuf,
+    /// v2 only
     pub state_json: PathBuf,
+    /// v2 only
     pub workspace_json: PathBuf,
     pub nodes: PathBuf,
     pub edges: PathBuf,
@@ -96,6 +112,7 @@ impl CanvasPaths {
         let mosaic = root.join(".mosaic");
         Self {
             root: root.clone(),
+            canvas_json: root.join("canvas.json"),
             mosaic: mosaic.clone(),
             meta_json: mosaic.join("meta.json"),
             state_json: mosaic.join("state.json"),
@@ -107,24 +124,29 @@ impl CanvasPaths {
         }
     }
 
-    /// Check if this is a valid canvas directory (v2 format)
+    /// v3: canvas.json with a `formatVersion` field
+    pub fn is_valid_v3(&self) -> bool {
+        crate::fs::read_json::<serde_json::Value>(&self.canvas_json)
+            .ok()
+            .and_then(|v| v.get("formatVersion")?.as_u64())
+            .is_some_and(|v| v >= 3)
+    }
+
+    /// v2: .mosaic/meta.json
     pub fn is_valid_v2(&self) -> bool {
         self.meta_json.exists()
     }
 
-    /// Check if this is a valid canvas directory (v1 format)
+    /// v1: canvas.json without `formatVersion`
     pub fn is_valid_v1(&self) -> bool {
-        self.root.join("canvas.json").exists()
+        self.canvas_json.exists() && !self.is_valid_v3()
     }
 
-    /// Create all required directories
+    /// Create the v3 directory structure
     pub fn create_all(&self) -> MosaicResult<()> {
         crate::fs::ensure_dir(&self.root)?;
-        crate::fs::ensure_dir(&self.mosaic)?;
         crate::fs::ensure_dir(&self.nodes)?;
         crate::fs::ensure_dir(&self.edges)?;
-        crate::fs::ensure_dir(&self.images)?;
-        crate::fs::ensure_dir(&self.attachments)?;
         Ok(())
     }
 }

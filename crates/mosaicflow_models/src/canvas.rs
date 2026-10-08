@@ -89,7 +89,78 @@ pub struct CanvasInfo {
     pub tags: Vec<String>,
 }
 
+pub const CANVAS_FORMAT_VERSION: u32 = 3;
+
+/// Canvas metadata and settings stored in <canvas>/canvas.json (format v3).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CanvasFile {
+    pub format_version: u32,
+    pub id: String,
+    pub vault_id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    /// Canvas settings owned by the frontend (grid, filters, view-only, ...).
+    #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub settings: serde_json::Map<String, serde_json::Value>,
+}
+
+impl CanvasFile {
+    pub fn new(id: String, vault_id: String, name: String) -> Self {
+        let now = mosaicflow_core::now_iso();
+        Self {
+            format_version: CANVAS_FORMAT_VERSION,
+            id,
+            vault_id,
+            name,
+            description: String::new(),
+            tags: vec![],
+            created_at: now.clone(),
+            updated_at: now,
+            settings: serde_json::Map::new(),
+        }
+    }
+
+    pub fn touch(&mut self) {
+        self.updated_at = mosaicflow_core::now_iso();
+    }
+}
+
+impl From<&CanvasMeta> for CanvasFile {
+    fn from(meta: &CanvasMeta) -> Self {
+        Self {
+            format_version: CANVAS_FORMAT_VERSION,
+            id: meta.id.clone(),
+            vault_id: meta.vault_id.clone(),
+            name: meta.name.clone(),
+            description: meta.description.clone(),
+            tags: meta.tags.clone(),
+            created_at: meta.created_at.clone(),
+            updated_at: meta.updated_at.clone(),
+            settings: serde_json::Map::new(),
+        }
+    }
+}
+
 impl CanvasInfo {
+    pub fn from_file(file: &CanvasFile, path: String) -> Self {
+        Self {
+            id: file.id.clone(),
+            vault_id: file.vault_id.clone(),
+            name: file.name.clone(),
+            description: file.description.clone(),
+            path,
+            created_at: file.created_at.clone(),
+            updated_at: file.updated_at.clone(),
+            tags: file.tags.clone(),
+        }
+    }
+
     pub fn from_meta(meta: &CanvasMeta, path: String) -> Self {
         Self {
             id: meta.id.clone(),

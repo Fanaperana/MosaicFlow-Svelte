@@ -28,8 +28,37 @@ export interface CanvasSpec {
   tags?: string[];
 }
 
-const META_FILE = '.mosaic/meta.json';
-const CANVAS_DIRS = ['.mosaic', 'nodes', 'edges', 'images', 'attachments'];
+/** <canvas>/canvas.json (format v3). */
+export interface CanvasFile {
+  formatVersion: number;
+  id: string;
+  vaultId: string;
+  name: string;
+  description?: string;
+  tags?: string[];
+  createdAt: string;
+  updatedAt: string;
+  settings?: Record<string, unknown>;
+}
+
+export const CANVAS_FORMAT_VERSION = 3;
+export const CANVAS_FILE = 'canvas.json';
+/** v2 metadata; the app migrates v2 canvases to v3 when it opens the vault. */
+const LEGACY_META_FILE = '.mosaic/meta.json';
+const CANVAS_DIRS = ['nodes', 'edges'];
+
+function fromCanvasFile(f: CanvasFile): CanvasMeta {
+  return {
+    id: f.id,
+    vault_id: f.vaultId,
+    name: f.name,
+    description: f.description ?? '',
+    tags: f.tags ?? [],
+    created_at: f.createdAt,
+    updated_at: f.updatedAt,
+    version: String(f.formatVersion),
+  };
+}
 
 export class VaultRepository {
   private nodeTypes: NodeTypesDocument | null | undefined;
@@ -62,16 +91,26 @@ export class VaultRepository {
     for (const dir of await this.fs.list(this.canvasesDir)) {
       if (!dir.isDirectory) continue;
       const path = `${this.canvasesDir}/${dir.name}`;
-      const metaPath = `${path}/${META_FILE}`;
-      if (!(await this.fs.exists(metaPath))) continue;
-      try {
-        const meta = JSON.parse(await this.fs.readText(metaPath)) as CanvasMeta;
-        entries.push({ ...meta, tags: meta.tags ?? [], description: meta.description ?? '', folder: dir.name, path });
-      } catch {
-        // Unreadable meta: not a canvas we can safely open.
-      }
+      const meta = await this.readMeta(path);
+      if (meta) entries.push({ ...meta, tags: meta.tags ?? [], description: meta.description ?? '', folder: dir.name, path });
     }
     return entries.sort((a, b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? ''));
+  }
+
+  /** Canvas metadata from canvas.json (v3) or .mosaic/meta.json (v2); null when not a canvas. */
+  private async readMeta(path: string): Promise<CanvasMeta | null> {
+    try {
+      if (await this.fs.exists(`${path}/${CANVAS_FILE}`)) {
+        const file = JSON.parse(await this.fs.readText(`${path}/${CANVAS_FILE}`)) as CanvasFile;
+        if (file.formatVersion >= CANVAS_FORMAT_VERSION) return fromCanvasFile(file);
+      }
+      if (await this.fs.exists(`${path}/${LEGACY_META_FILE}`)) {
+        return JSON.parse(await this.fs.readText(`${path}/${LEGACY_META_FILE}`)) as CanvasMeta;
+      }
+    } catch {
+      // Unreadable metadata: not a canvas we can safely open.
+    }
+    return null;
   }
 
   /** Finds a canvas by id, exact name (case-insensitive) or folder name. */
@@ -106,35 +145,39 @@ export class VaultRepository {
 
     const vault = JSON.parse(await this.fs.readText(`${this.root}/vault.json`)) as { id: string };
     const now = new Date().toISOString();
-    const meta: CanvasMeta = {
+    const file: CanvasFile = {
+      formatVersion: CANVAS_FORMAT_VERSION,
       id: globalThis.crypto.randomUUID(),
-      vault_id: vault.id,
+      vaultId: vault.id,
       name,
       description: spec.description ?? '',
       tags: spec.tags ?? [],
-      created_at: now,
-      updated_at: now,
-      version: '2.0.0',
+      createdAt: now,
+      updatedAt: now,
     };
 
     for (const dir of CANVAS_DIRS) await this.fs.mkdir(`${path}/${dir}`);
-    await this.fs.writeText(`${path}/${META_FILE}`, JSON.stringify(meta, null, 2));
-    await this.fs.writeText(
-      `${path}/.mosaic/state.json`,
-      JSON.stringify({ viewport: { x: 0, y: 0, zoom: 1 }, selected_nodes: [], selected_edges: [], canvas_mode: '', updated_at: '' }, null, 2)
-    );
-    // Empty manifest: nodes and edges live in their own files.
-    await this.fs.writeText(`${path}/workspace.json`, JSON.stringify({ version: '2.0.0', nodes: [], edges: [], settings: {} }, null, 2));
+    await this.fs.writeText(`${path}/${CANVAS_FILE}`, JSON.stringify(file, null, 2));
 
-    const entry: CanvasEntry = { ...meta, folder, path };
+    const entry: CanvasEntry = { ...fromCanvasFile(file), folder, path };
     return { entry, repo: new CanvasRepository(this.fs, path, await this.bodyMappingResolver()) };
   }
 
-  /** Bumps updated_at so the canvas list shows recent edits first. */
+  /** Bumps the updated time so the canvas list shows recent edits first. */
   async touchCanvas(entry: CanvasEntry): Promise<void> {
-    const metaPath = `${entry.path}/${META_FILE}`;
-    const meta = JSON.parse(await this.fs.readText(metaPath)) as CanvasMeta;
-    meta.updated_at = new Date().toISOString();
-    await this.fs.writeText(metaPath, JSON.stringify(meta, null, 2));
+    const now = new Date().toISOString();
+    const v3 = `${entry.path}/${CANVAS_FILE}`;
+    if (await this.fs.exists(v3)) {
+      const file = JSON.parse(await this.fs.readText(v3)) as CanvasFile;
+      if (file.formatVersion >= CANVAS_FORMAT_VERSION) {
+        file.updatedAt = now;
+        await this.fs.writeText(v3, JSON.stringify(file, null, 2));
+        return;
+      }
+    }
+    const legacy = `${entry.path}/${LEGACY_META_FILE}`;
+    const meta = JSON.parse(await this.fs.readText(legacy)) as CanvasMeta;
+    meta.updated_at = now;
+    await this.fs.writeText(legacy, JSON.stringify(meta, null, 2));
   }
 }

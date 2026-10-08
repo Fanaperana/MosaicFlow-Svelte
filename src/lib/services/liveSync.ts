@@ -8,7 +8,8 @@ import { hasPendingNodeSave, readNodeFromDisk } from './nodeFileService';
 import { hasPendingEdgeSave, loadEdge } from './edgeFileService';
 
 const NODE_FILE = /^nodes\/([A-Za-z0-9_][A-Za-z0-9_.-]*)\.md$/;
-const EDGE_FILE = /^edges\/([A-Za-z0-9_][A-Za-z0-9_.-]*)(?:\/joined\.json)?$/;
+// edges/<id>.json (v3), edges/<id>/joined.json or the edges/<id> folder itself (v2)
+const EDGE_FILE = /^edges\/([A-Za-z0-9_][A-Za-z0-9_.-]*?)(?:\.json|\/joined\.json)?$/;
 const BATCH_DELAY = 120;
 
 let stopWatching: (() => void) | null = null;
@@ -62,10 +63,12 @@ function onPaths(paths: string[]) {
   }
 }
 
-async function readIfChanged(path: string): Promise<'missing' | 'same' | 'changed'> {
+async function readIfChanged(...paths: string[]): Promise<'missing' | 'same' | 'changed'> {
   const { exists, readTextFile } = await import('@tauri-apps/plugin-fs');
-  if (!(await exists(path))) return 'missing';
-  return isKnownContent(path, await readTextFile(path)) ? 'same' : 'changed';
+  for (const path of paths) {
+    if (await exists(path)) return isKnownContent(path, await readTextFile(path)) ? 'same' : 'changed';
+  }
+  return 'missing';
 }
 
 async function applyBatch() {
@@ -102,7 +105,7 @@ async function applyBatch() {
   for (const id of edgeIds) {
     if (hasPendingEdgeSave(id)) continue;
     try {
-      const state = await readIfChanged(`${base}/edges/${id}/joined.json`);
+      const state = await readIfChanged(`${base}/edges/${id}.json`, `${base}/edges/${id}/joined.json`);
       if (base !== watchedPath) return;
       if (state === 'missing') {
         if (workspace.getEdge(id)) {

@@ -2,10 +2,10 @@
 //
 // Handles all canvas-related operations
 
-use crate::core::{self, CanvasPaths, MosaicError, MosaicResult};
-use crate::models::{CanvasInfo, CanvasMeta, CanvasUIState, WorkspaceData};
+use crate::core::{self, CanvasPaths, MosaicError, MosaicResult, VaultPaths};
+use crate::models::{CanvasFile, CanvasInfo, CanvasUIState};
 use crate::services::MigrationService;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub struct CanvasService;
 
@@ -41,49 +41,53 @@ impl CanvasService {
         // Create directory structure
         canvas_paths.create_all()?;
 
-        // Create canvas metadata
-        let canvas_id = core::generate_uuid();
-        let mut meta = CanvasMeta::new(canvas_id.clone(), vault_id.to_string(), name.to_string());
+        let mut file = CanvasFile::new(
+            core::generate_uuid(),
+            vault_id.to_string(),
+            name.to_string(),
+        );
         if let Some(desc) = description {
-            meta = meta.with_description(desc.to_string());
+            file.description = desc.to_string();
         }
+        core::write_json(&canvas_paths.canvas_json, &file)?;
 
-        // Write meta.json
-        core::write_json(&canvas_paths.meta_json, &meta)?;
-
-        // Create initial UI state
-        let state = CanvasUIState::default();
-        core::write_json(&canvas_paths.state_json, &state)?;
-
-        // Create empty workspace
-        let workspace = WorkspaceData::new();
-        core::write_json(&canvas_paths.workspace_json, &workspace)?;
-
-        Ok(CanvasInfo::from_meta(
-            &meta,
+        Ok(CanvasInfo::from_file(
+            &file,
             final_path.to_string_lossy().to_string(),
         ))
     }
 
-    /// Open a canvas (with auto-migration from v1)
+    /// Open a canvas, migrating v1/v2 canvases to v3 first
     pub fn open(path: &Path) -> MosaicResult<CanvasInfo> {
+        let file = Self::read_file(path)?;
+        Ok(CanvasInfo::from_file(
+            &file,
+            path.to_string_lossy().to_string(),
+        ))
+    }
+
+    /// Reads canvas.json, migrating older formats on the way.
+    fn read_file(path: &Path) -> MosaicResult<CanvasFile> {
         let canvas_paths = CanvasPaths::from_root(&path.to_path_buf());
 
-        // Check v2 format first
-        if canvas_paths.is_valid_v2() {
-            let meta: CanvasMeta = core::read_json(&canvas_paths.meta_json)?;
-            return Ok(CanvasInfo::from_meta(
-                &meta,
-                path.to_string_lossy().to_string(),
-            ));
+        if canvas_paths.is_valid_v3() {
+            return core::read_json(&canvas_paths.canvas_json);
         }
-
-        // Try v1 format and migrate
-        if canvas_paths.is_valid_v1() {
-            return MigrationService::migrate_canvas(path);
+        if !canvas_paths.is_valid_v2() {
+            if !canvas_paths.is_valid_v1() {
+                return Err(MosaicError::canvas_not_found(&path.to_string_lossy()));
+            }
+            MigrationService::migrate_canvas(path)?;
         }
+        MigrationService::migrate_v2_to_v3(path)?;
+        core::read_json(&canvas_paths.canvas_json)
+    }
 
-        Err(MosaicError::canvas_not_found(&path.to_string_lossy()))
+    fn write_file(path: &Path, file: &CanvasFile) -> MosaicResult<()> {
+        core::write_json(
+            &CanvasPaths::from_root(&path.to_path_buf()).canvas_json,
+            file,
+        )
     }
 
     /// List all canvases in a directory
@@ -105,18 +109,10 @@ impl CanvasService {
 
     /// Rename a canvas
     pub fn rename(path: &Path, new_name: &str) -> MosaicResult<CanvasInfo> {
-        let canvas_paths = CanvasPaths::from_root(&path.to_path_buf());
-
-        // Ensure v2 format (auto-migrate if needed)
-        let _info = Self::open(path)?;
-
-        // Read and update metadata
-        let mut meta: CanvasMeta = core::read_json(&canvas_paths.meta_json)?;
-        meta.name = new_name.to_string();
-        meta.touch();
-
-        // Write back
-        core::write_json(&canvas_paths.meta_json, &meta)?;
+        let mut file = Self::read_file(path)?;
+        file.name = new_name.to_string();
+        file.touch();
+        Self::write_file(path, &file)?;
 
         // Optionally rename folder
         let new_folder_name = core::sanitize_name(new_name);
@@ -132,94 +128,87 @@ impl CanvasService {
             path.to_path_buf()
         };
 
-        Ok(CanvasInfo::from_meta(
-            &meta,
+        Ok(CanvasInfo::from_file(
+            &file,
             final_path.to_string_lossy().to_string(),
         ))
     }
 
     /// Delete a canvas
     pub fn delete(path: &Path) -> MosaicResult<Option<String>> {
-        // Try to get canvas ID before deletion (for history cleanup)
+        // Try to get canvas ID before deletion (for history and state cleanup)
         let canvas_id = Self::get_canvas_id(path);
 
         core::remove_dir_all(path)?;
+        if let Some(state) = Self::state_path(path, canvas_id.as_deref()) {
+            let _ = std::fs::remove_file(state);
+        }
 
         Ok(canvas_id)
     }
 
     /// Update canvas tags
     pub fn update_tags(path: &Path, tags: Vec<String>) -> MosaicResult<CanvasInfo> {
-        let canvas_paths = CanvasPaths::from_root(&path.to_path_buf());
-
-        if !canvas_paths.is_valid_v2() {
-            return Err(MosaicError::canvas_not_found(&path.to_string_lossy()));
-        }
-
-        let mut meta: CanvasMeta = core::read_json(&canvas_paths.meta_json)?;
-        meta.tags = tags;
-        meta.touch();
-
-        core::write_json(&canvas_paths.meta_json, &meta)?;
-
-        Ok(CanvasInfo::from_meta(
-            &meta,
+        let mut file = Self::read_file(path)?;
+        file.tags = tags;
+        file.touch();
+        Self::write_file(path, &file)?;
+        Ok(CanvasInfo::from_file(
+            &file,
             path.to_string_lossy().to_string(),
         ))
     }
 
     /// Update canvas description
     pub fn update_description(path: &Path, description: &str) -> MosaicResult<CanvasInfo> {
-        let canvas_paths = CanvasPaths::from_root(&path.to_path_buf());
-
-        if !canvas_paths.is_valid_v2() {
-            return Err(MosaicError::canvas_not_found(&path.to_string_lossy()));
-        }
-
-        let mut meta: CanvasMeta = core::read_json(&canvas_paths.meta_json)?;
-        meta.description = description.to_string();
-        meta.touch();
-
-        core::write_json(&canvas_paths.meta_json, &meta)?;
-
-        Ok(CanvasInfo::from_meta(
-            &meta,
+        let mut file = Self::read_file(path)?;
+        file.description = description.to_string();
+        file.touch();
+        Self::write_file(path, &file)?;
+        Ok(CanvasInfo::from_file(
+            &file,
             path.to_string_lossy().to_string(),
         ))
     }
 
+    /// <vault>/.mosaicflow/state/<canvas id>.json for a canvas at <vault>/canvases/<folder>
+    fn state_path(path: &Path, canvas_id: Option<&str>) -> Option<PathBuf> {
+        let id = canvas_id?;
+        // The id comes from a file in the vault; never let it name a path outside state/.
+        if id.is_empty()
+            || !id
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        {
+            return None;
+        }
+        let vault_root = path.parent()?.parent()?.to_path_buf();
+        Some(VaultPaths::from_root(&vault_root).canvas_state(id))
+    }
+
     /// Load canvas UI state
     pub fn load_state(path: &Path) -> MosaicResult<CanvasUIState> {
-        let canvas_paths = CanvasPaths::from_root(&path.to_path_buf());
-
-        if canvas_paths.state_json.exists() {
-            core::read_json(&canvas_paths.state_json)
-        } else {
-            Ok(CanvasUIState::default())
+        let id = Self::read_file(path)?.id;
+        match Self::state_path(path, Some(&id)) {
+            Some(state) if state.exists() => core::read_json(&state),
+            _ => Ok(CanvasUIState::default()),
         }
     }
 
     /// Save canvas UI state
     pub fn save_state(path: &Path, state: &CanvasUIState) -> MosaicResult<()> {
-        let canvas_paths = CanvasPaths::from_root(&path.to_path_buf());
-        core::ensure_dir(&canvas_paths.mosaic)?;
+        let id = Self::read_file(path)?.id;
+        let target = Self::state_path(path, Some(&id))
+            .ok_or_else(|| MosaicError::io_error("Canvas is not inside a vault"))?;
 
         let mut state = state.clone();
         state.touch();
 
-        core::write_json(&canvas_paths.state_json, &state)
+        core::write_json(&target, &state)
     }
 
-    /// Get canvas ID from meta.json
+    /// Get canvas ID from canvas.json (older formats are migrated first)
     fn get_canvas_id(path: &Path) -> Option<String> {
-        let canvas_paths = CanvasPaths::from_root(&path.to_path_buf());
-
-        if canvas_paths.is_valid_v2() {
-            core::read_json::<CanvasMeta>(&canvas_paths.meta_json)
-                .ok()
-                .map(|m| m.id)
-        } else {
-            None
-        }
+        Self::read_file(path).ok().map(|f| f.id)
     }
 }

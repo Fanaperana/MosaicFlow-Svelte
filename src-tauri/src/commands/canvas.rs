@@ -134,7 +134,12 @@ pub fn read_canvas_dir(root: &Path, known: &HashMap<String, String>) -> CanvasFi
         files.nodes.extend(load(&path, &meta, id, "nodes", known));
     }
     let edges_dir = root.join("edges");
-    // v2: edges/<id>/joined.json; v3: edges/<id>.json
+    // v3: edges/<id>.json, preferred over v2: edges/<id>/joined.json
+    for (path, id, meta) in regular_files(&edges_dir, "json") {
+        files.edges.extend(load(&path, &meta, id, "edges", known));
+    }
+    let flat: std::collections::HashSet<String> =
+        files.edges.iter().map(|e| e.id.clone()).collect();
     if let Ok(entries) = fs::read_dir(&edges_dir) {
         for entry in entries.flatten() {
             let Ok(kind) = entry.file_type() else {
@@ -143,7 +148,7 @@ pub fn read_canvas_dir(root: &Path, known: &HashMap<String, String>) -> CanvasFi
             let Some(id) = entry.file_name().to_str().map(str::to_string) else {
                 continue;
             };
-            if !kind.is_dir() {
+            if !kind.is_dir() || flat.contains(&id) {
                 continue;
             }
             let joined = entry.path().join("joined.json");
@@ -153,9 +158,6 @@ pub fn read_canvas_dir(root: &Path, known: &HashMap<String, String>) -> CanvasFi
                 }
             }
         }
-    }
-    for (path, id, meta) in regular_files(&edges_dir, "json") {
-        files.edges.extend(load(&path, &meta, id, "edges", known));
     }
     files
 }
