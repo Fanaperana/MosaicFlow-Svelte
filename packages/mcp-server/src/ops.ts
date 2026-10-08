@@ -75,6 +75,17 @@ export interface ConnectInput {
   style?: EdgeStyleInput;
 }
 
+export interface BuildKnowledgeInput {
+  canvas: string;
+  description?: string;
+  tags?: string[];
+  groups?: { key: string; title: string; palette?: string }[];
+  nodes: { key: string; type: string; title: string; data?: Record<string, unknown>; palette?: string; group?: string; size?: { width: number; height: number } }[];
+  edges?: { from: string; to: string; label?: string; style?: EdgeStyleInput }[];
+  layout?: 'LR' | 'TB' | 'none';
+  story?: boolean;
+}
+
 function slugify(text: string): string {
   return text.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 }
@@ -106,6 +117,7 @@ export class MosaicOps {
     return {
       workflow: [
         'Call list_canvases, then read_canvas (detail "summary") before editing an existing canvas.',
+        'To create a whole map at once, use build_knowledge (groups + nodes + edges + layout in one call). Use the single-node tools below for small edits.',
         'Create nodes with create_node; omit position to auto-place without overlap (use "near" to place beside a related node, "parentId" to put it inside a group).',
         'Size nodes so content is never clipped (see design.rules); start from the type defaultSize.',
         'Group related nodes with create_group and give each category one palette name.',
@@ -547,6 +559,83 @@ export class MosaicOps {
     }
     await this.vault.touchCanvas(entry);
     return { ordered: nodeIds.length, changed };
+  }
+
+  /**
+   * Builds a whole knowledge map in one call: creates the canvas if needed, then groups, nodes and
+   * edges (referenced by caller-chosen keys), lays them out and sets the story order.
+   */
+  async buildKnowledge(input: BuildKnowledgeInput) {
+    const groups = input.groups ?? [];
+    const edges = input.edges ?? [];
+    const keys = new Set<string>();
+    for (const k of [...groups.map((g) => g.key), ...input.nodes.map((n) => n.key)]) {
+      if (keys.has(k)) throw new Error(`Duplicate key "${k}"`);
+      keys.add(k);
+    }
+    const groupKeys = new Set(groups.map((g) => g.key));
+    for (const n of input.nodes) {
+      if (n.group && !groupKeys.has(n.group)) throw new Error(`Node "${n.key}" uses unknown group "${n.group}"`);
+    }
+    for (const e of edges) {
+      for (const k of [e.from, e.to]) if (!keys.has(k)) throw new Error(`Edge ${e.from} -> ${e.to} uses unknown key "${k}"`);
+    }
+
+    const existing = (await this.vault.listCanvases()).find(
+      (c) => c.id === input.canvas || c.name.toLowerCase() === input.canvas.trim().toLowerCase()
+    );
+    const canvas = existing?.name ?? (await this.createCanvas({ name: input.canvas, description: input.description, tags: input.tags })).name;
+
+    const ids = new Map<string, string>();
+    for (const g of groups) {
+      const created = await this.createNode({ canvas, type: 'group', title: g.title, palette: g.palette });
+      ids.set(g.key, created.id);
+    }
+    for (const n of input.nodes) {
+      const created = await this.createNode({
+        canvas,
+        type: n.type,
+        title: n.title,
+        data: n.data,
+        palette: n.palette,
+        size: n.size,
+        ...(n.group ? { parentId: ids.get(n.group) } : {}),
+      });
+      ids.set(n.key, created.id);
+    }
+
+    const edgeIds: string[] = [];
+    const warnings: string[] = [];
+    for (const e of edges) {
+      try {
+        const created = await this.connect({ canvas, source: ids.get(e.from)!, target: ids.get(e.to)!, label: e.label, style: e.style });
+        edgeIds.push(created.id);
+      } catch (error) {
+        warnings.push(`${e.from} -> ${e.to}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (input.layout !== 'none') {
+      const direction = input.layout ?? 'LR';
+      for (const g of groups) {
+        if (input.nodes.filter((n) => n.group === g.key).length >= 2) {
+          await this.autoLayout({ canvas, parentId: ids.get(g.key), direction });
+        }
+      }
+      const { nodes } = await this.open(canvas);
+      if (nodes.filter((n) => !n.parentId).length >= 2) await this.autoLayout({ canvas, direction });
+    }
+    if (input.story !== false && input.nodes.length > 0) {
+      await this.setStoryOrder(canvas, input.nodes.map((n) => ids.get(n.key)!));
+    }
+
+    return {
+      canvas,
+      created: existing ? 'added to existing canvas' : 'new canvas',
+      ids: Object.fromEntries(ids),
+      edges: edgeIds.length,
+      ...(warnings.length ? { warnings } : {}),
+    };
   }
 
   /** Creates a canvas from a Mermaid flowchart (nodes become notes, subgraphs become groups). */

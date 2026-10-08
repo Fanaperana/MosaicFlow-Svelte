@@ -109,6 +109,55 @@ async function main() {
     const x = (id: string) => flow.find((n: { id: string }) => n.id === id).x;
     assert(x('a') < x('b') && x('b') < x('c'), 'auto_layout restores left-to-right order');
 
+    const built = await call('build_knowledge', {
+      canvas: 'Built Map',
+      tags: ['ai'],
+      groups: [{ key: 'people', title: 'People', palette: 'violet' }],
+      nodes: [
+        { key: 'intro', type: 'note', title: 'Overview', data: { content: 'Start with [[Ada]]. #history' } },
+        { key: 'ada', type: 'note', title: 'Ada', group: 'people', data: { content: 'Wrote Note G.' } },
+        { key: 'charles', type: 'note', title: 'Charles', group: 'people' },
+      ],
+      edges: [
+        { from: 'intro', to: 'ada', label: 'starts with' },
+        { from: 'ada', to: 'charles', label: 'worked with' },
+        { from: 'ada', to: 'nobody' },
+      ],
+    }).catch((e: Error) => e.message);
+    assert(typeof built === 'string' && built.includes('unknown key'), 'build_knowledge validates keys before writing');
+    assert(!(await call('list_canvases')).some((c: { name: string }) => c.name === 'Built Map'), 'nothing written on invalid input');
+
+    const map = await call('build_knowledge', {
+      canvas: 'Built Map',
+      tags: ['ai'],
+      groups: [{ key: 'people', title: 'People', palette: 'violet' }],
+      nodes: [
+        { key: 'intro', type: 'note', title: 'Overview', data: { content: 'Start with [[Ada]]. #history' } },
+        { key: 'ada', type: 'note', title: 'Ada', group: 'people', data: { content: 'Wrote Note G.' } },
+        { key: 'charles', type: 'note', title: 'Charles', group: 'people' },
+      ],
+      edges: [
+        { from: 'intro', to: 'ada', label: 'starts with' },
+        { from: 'ada', to: 'charles', label: 'worked with' },
+      ],
+    });
+    const builtCanvas = await call('read_canvas', { canvas: 'Built Map' });
+    const byId = (id: string) => builtCanvas.nodes.find((n: { id: string }) => n.id === id);
+    assert(map.created === 'new canvas' && builtCanvas.nodes.length === 4 && builtCanvas.edges.length === 2, 'build_knowledge creates canvas, group, nodes and edges');
+    assert(byId(map.ids.ada).parent === map.ids.people && byId(map.ids.charles).parent === map.ids.people, 'build_knowledge puts nodes in their group');
+    assert(byId(map.ids.intro).order === 1 && byId(map.ids.charles).order === 3, 'build_knowledge sets story order');
+    const rects = builtCanvas.nodes.filter((n: { parent?: string }) => n.parent);
+    const overlap = rects.some((r: { x: number; y: number; width: number; height: number }, i: number) =>
+      rects.some((o: typeof r, j: number) => i !== j && r.x < o.x + o.width && o.x < r.x + r.width && r.y < o.y + o.height && o.y < r.y + r.height));
+    assert(!overlap, 'build_knowledge lays out without overlaps');
+    const again = await call('build_knowledge', { canvas: 'Built Map', nodes: [{ key: 'x', type: 'note', title: 'Extra' }], layout: 'none', story: false });
+    assert(again.created === 'added to existing canvas', 'build_knowledge adds to an existing canvas');
+
+    const prompts = (await client.listPrompts()).prompts.map((p) => p.name);
+    assert(prompts.includes('knowledge_map'), 'knowledge_map prompt listed');
+    const prompt = await client.getPrompt({ name: 'knowledge_map', arguments: { topic: 'Rust ownership' } });
+    assert(JSON.stringify(prompt.messages).includes('build_knowledge'), 'prompt points to build_knowledge');
+
     const del = await call('delete_node', { canvas: 'MCP Test', id: g.id });
     assert(del.detachedChildren.includes(a.id), 'deleting a group detaches children');
     const del2 = await call('delete_node', { canvas: 'MCP Test', id: a.id });

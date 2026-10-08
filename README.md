@@ -187,14 +187,67 @@ Share a plugin by publishing its folder on GitHub; users drop it into their plug
 
 ## AI assistants (MCP)
 
-`packages/mcp-server` is a [Model Context Protocol](https://modelcontextprotocol.io/) server that lets assistants such as Claude or Copilot read, search and build canvases directly in a vault folder: list and read pages, search, follow links and tags, create and connect nodes, group, auto-layout and import Mermaid. Changes appear live in the open app.
+`packages/mcp-server` is a [Model Context Protocol](https://modelcontextprotocol.io/) server that lets any MCP-capable assistant (Claude Desktop, VS Code Copilot, Cursor, Windsurf, LM Studio, …) read, search and build pages directly in a vault. Changes appear live in the open app.
+
+**1. Build it once** (a single self-contained file, only Node.js 20+ is needed to run it):
 
 ```bash
+pnpm install
 pnpm --filter @mosaicflow/mcp-server build
-node packages/mcp-server/dist/mosaicflow-mcp.mjs "/path/to/your/vault"
+# -> packages/mcp-server/dist/mosaicflow-mcp.mjs
 ```
 
-Agents without MCP can edit the files directly by following [docs/VAULT_FORMAT.md](docs/VAULT_FORMAT.md).
+**2. Add it to your assistant**, replacing both paths:
+
+<details open>
+<summary>Claude Desktop — <code>claude_desktop_config.json</code> (Settings → Developer → Edit config)</summary>
+
+```json
+{
+  "mcpServers": {
+    "mosaicflow": {
+      "command": "node",
+      "args": ["C:/path/to/MosaicFlow-Svelte/packages/mcp-server/dist/mosaicflow-mcp.mjs", "E:/MosaicVault/MyVault"]
+    }
+  }
+}
+```
+</details>
+
+<details>
+<summary>VS Code (Copilot agent mode) — <code>.vscode/mcp.json</code> or the user <code>mcp.json</code></summary>
+
+```json
+{
+  "servers": {
+    "mosaicflow": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["C:/path/to/MosaicFlow-Svelte/packages/mcp-server/dist/mosaicflow-mcp.mjs", "E:/MosaicVault/MyVault"]
+    }
+  }
+}
+```
+</details>
+
+<details>
+<summary>Cursor / Windsurf / other clients</summary>
+
+Use the same `command` and `args` in the client's MCP settings (`~/.cursor/mcp.json`, `~/.codeium/windsurf/mcp_config.json`, …). The vault can also be passed as the `MOSAICFLOW_VAULT` environment variable instead of the second argument.
+</details>
+
+**3. Ask for knowledge.** For example: *"Build a MosaicFlow knowledge map about the history of cryptography, with people, algorithms and a timeline."* Clients that support MCP prompts also offer a **knowledge_map** prompt that walks the model through it.
+
+| Tool | What it does |
+|------|--------------|
+| `get_guide` | Node types, fields, palette and layout rules (called first) |
+| `build_knowledge` | Creates a whole map in one call: page, groups, nodes, labelled edges, auto layout and story order |
+| `list_canvases`, `read_canvas`, `search`, `get_links`, `list_tags` | Read the vault, follow `[[links]]`, backlinks and `#tags` |
+| `create_canvas`, `create_node`, `update_node`, `delete_node` | Edit pages and nodes |
+| `connect`, `update_edge`, `delete_edge` | Edit edges |
+| `create_group`, `set_story_order`, `auto_layout`, `import_mermaid` | Structure and tidy a page |
+
+Open the vault in MosaicFlow once before connecting so `.mosaicflow/node-types.json` exists; it tells the assistant which node types and fields are available. Agents without MCP can edit the files directly by following [docs/VAULT_FORMAT.md](docs/VAULT_FORMAT.md).
 
 ---
 

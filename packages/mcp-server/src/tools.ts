@@ -181,4 +181,69 @@ export function registerTools(server: McpServer, ops: MosaicOps) {
     inputSchema: { name: z.string().min(1), mermaid: z.string().min(1), description: z.string().optional() },
     annotations: write,
   }, (args) => run(() => ops.importMermaid(args)));
+
+  server.registerTool('build_knowledge', {
+    title: 'Build knowledge map',
+    description:
+      'Create a whole knowledge map in ONE call: the canvas (created if it does not exist, otherwise added to), groups, nodes and labelled edges, then auto layout and story order. ' +
+      'Give every group and node a short unique "key" and reference those keys in node.group and edges. Prefer this over many create_node/connect calls. Call get_guide first for node types and fields.',
+    inputSchema: {
+      canvas: z.string().min(1).describe('Canvas name (new or existing) or id'),
+      description: z.string().optional().describe('Description when the canvas is created'),
+      tags: z.array(z.string()).optional().describe('Canvas tags when the canvas is created'),
+      groups: z
+        .array(z.object({ key: z.string().min(1), title: z.string().min(1), palette: palette.optional() }))
+        .optional()
+        .describe('Groups that frame related nodes (one per category)'),
+      nodes: z
+        .array(
+          z.object({
+            key: z.string().min(1),
+            type: z.string().describe('Node type from get_guide, e.g. note, person, organization, link, timestamp, code'),
+            title: z.string().min(1),
+            data: z.record(z.string(), z.unknown()).optional().describe('Type fields, e.g. note: { content: "markdown with [[links]] and #tags" }'),
+            palette: palette.optional(),
+            group: z.string().optional().describe('Key of the group this node belongs to'),
+            size: size.optional(),
+          })
+        )
+        .min(1)
+        .describe('Nodes in reading order (also used as the story order)'),
+      edges: z
+        .array(z.object({ from: z.string(), to: z.string(), label: z.string().optional().describe('1-3 words'), style: edgeStyle }))
+        .optional(),
+      layout: z.enum(['LR', 'TB', 'none']).optional().describe('Auto layout direction (default LR); none keeps auto-placement'),
+      story: z.boolean().optional().describe('Set the story order from the node order (default true)'),
+    },
+    annotations: write,
+  }, (args) => run(() => ops.buildKnowledge(args)));
+
+  server.registerPrompt('knowledge_map', {
+    title: 'Build a knowledge map',
+    description: 'Research a topic and turn it into a connected MosaicFlow canvas.',
+    argsSchema: {
+      topic: z.string().describe('What the map is about'),
+      canvas: z.string().optional().describe('Canvas name (defaults to the topic)'),
+      depth: z.string().optional().describe('"overview" (10-20 nodes) or "deep" (30-60 nodes)'),
+    },
+  }, ({ topic, canvas: name, depth }) => ({
+    messages: [{
+      role: 'user',
+      content: {
+        type: 'text',
+        text: [
+          `Build a MosaicFlow knowledge map about: ${topic}.`,
+          `Canvas: "${name || topic}". Size: ${depth === 'deep' ? '30-60' : '10-20'} nodes.`,
+          '',
+          '1. Call get_guide and list_canvases. If related canvases exist, search them and link to their nodes with [[Canvas name#Node title]].',
+          '2. Plan 3-6 categories (people, concepts, events, sources, ...); each becomes a group with its own palette.',
+          '3. Write each node as a self-contained note: a clear title, 2-6 sentences or bullet points, [[links]] to related node titles and 1-3 #tags. Use specific node types where they fit (person, organization, timestamp, link, code).',
+          '4. Connect nodes with short labelled edges that explain the relation ("influenced", "part of", "caused").',
+          '5. Create everything with ONE build_knowledge call, nodes listed in the order a reader should follow.',
+          '6. Read the canvas back with read_canvas (summary) and fix anything missing with update_node / connect.',
+          'Only state facts you are confident about; put sources in link nodes.',
+        ].join('\n'),
+      },
+    }],
+  }));
 }
