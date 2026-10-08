@@ -76,6 +76,27 @@
   // Either end of a selected edge can be dragged onto another handle.
   let reconnecting = $state(false);
   const canReconnect = $derived(!!selected && !workspace.locked);
+
+  // Grab dots sit a little way along the edge so they don't cover the handle.
+  const ANCHOR_OFFSET = 10;
+  const DIRECTIONS: Record<string, [number, number]> = {
+    top: [0, -1],
+    bottom: [0, 1],
+    left: [-1, 0],
+    right: [1, 0],
+  };
+
+  function anchorPoint(x: number, y: number, side: string, otherX: number, otherY: number) {
+    let [dx, dy] = DIRECTIONS[side] ?? [0, 0];
+    if (pathType === 'straight') {
+      const len = Math.hypot(otherX - x, otherY - y) || 1;
+      [dx, dy] = [(otherX - x) / len, (otherY - y) / len];
+    }
+    return { x: x + dx * ANCHOR_OFFSET, y: y + dy * ANCHOR_OFFSET };
+  }
+
+  const sourceAnchor = $derived(anchorPoint(sourceX, sourceY, sourcePosition, targetX, targetY));
+  const targetAnchor = $derived(anchorPoint(targetX, targetY, targetPosition, sourceX, sourceY));
 </script>
 
 <g class="glow-edge" class:selected class:reconnecting>
@@ -115,10 +136,10 @@
 {/if}
 
 {#if canReconnect}
-  <EdgeReconnectAnchor bind:reconnecting type="source" position={{ x: sourceX, y: sourceY }} size={18} title="Drag to another connection point">
+  <EdgeReconnectAnchor bind:reconnecting type="source" position={sourceAnchor} size={18} title="Drag to another connection point">
     <span class="reconnect-dot"></span>
   </EdgeReconnectAnchor>
-  <EdgeReconnectAnchor bind:reconnecting type="target" position={{ x: targetX, y: targetY }} size={18} title="Drag to another connection point">
+  <EdgeReconnectAnchor bind:reconnecting type="target" position={targetAnchor} size={18} title="Drag to another connection point">
     <span class="reconnect-dot"></span>
   </EdgeReconnectAnchor>
 {/if}
