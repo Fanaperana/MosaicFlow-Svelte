@@ -974,9 +974,14 @@
     background: #0d1117;
   }
 
-  .canvas-container.page-locked :global(.svelte-flow__resize-control),
-  .canvas-container.page-locked :global(.svelte-flow__handle) {
+  .canvas-container.page-locked :global(.svelte-flow__resize-control) {
     display: none !important;
+  }
+
+  /* Edges are anchored to handle positions, so handles must keep their layout box. */
+  .canvas-container.page-locked :global(.svelte-flow__handle) {
+    visibility: hidden !important;
+    pointer-events: none !important;
   }
 
   .canvas-container.page-locked :global(.svelte-flow__node input),
