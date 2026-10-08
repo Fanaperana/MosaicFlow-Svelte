@@ -118,8 +118,7 @@ List all canvases in a vault.
 
 #### `createCanvas(vaultPath: string, vaultId: string, name: string, description?: string): Promise<CanvasInfo | null>`
 Create a new canvas in the vault.
-- Creates canvas folder structure (`nodes/`, `edges/`, `.mosaic/`)
-- Initializes metadata files
+- Creates `nodes/`, `edges/` and `canvas.json`
 
 #### `renameCanvas(canvasPath: string, newName: string): Promise<CanvasInfo | null>`
 Rename a canvas.
@@ -220,7 +219,10 @@ Set selected edges.
 Initialize file services for a workspace path. Must be called before save operations.
 
 #### `saveWorkspaceManifest(): Promise<void>`
-Save the workspace manifest (`workspace.json`). Called automatically on node/edge changes.
+Save the page's name, description and settings to `canvas.json`. Called when settings change (filters, view-only, toolbar options).
+
+#### `scheduleUIStateSave(): void`
+Debounced save of the viewport and selection to `<vault>/.mosaicflow/state/<canvas-id>.json` (per device).
 
 #### `clear(): void`
 Clear the workspace and reset all state.
@@ -311,9 +313,10 @@ Handles real-time file persistence for edges.
 
 ```
 edges/
-└── {edge-id}/
-    └── joined.json    # Edge data (source, target, styling)
+└── {edge-id}.json    # Edge data (source, target, styling)
 ```
+
+v2 edges (`edges/{edge-id}/joined.json`) are still read and are replaced by the flat file on the next save.
 
 ### Functions
 
@@ -327,7 +330,7 @@ Save edge to file (debounced, 100ms).
 Save edge immediately without debouncing.
 
 #### `deleteEdgeFolder(edgeId: string): Promise<void>`
-Delete an edge's folder.
+Delete an edge's file (and its v2 folder, if any).
 
 #### `loadEdge(edgeId: string): Promise<MosaicEdge | null>`
 Load a single edge from file.
@@ -458,50 +461,39 @@ interface MosaicEdge {
 
 ## File Structure
 
-### Vault Structure
+### Vault Structure (format v3)
 
 ```
 MyVault/
-├── vault.json              # Vault metadata (id, name, timestamps)
-├── .mosaicflow/            # Vault-level config (hidden)
+├── vault.json                    # Vault metadata (id, name, timestamps)
+├── .mosaicflow/
+│   ├── .gitignore                # ignores state/, cache/, backup/
+│   ├── node-types.json           # Node type schemas for external tools
+│   ├── state/{canvas-id}.json    # Viewport + selection (per device)
+│   ├── cache/                    # Parsed-file cache (rebuildable)
+│   └── backup/v2-{date}/         # Files replaced by format migrations
 └── canvases/
     └── MyCanvas/
-        ├── workspace.json  # Manifest (node/edge IDs, settings)
-        ├── .mosaic/        # Canvas metadata (hidden)
-        │   ├── meta.json   # Canvas UUID, name, timestamps
-        │   └── state.json  # Viewport, selection state
-        ├── nodes/          # Individual node folders
-        │   └── {uuid}/
-        │       └── data/
-        │           ├── content         # Primary content
-        │           └── properties.json # Position, size, styling
-        ├── edges/          # Individual edge folders
-        │   └── {uuid}/
-        │       └── joined.json
-        ├── images/         # Attached images
-        └── attachments/    # Other attachments
+        ├── canvas.json           # Page metadata + settings
+        ├── nodes/{id}.md         # One markdown file per node
+        └── edges/{id}.json       # One JSON file per edge
 ```
 
-### workspace.json (Manifest)
+v1/v2 pages (`.mosaic/meta.json`, `workspace.json`, `edges/{id}/joined.json`) are migrated to v3 the first time the vault is opened; the replaced files are copied to `.mosaicflow/backup/` first.
+
+### canvas.json
 
 ```json
 {
-  "metadata": {
-    "name": "My Canvas",
-    "description": "",
-    "createdAt": "2024-01-01T00:00:00.000Z",
-    "updatedAt": "2024-01-01T00:00:00.000Z",
-    "version": "2.0.0",
-    "viewport": { "x": 0, "y": 0, "zoom": 1 },
-    "settings": { ... }
-  },
-  "nodes": {
-    "uuid-1": { "id": "uuid-1", "type": "note" },
-    "uuid-2": { "id": "uuid-2", "type": "timestamp" }
-  },
-  "edges": {
-    "uuid-3": { "id": "uuid-3" }
-  }
+  "formatVersion": 3,
+  "id": "36f0380e-4f05-46dd-a7a8-fdf834d97bdb",
+  "vaultId": "db147a04-4ed4-480a-9dd5-357e4151318c",
+  "name": "My Canvas",
+  "description": "",
+  "tags": ["research"],
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "settings": { "gridSize": 20, "locked": false, "savedFilters": ["#rust"] }
 }
 ```
 
