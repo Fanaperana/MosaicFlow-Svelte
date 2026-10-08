@@ -3,8 +3,9 @@
 -->
 <script lang="ts">
   import { tick } from 'svelte';
-  import { FileText, Plus, Search, Pencil, Trash2, ChevronsLeft, LayoutGrid, Clock } from 'lucide-svelte';
+  import { FileText, Plus, Search, Pencil, Trash2, ChevronsLeft, LayoutGrid, Clock, Lock } from 'lucide-svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
+  import { workspace } from '$lib/stores/workspace.svelte';
   import { pageNav } from '$lib/stores/pages.svelte';
   import type { CanvasInfo } from '$lib/services/vaultService';
   import VaultSwitcher from './VaultSwitcher.svelte';
@@ -25,6 +26,9 @@
 
   let currentId = $derived(vaultStore.currentCanvas?.id);
   let recents = $derived(pageNav.recentCanvases.filter((c) => c.id !== currentId).slice(0, 4));
+
+  // The open page's lock changes before canvas.json is re-read, so use the live workspace value for it.
+  const isLocked = (canvas: CanvasInfo) => (canvas.id === currentId ? workspace.locked : !!canvas.locked);
 
   function open(canvas: CanvasInfo) {
     if (renamingId === canvas.id || canvas.id === currentId) return;
@@ -102,7 +106,10 @@
             else if (e.key === 'F2') startRename(canvas);
           }}
         >
-          <FileText size={14} />
+          <span class="ps-page-icon" title={isLocked(canvas) ? 'View only' : undefined}>
+            <FileText size={14} />
+            {#if isLocked(canvas)}<span class="ps-lock" aria-label="View only"><Lock size={8} strokeWidth={2.75} /></span>{/if}
+          </span>
           {#if renamingId === canvas.id}
             <input
               class="ps-rename"
@@ -281,6 +288,34 @@
 
   .ps-row.muted {
     color: var(--mf-text-3);
+  }
+
+  .ps-page-icon {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+
+  .ps-lock {
+    position: absolute;
+    right: -4px;
+    bottom: -3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--mf-surface);
+    box-shadow: 0 0 0 1px var(--mf-border-strong);
+  }
+
+  .ps-row .ps-lock :global(svg) {
+    color: var(--mf-text-2);
+  }
+
+  .ps-row.active .ps-lock :global(svg) {
+    color: var(--mf-accent);
   }
 
   .ps-label {

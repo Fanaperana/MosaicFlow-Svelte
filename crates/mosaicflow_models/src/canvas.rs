@@ -87,6 +87,9 @@ pub struct CanvasInfo {
     pub created_at: String,
     pub updated_at: String,
     pub tags: Vec<String>,
+    /// View-only page (`settings.locked` in canvas.json).
+    #[serde(default)]
+    pub locked: bool,
 }
 
 pub const CANVAS_FORMAT_VERSION: u32 = 3;
@@ -158,6 +161,11 @@ impl CanvasInfo {
             created_at: file.created_at.clone(),
             updated_at: file.updated_at.clone(),
             tags: file.tags.clone(),
+            locked: file
+                .settings
+                .get("locked")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
         }
     }
 
@@ -171,6 +179,7 @@ impl CanvasInfo {
             created_at: meta.created_at.clone(),
             updated_at: meta.updated_at.clone(),
             tags: meta.tags.clone(),
+            locked: false,
         }
     }
 }

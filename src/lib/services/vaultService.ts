@@ -23,6 +23,8 @@ export interface CanvasInfo {
   created_at: string;
   updated_at: string;
   tags: string[];
+  /** View-only page */
+  locked?: boolean;
 }
 
 export interface AppConfig {
