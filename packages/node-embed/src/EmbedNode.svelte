@@ -5,12 +5,12 @@
   referenced like a wikilink: "Node title" or "Canvas name#Node title".
 -->
 <script lang="ts">
-  import { Handle, Position, NodeResizer, type NodeProps, type Node } from '@xyflow/svelte';
+  import { NodeResizer, type NodeProps, type Node } from '@xyflow/svelte';
   import { extractWikilinks } from '@mosaicflow/vault-core';
   import { Link2, ExternalLink, Unlink } from 'lucide-svelte';
   import { workspace, knowledge, openNode } from '@mosaicflow/node-sdk/store';
   import { nodeRegistry } from '@mosaicflow/node-sdk/registry';
-  import { renderMarkdown } from '@mosaicflow/node-sdk';
+  import { renderMarkdown, NodeHandles } from '@mosaicflow/node-sdk';
   import type { EmbedNodeData } from './types';
 
   type EmbedNodeType = Node<EmbedNodeData, 'embed'>;
@@ -119,14 +119,7 @@
   </div>
 </div>
 
-<Handle type="target" position={Position.Left} id="left-target" />
-<Handle type="source" position={Position.Left} id="left-source" />
-<Handle type="target" position={Position.Right} id="right-target" />
-<Handle type="source" position={Position.Right} id="right-source" />
-<Handle type="target" position={Position.Top} id="top-target" />
-<Handle type="source" position={Position.Top} id="top-source" />
-<Handle type="target" position={Position.Bottom} id="bottom-target" />
-<Handle type="source" position={Position.Bottom} id="bottom-source" />
+<NodeHandles nodeId={id} />
 
 <style>
   .embed-node {

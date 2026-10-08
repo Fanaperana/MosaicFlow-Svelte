@@ -123,5 +123,5 @@
 </div>
 
 {#if !hideHandles}
-  <NodeHandles />
+  <NodeHandles nodeId={id} />
 {/if}

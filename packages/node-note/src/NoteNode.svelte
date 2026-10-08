@@ -4,13 +4,13 @@
   Markdown-supported text notes with edit/view mode.
 -->
 <script lang="ts">
-  import { Handle, Position, NodeResizer, type NodeProps, type Node } from '@xyflow/svelte';
+  import { NodeResizer, type NodeProps, type Node } from '@xyflow/svelte';
   import type { NoteNodeData } from './types';
   import { workspace } from '@mosaicflow/node-sdk/store';
   import { StickyNote, Check, Pencil } from 'lucide-svelte';
   import { RichMarkdownEditor } from '@mosaicflow/node-sdk/editor';
   import { hexToRgba, renderMarkdown } from '@mosaicflow/node-sdk';
-  import { NodeFloatingToolbar } from '@mosaicflow/node-sdk';
+  import { NodeFloatingToolbar, NodeHandles } from '@mosaicflow/node-sdk';
 
   type NoteNodeType = Node<NoteNodeData, 'note'>;
 
@@ -162,14 +162,7 @@
   </div>
 </div>
 
-<Handle type="target" position={Position.Left} id="left-target" />
-<Handle type="source" position={Position.Left} id="left-source" />
-<Handle type="target" position={Position.Right} id="right-target" />
-<Handle type="source" position={Position.Right} id="right-source" />
-<Handle type="target" position={Position.Top} id="top-target" />
-<Handle type="source" position={Position.Top} id="top-source" />
-<Handle type="target" position={Position.Bottom} id="bottom-target" />
-<Handle type="source" position={Position.Bottom} id="bottom-source" />
+<NodeHandles nodeId={id} />
 
 <style>
   .note-node {

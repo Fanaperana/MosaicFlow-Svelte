@@ -36,7 +36,8 @@
   let localOpacity = $state(1);
 
   // Get current node to check locked state
-  const currentNode = $derived(workspace.getNode(nodeId));
+  // Only the selected node looks itself up; this component exists on every node.
+  const currentNode = $derived(selected ? workspace.getNode(nodeId) : undefined);
   const isLocked = $derived(currentNode?.data?.locked ?? false);
 
   // Sync local opacity with prop
@@ -98,6 +99,9 @@
   }
 </script>
 
+<!-- xyflow's NodeToolbar re-positions on every pan frame and scans all nodes on every change,
+     so mounting one per node made big pages O(n²); only the selected node gets one. -->
+{#if selected}
 <NodeToolbar isVisible={selected} position={Position.Top} offset={8}>
   <div class="floating-toolbar">
     {#if showColorPicker}
@@ -249,6 +253,7 @@
     {/if}
   </div>
 </NodeToolbar>
+{/if}
 
 <style>
   .floating-toolbar {

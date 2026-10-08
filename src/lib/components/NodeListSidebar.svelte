@@ -19,11 +19,23 @@
   let focusOnly = $state(false);
   let viewMode = $state<'story' | 'canvas'>('story');
 
+  // Huge pages: render rows in pages of ROW_PAGE; the filter box still searches everything.
+  const ROW_PAGE = 300;
+  let rowLimit = $state(ROW_PAGE);
+  $effect(() => {
+    void searchQuery;
+    void viewMode;
+    rowLimit = ROW_PAGE;
+  });
+
   // Story = authored data.order first, then everything else in reading order (rows top-to-bottom, left-to-right).
+  // Nothing is computed while the sidebar is closed: it re-runs on every node change (each drag frame).
   const storyNodes = $derived.by(() => {
+    if (!isOpen || viewMode !== 'story') return [];
     const query = searchQuery.toLowerCase();
     const items = workspace.nodes.filter(n => nodeRegistry.isConnectable(n.type));
-    const pos = new Map(items.map(n => [n.id, getAbsolutePosition(n)]));
+    const byId = new Map(workspace.nodes.map(n => [n.id, n]));
+    const pos = new Map(items.map(n => [n.id, getAbsolutePosition(n, byId)]));
     const order = (n: MosaicNode) => (typeof n.data.order === 'number' ? (n.data.order as number) : Infinity);
     const sorted = [...items].sort((a, b) => {
       const oa = order(a), ob = order(b);
@@ -88,6 +100,7 @@
 
   // Filter and organize nodes
   const organizedNodes = $derived.by(() => {
+    if (!isOpen || viewMode !== 'canvas') return { groups: [], rootNodes: [], groupChildren: {} as Record<string, MosaicNode[]> };
     const nodes = workspace.nodes;
     const query = searchQuery.toLowerCase();
 
@@ -256,11 +269,11 @@
     );
   }
 
-  function getAbsolutePosition(node: MosaicNode): [number, number] {
+  function getAbsolutePosition(node: MosaicNode, byId?: Map<string, MosaicNode>): [number, number] {
     let x = node.position.x;
     let y = node.position.y;
     if (node.parentId) {
-      const parent = workspace.nodes.find(n => n.id === node.parentId);
+      const parent = byId ? byId.get(node.parentId) : workspace.nodes.find(n => n.id === node.parentId);
       if (parent) {
         x += parent.position.x;
         y += parent.position.y;
@@ -312,7 +325,7 @@
 
   <div class="node-list">
     {#if viewMode === 'story'}
-      {#each storyNodes as node, i (node.id)}
+      {#each storyNodes.slice(0, rowLimit) as node, i (node.id)}
         {@const Icon = getIcon(node.type)}
         <div
           class="node-item story-item"
@@ -342,6 +355,9 @@
       {:else}
         <div class="empty-state">No nodes found</div>
       {/each}
+      {#if storyNodes.length > rowLimit}
+        <button class="show-more" onclick={() => (rowLimit += ROW_PAGE)}>Show {Math.min(ROW_PAGE, storyNodes.length - rowLimit)} more of {storyNodes.length - rowLimit}</button>
+      {/if}
     {:else}
     <!-- Groups -->
     {#each organizedNodes.groups as group (group.id)}
@@ -416,7 +432,7 @@
     {/each}
 
     <!-- Root Nodes -->
-    {#each organizedNodes.rootNodes as node (node.id)}
+    {#each organizedNodes.rootNodes.slice(0, rowLimit) as node (node.id)}
       {@const Icon = getIcon(node.type)}
       <div 
         class="node-item"
@@ -442,6 +458,9 @@
         <span class="node-label">{getNodeLabel(node)}</span>
       </div>
     {/each}
+    {#if organizedNodes.rootNodes.length > rowLimit}
+      <button class="show-more" onclick={() => (rowLimit += ROW_PAGE)}>Show {Math.min(ROW_PAGE, organizedNodes.rootNodes.length - rowLimit)} more of {organizedNodes.rootNodes.length - rowLimit}</button>
+    {/if}
 
     {#if organizedNodes.groups.length === 0 && organizedNodes.rootNodes.length === 0}
       <div class="empty-state">
@@ -778,6 +797,22 @@
     color: var(--mf-text-3);
     margin-left: 8px;
     font-variant-numeric: tabular-nums;
+  }
+
+  .show-more {
+    width: calc(100% - 16px);
+    margin: 6px 8px;
+    padding: 6px;
+    border: 1px dashed var(--mf-border-strong);
+    border-radius: var(--mf-radius);
+    background: transparent;
+    color: var(--mf-text-3);
+    font-size: 12px;
+  }
+
+  .show-more:hover {
+    color: var(--mf-text);
+    background: var(--mf-hover);
   }
 
   .child-node {

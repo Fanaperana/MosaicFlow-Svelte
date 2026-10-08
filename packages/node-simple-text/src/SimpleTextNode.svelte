@@ -4,12 +4,12 @@
   A minimal plain text node without markdown or rich formatting.
 -->
 <script lang="ts">
-  import { Handle, Position, NodeResizer, type NodeProps, type Node } from '@xyflow/svelte';
+  import { NodeResizer, type NodeProps, type Node } from '@xyflow/svelte';
   import type { SimpleTextNodeData } from './types';
   import { workspace } from '@mosaicflow/node-sdk/store';
   import { Type } from 'lucide-svelte';
   import { hexToRgba } from '@mosaicflow/node-sdk';
-  import { NodeFloatingToolbar } from '@mosaicflow/node-sdk';
+  import { NodeFloatingToolbar, NodeHandles } from '@mosaicflow/node-sdk';
 
   type SimpleTextNodeType = Node<SimpleTextNodeData, 'simpleText'>;
 
@@ -66,14 +66,7 @@
   />
 {/if}
 
-<Handle type="target" position={Position.Left} id="left-target" class="handle-style" />
-<Handle type="source" position={Position.Left} id="left-source" class="handle-style" />
-<Handle type="target" position={Position.Right} id="right-target" class="handle-style" />
-<Handle type="source" position={Position.Right} id="right-source" class="handle-style" />
-<Handle type="target" position={Position.Top} id="top-target" class="handle-style" />
-<Handle type="source" position={Position.Top} id="top-source" class="handle-style" />
-<Handle type="target" position={Position.Bottom} id="bottom-target" class="handle-style" />
-<Handle type="source" position={Position.Bottom} id="bottom-source" class="handle-style" />
+<NodeHandles nodeId={id} class="handle-style" />
 
 <div 
   class="simple-text-node"

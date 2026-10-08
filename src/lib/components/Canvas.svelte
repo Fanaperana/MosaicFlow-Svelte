@@ -21,6 +21,7 @@
   import { resolveCollisions, findNonOverlappingPosition } from '$lib/utils/resolve-collisions';
   import { calculateSnapGuides, calculateSelectionSnapGuides, calculateSnapOffset, calculateResizeSnap, type ResizeEdges, type SnapGuide } from '$lib/utils/snap-guides';
   import SnapGuides from '$lib/components/SnapGuides.svelte';
+  import FastMinimap from '$lib/components/FastMinimap.svelte';
   import NodeListSidebar from '$lib/components/NodeListSidebar.svelte';
   import FlowHelper from '$lib/components/FlowHelper.svelte';
   import CanvasFilterBar from '$lib/components/CanvasFilterBar.svelte';
@@ -926,7 +927,9 @@
       <Controls position="bottom-right" />
     {/if}
     
-    {#if settings.current.canvas.showMinimap}
+    {#if settings.current.canvas.showMinimap && nodes.length > CULL_THRESHOLD}
+      <FastMinimap />
+    {:else if settings.current.canvas.showMinimap}
       <MiniMap 
         position="bottom-left"
         pannable
