@@ -55,6 +55,26 @@ export function registerTools(server: McpServer, ops: MosaicOps) {
     annotations: write,
   }, (args) => run(() => ops.createCanvas(args)));
 
+  server.registerTool('update_canvas', {
+    title: 'Update canvas',
+    description: 'Rename a canvas, change its description or tags (replaces the list), or lock it (view-only in the app) / unlock it. Links like [[Old name#Node]] are not rewritten.',
+    inputSchema: {
+      canvas,
+      name: z.string().min(1).optional(),
+      description: z.string().optional(),
+      tags: z.array(z.string()).optional(),
+      locked: z.boolean().optional(),
+    },
+    annotations: write,
+  }, (args) => run(() => ops.updateCanvas(args)));
+
+  server.registerTool('delete_canvas', {
+    title: 'Delete canvas',
+    description: 'Permanently delete a canvas with all its nodes and edges. Only when the user asked for it; pass the exact canvas name as confirm.',
+    inputSchema: { canvas, confirm: z.string().describe('The exact canvas name, to confirm') },
+    annotations: destructive,
+  }, ({ canvas: ref, confirm }) => run(() => ops.deleteCanvas(ref, confirm)));
+
   server.registerTool('read_canvas', {
     title: 'Read canvas',
     description: 'Nodes (with absolute x/y/width/height, parent, story order) and edges of a canvas. detail "summary" gives a text preview per node; "full" returns every data field.',

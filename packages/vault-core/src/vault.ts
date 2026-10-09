@@ -180,4 +180,55 @@ export class VaultRepository {
     meta.updated_at = now;
     await this.fs.writeText(legacy, JSON.stringify(meta, null, 2));
   }
+
+  async readCanvasFile(entry: CanvasEntry): Promise<CanvasFile | null> {
+    const path = `${entry.path}/${CANVAS_FILE}`;
+    if (!(await this.fs.exists(path))) return null;
+    const file = JSON.parse(await this.fs.readText(path)) as CanvasFile;
+    return file.formatVersion >= CANVAS_FORMAT_VERSION ? file : null;
+  }
+
+  /**
+   * Renames a canvas or changes its description, tags or settings (merged, null removes a key).
+   * The folder keeps its name so a page open in the app is not pulled from under it.
+   */
+  async updateCanvas(
+    ref: string,
+    patch: { name?: string; description?: string; tags?: string[]; settings?: Record<string, unknown> }
+  ): Promise<CanvasEntry> {
+    const entry = await this.findCanvas(ref);
+    const file = await this.readCanvasFile(entry);
+    if (!file) throw new Error(`"${entry.name}" uses an old format; open the vault in MosaicFlow once to upgrade it`);
+    if (patch.name !== undefined) {
+      const name = patch.name.trim();
+      if (!name) throw new Error('Canvas name is required');
+      const all = await this.listCanvases();
+      if (all.some((c) => c.id !== entry.id && c.name.toLowerCase() === name.toLowerCase())) {
+        throw new Error(`A canvas named "${name}" already exists`);
+      }
+      file.name = name;
+    }
+    if (patch.description !== undefined) file.description = patch.description;
+    if (patch.tags !== undefined) file.tags = [...new Set(patch.tags.map((t) => t.trim().replace(/^#/, '')).filter(Boolean))];
+    if (patch.settings) {
+      const settings: Record<string, unknown> = { ...file.settings };
+      for (const [key, value] of Object.entries(patch.settings)) {
+        if (value === null) delete settings[key];
+        else settings[key] = value;
+      }
+      file.settings = settings;
+    }
+    file.updatedAt = new Date().toISOString();
+    await this.fs.writeText(`${entry.path}/${CANVAS_FILE}`, JSON.stringify(file, null, 2));
+    return { ...entry, ...fromCanvasFile(file) };
+  }
+
+  /** Deletes a canvas folder with all its nodes and edges, and its per-device view state. */
+  async deleteCanvas(ref: string): Promise<CanvasEntry> {
+    const entry = await this.findCanvas(ref);
+    await this.fs.remove(entry.path);
+    const state = `${this.root}/.mosaicflow/state/${entry.id}.json`;
+    if (await this.fs.exists(state)) await this.fs.remove(state);
+    return entry;
+  }
 }

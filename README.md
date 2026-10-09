@@ -268,7 +268,8 @@ Use the same `command` and `args` in the client's MCP settings (`~/.cursor/mcp.j
 | `build_knowledge` | Creates a whole map in one call: page, groups, nodes, labelled edges, auto layout and story order |
 | `search`, `read_nodes`, `get_links`, `list_tags` | Find notes (strict, or `match: "any"` for questions), read their full text with links and backlinks, follow `#tags` |
 | `list_canvases`, `read_canvas` | List pages and read a whole page |
-| `create_canvas`, `create_node`, `update_node`, `delete_node` | Edit pages and nodes |
+| `create_canvas`, `update_canvas`, `delete_canvas` | Create pages; rename, describe, tag, lock/unlock or delete them |
+| `create_node`, `update_node`, `delete_node` | Edit nodes (rename with `update_node`; ids never change) |
 | `connect`, `update_edge`, `delete_edge` | Edit edges |
 | `create_group`, `set_story_order`, `auto_layout`, `import_mermaid` | Structure and tidy a page |
 

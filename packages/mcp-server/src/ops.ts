@@ -31,6 +31,17 @@ const GROUP_PAD = { side: 30, top: 60, bottom: 30 };
 const FALLBACK_SIZE = { width: 300, height: 200 };
 const SAFE_ID = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
 
+// What markdown fields (note.content, callout.content, notes, ...) render in the app.
+const MARKDOWN_GUIDE = {
+  basics: 'Headings, **bold**, *italic*, ~~strike~~, `inline code`, > quotes, lists, - [ ] task lists, --- dividers, [links](https://...) and ![images](url).',
+  tables: 'GFM tables: | a | b | then | --- | --- |; :---: centres a column, ---: right-aligns it.',
+  code: '```lang fenced blocks are syntax-highlighted (rust, ts, python, sql, bash, ...).',
+  math: 'LaTeX via KaTeX: $E = mc^2$ inline (no space after the opening $), $$ ... $$ on their own lines or a ```math block for display equations.',
+  diagrams: '```mermaid blocks render as diagrams: flowchart, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, gantt, pie, mindmap, timeline, gitGraph.',
+  links: '[[Node title]], [[Canvas#Node title]], [[Canvas]] or [[node-id]] link nodes and pages; #tags are collected vault-wide.',
+  tips: 'Notes render in view mode by default; long notes need a taller node (see design.rules). Diagrams need ~300px of height each.',
+};
+
 export interface EdgeStyleInput {
   color?: string;
   palette?: string;
@@ -126,8 +137,10 @@ export class MosaicOps {
         'Connect with connect; sides are picked automatically from node positions unless given.',
         'Finish with set_story_order so the Story view walks the canvas in a sensible order, and auto_layout if the canvas got messy.',
         'Link related notes with [[Node title]] in text and tag them with #tag; get_links shows outgoing links and backlinks.',
+        'Rename a node with update_node (title); its id never changes, so links and edges keep working. Rename, retag, describe or lock a canvas with update_canvas.',
         'Changes are written to the vault and appear live in the MosaicFlow app.',
       ],
+      markdown: MARKDOWN_GUIDE,
       design: doc?.design ?? DESIGN_GUIDE,
       paletteNames: Object.keys(DESIGN_GUIDE.palette),
       nodeTypes: (doc?.nodeTypes ?? []).map((t) => ({
@@ -155,13 +168,32 @@ export class MosaicOps {
     return { id: entry.id, name: entry.name };
   }
 
+  async updateCanvas(spec: { canvas: string; name?: string; description?: string; tags?: string[]; locked?: boolean }) {
+    const entry = await this.vault.updateCanvas(spec.canvas, {
+      name: spec.name,
+      description: spec.description,
+      tags: spec.tags,
+      ...(spec.locked === undefined ? {} : { settings: { locked: spec.locked } }),
+    });
+    const file = await this.vault.readCanvasFile(entry);
+    return { id: entry.id, name: entry.name, description: entry.description, tags: entry.tags, locked: !!file?.settings?.locked };
+  }
+
+  async deleteCanvas(ref: string, confirm: string) {
+    const entry = await this.vault.findCanvas(ref);
+    if (confirm.trim() !== entry.name) throw new Error(`To delete, pass confirm: "${entry.name}" (the exact canvas name)`);
+    const deleted = await this.vault.deleteCanvas(entry.id);
+    return { deleted: { id: deleted.id, name: deleted.name } };
+  }
+
   async readCanvas(ref: string, detail: 'summary' | 'full' = 'summary') {
     const { entry, repo } = await this.vault.openCanvas(ref);
     const nodes = await repo.readAllNodes();
     const edges = await repo.readAllEdges();
     const rects = absoluteRects(nodes, FALLBACK_SIZE);
+    const file = await this.vault.readCanvasFile(entry);
     return {
-      canvas: { id: entry.id, name: entry.name, description: entry.description, tags: entry.tags },
+      canvas: { id: entry.id, name: entry.name, description: entry.description, tags: entry.tags, locked: !!file?.settings?.locked },
       coordinates: 'x/y/width/height are absolute canvas coordinates; "position" is relative to "parent" when set.',
       nodes: nodes.map((n) => {
         const r = rects.get(n.id)!;

@@ -21,7 +21,7 @@
   import { pageNav } from '$lib/stores/pages.svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
-  import { loadWorkspace, exportAsPng, exportAsSvg, exportAsJson } from '$lib/services/fileOperations';
+  import { loadWorkspace, exportAsPng, exportAsSvg, exportAsJson, syncOpenCanvas } from '$lib/services/fileOperations';
   import { packageDialogs } from '$lib/stores/packages.svelte';
   import PackageImportDialog from '$lib/components/PackageImportDialog.svelte';
   import PackageExportDialog from '$lib/components/PackageExportDialog.svelte';
@@ -86,7 +86,10 @@
     if (!path) return;
     let stop: (() => void) | undefined;
     let cancelled = false;
-    watchVaultPages(path, () => vaultStore.refreshCanvases()).then((s) => (cancelled ? s() : (stop = s)));
+    watchVaultPages(path, async () => {
+      await vaultStore.refreshCanvases();
+      syncOpenCanvas();
+    }).then((s) => (cancelled ? s() : (stop = s)));
     return () => {
       cancelled = true;
       stop?.();

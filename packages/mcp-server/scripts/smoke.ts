@@ -158,6 +158,17 @@ async function main() {
     const again = await call('build_knowledge', { canvas: 'Built Map', nodes: [{ key: 'x', type: 'note', title: 'Extra' }], layout: 'none', story: false });
     assert(again.created === 'added to existing canvas', 'build_knowledge adds to an existing canvas');
 
+    const renamed = await call('update_canvas', { canvas: 'Flow', name: 'PDCA Loop', description: 'Plan, do, check', tags: ['#process', 'quality', 'quality'], locked: true });
+    assert(renamed.name === 'PDCA Loop' && renamed.locked && renamed.tags.join() === 'process,quality', 'update_canvas renames, retags and locks');
+    const relisted = await call('read_canvas', { canvas: 'PDCA Loop' });
+    assert(relisted.canvas.locked && relisted.nodes.length === 3, 'renamed canvas keeps its nodes and reports the lock');
+    assert(await callError('update_canvas', { canvas: 'PDCA Loop', name: 'mcp test' }), 'rename to an existing name rejected');
+    await call('update_canvas', { canvas: 'PDCA Loop', locked: false });
+    assert(!(await call('read_canvas', { canvas: 'PDCA Loop' })).canvas.locked, 'unlock');
+    assert(await callError('delete_canvas', { canvas: 'PDCA Loop', confirm: 'Flow' }), 'delete needs the exact name');
+    await call('delete_canvas', { canvas: 'PDCA Loop', confirm: 'PDCA Loop' });
+    assert(!(await call('list_canvases')).some((c: { name: string }) => c.name === 'PDCA Loop'), 'delete_canvas removes the canvas');
+
     const prompts = (await client.listPrompts()).prompts.map((p) => p.name);
     assert(prompts.includes('knowledge_map') && prompts.includes('ask_vault'), 'knowledge_map and ask_vault prompts listed');
     const prompt = await client.getPrompt({ name: 'knowledge_map', arguments: { topic: 'Rust ownership' } });

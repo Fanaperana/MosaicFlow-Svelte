@@ -137,6 +137,30 @@ export async function loadWorkspace(path: string): Promise<boolean> {
   }
 }
 
+/** Applies a rename, lock or deletion of the open page made by another tool (e.g. the MCP server); call after refreshCanvases(). */
+export function syncOpenCanvas() {
+  const current = vaultStore.currentCanvas;
+  if (!current) return;
+  const latest = vaultStore.canvases.find((c) => c.id === current.id);
+  if (!latest) {
+    toast.info(`"${current.name}" was deleted outside the app`);
+    vaultStore.closeCanvas();
+    return;
+  }
+  if (latest.name !== current.name || latest.description !== current.description || latest.tags.join() !== current.tags.join() || !!latest.locked !== !!current.locked) {
+    vaultStore.currentCanvas = latest;
+  }
+  workspace.name = latest.name;
+  workspace.description = latest.description;
+  if (!!latest.locked !== workspace.locked) {
+    workspace.settings = { ...workspace.settings, locked: !!latest.locked };
+    if (latest.locked) {
+      workspace.setSelectedNodes([]);
+      workspace.setSelectedEdges([]);
+    }
+  }
+}
+
 async function readCanvasFile(path: string): Promise<CanvasFile | null> {
   try {
     const { readTextFile, exists } = await import('@tauri-apps/plugin-fs');
