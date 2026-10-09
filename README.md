@@ -315,6 +315,26 @@ pnpm --filter ./packages/vault-core exec vitest run   # vault-core unit tests
 cd src-tauri && cargo check                  # Rust
 ```
 
+### Releasing and code signing
+
+Bump `version` in `src-tauri/tauri.conf.json`, then push a matching tag (`git tag v0.2.0 && git push origin v0.2.0`). The [Release workflow](.github/workflows/release.yml) runs the CI checks, then builds six installers into one **draft** GitHub release with a download table:
+
+| System | x64 | ARM64 |
+|--------|-----|-------|
+| Windows | `.exe` (NSIS) and `.msi` | `.exe` (NSIS) |
+| macOS | `.dmg` (Intel) | `.dmg` (Apple Silicon) |
+| Linux | `.AppImage`, `.deb`, `.rpm` | `.AppImage`, `.deb`, `.rpm` |
+
+Review the draft, then publish it. Each platform is signed when its secrets are set, and built unsigned (with a warning in the log) when they aren't.
+
+| Platform | Signing | Repository secrets (Settings → Secrets and variables → Actions) |
+|----------|---------|----------------------------------------------------------------|
+| macOS | Developer ID certificate + notarization (Apple Developer Program). Without it: ad-hoc signature, users allow the app in Privacy & Security | `APPLE_CERTIFICATE` (base64 `.p12`), `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`; for notarization `APPLE_ID`, `APPLE_PASSWORD` (app-specific password), `APPLE_TEAM_ID` |
+| Windows | [Azure Artifact Signing](https://v2.tauri.app/distribute/sign/windows/#azure-artifact-signing). Without it: SmartScreen warns on download | Secrets `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID`; variables `AZURE_SIGNING_ENDPOINT`, `AZURE_SIGNING_ACCOUNT`, `AZURE_SIGNING_PROFILE` |
+| Linux | Not required | |
+
+See the Tauri guides for [macOS](https://v2.tauri.app/distribute/sign/macos/) and [Windows](https://v2.tauri.app/distribute/sign/windows/) for how to get the certificates.
+
 More in [docs/](docs/README.md): the [user guide](docs/USER_GUIDE.md), [architecture](docs/ARCHITECTURE.md), [internal API](docs/API.md), [vault format](docs/VAULT_FORMAT.md) and [plugin guide](docs/PLUGIN_DEVELOPMENT.md).
 
 ---

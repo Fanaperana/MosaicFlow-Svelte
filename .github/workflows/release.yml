@@ -1,0 +1,176 @@
+name: Release
+
+# Bump "version" in src-tauri/tauri.conf.json, then push a matching tag (v0.2.0) to build installers
+# for Windows, macOS and Linux (x64 and ARM64) into one draft GitHub release.
+# Each platform is signed when its secrets are set and built unsigned (with a warning) otherwise.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  create-release:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      id: ${{ steps.release.outputs.result }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match tauri.conf.json version $version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - id: release
+        uses: actions/github-script@v7
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        with:
+          result-encoding: string
+          script: |
+            const version = process.env.VERSION;
+            const tag = `v${version}`;
+            const { owner, repo } = context.repo;
+            const releases = await github.paginate(github.rest.repos.listReleases, { owner, repo, per_page: 100 });
+            const existing = releases.find((r) => r.tag_name === tag);
+            if (existing) return String(existing.id);
+            const body = [
+              `## Download MosaicFlow ${version}`,
+              '',
+              'Files are named `MosaicFlow_<version>_<system>_<chip>`. Pick the one for your computer:',
+              '',
+              '| System | Chip | Installer |',
+              '|--------|------|-----------|',
+              '| **Windows** | Intel / AMD | `windows_x64-setup.exe` (or `.msi`) |',
+              '| **Windows** | ARM (Snapdragon) | `windows_arm64-setup.exe` |',
+              '| **macOS** | Apple Silicon (M1 and later) | `darwin_aarch64.dmg` |',
+              '| **macOS** | Intel | `darwin_x64.dmg` |',
+              '| **Linux** | Intel / AMD | `.AppImage` (any distro), `.deb` (Debian/Ubuntu) or `.rpm` (Fedora/openSUSE) marked `amd64` / `x86_64` |',
+              '| **Linux** | ARM | `.AppImage`, `.deb` or `.rpm` marked `aarch64` / `arm64` |',
+              '',
+              'Unsigned builds: on Windows choose *More info → Run anyway* if SmartScreen asks; on macOS right-click the app → *Open*, or allow it in *System Settings → Privacy & Security*.',
+            ].join('\n');
+            const created = await github.rest.repos.createRelease({
+              owner, repo, tag_name: tag, name: `MosaicFlow ${version}`, body, draft: true, target_commitish: context.sha,
+            });
+            return String(created.data.id);
+
+  build:
+    needs: create-release
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Windows x64, runner: windows-latest, target: x86_64-pc-windows-msvc, bundles: 'nsis,msi' }
+          # WiX (.msi) cannot target ARM64, so ARM gets the NSIS installer only.
+          - { name: Windows ARM64, runner: windows-11-arm, target: aarch64-pc-windows-msvc, bundles: nsis }
+          - { name: macOS Apple Silicon, runner: macos-latest, target: aarch64-apple-darwin, bundles: 'app,dmg' }
+          - { name: macOS Intel, runner: macos-latest, target: x86_64-apple-darwin, bundles: 'app,dmg' }
+          - { name: Linux x64, runner: ubuntu-22.04, target: x86_64-unknown-linux-gnu, bundles: 'appimage,deb,rpm' }
+          - { name: Linux ARM64, runner: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu, bundles: 'appimage,deb,rpm' }
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
+
+      - run: pnpm install --frozen-lockfile
+
+      # Developer ID certificate + notarization when the secrets exist; otherwise an ad-hoc signature,
+      # which Apple Silicon needs to run the app at all (users still confirm it in Privacy & Security).
+      - name: Configure macOS signing
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$APPLE_CERTIFICATE" ]; then
+            {
+              echo "APPLE_CERTIFICATE=$APPLE_CERTIFICATE"
+              echo "APPLE_CERTIFICATE_PASSWORD=$APPLE_CERTIFICATE_PASSWORD"
+              echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY"
+            } >> "$GITHUB_ENV"
+            if [ -n "$APPLE_ID" ]; then
+              {
+                echo "APPLE_ID=$APPLE_ID"
+                echo "APPLE_PASSWORD=$APPLE_PASSWORD"
+                echo "APPLE_TEAM_ID=$APPLE_TEAM_ID"
+              } >> "$GITHUB_ENV"
+            fi
+          else
+            echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
+            echo "::warning::No Apple certificate: building with an ad-hoc signature (not notarized)."
+          fi
+
+      # Azure Artifact Signing: no hardware token needed, so it works on CI runners.
+      - name: Configure Windows signing
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ENDPOINT: ${{ vars.AZURE_SIGNING_ENDPOINT }}
+          ACCOUNT: ${{ vars.AZURE_SIGNING_ACCOUNT }}
+          PROFILE: ${{ vars.AZURE_SIGNING_PROFILE }}
+        run: |
+          if (-not $env:AZURE_CLIENT_ID -or -not $env:ENDPOINT) {
+            Write-Output "::warning::No Azure Artifact Signing credentials: Windows installers are unsigned."
+            exit 0
+          }
+          cargo install artifact-signing-cli --locked
+          $config = @{ bundle = @{ windows = @{ signCommand = "artifact-signing-cli -e $env:ENDPOINT -a $env:ACCOUNT -c $env:PROFILE -d MosaicFlow %1" } } }
+          $path = Join-Path $env:RUNNER_TEMP 'tauri.sign.conf.json'
+          $config | ConvertTo-Json -Depth 5 | Set-Content -Path $path -Encoding utf8
+          "TAURI_SIGN_ARGS=--config $path" >> $env:GITHUB_ENV
+          "AZURE_CLIENT_ID=$env:AZURE_CLIENT_ID" >> $env:GITHUB_ENV
+          "AZURE_CLIENT_SECRET=$env:AZURE_CLIENT_SECRET" >> $env:GITHUB_ENV
+          "AZURE_TENANT_ID=$env:AZURE_TENANT_ID" >> $env:GITHUB_ENV
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          releaseId: ${{ needs.create-release.outputs.id }}
+          tagName: v${{ needs.create-release.outputs.version }}
+          releaseDraft: true
+          releaseAssetNamePattern: '[name]_[version]_[platform]_[arch][setup][ext]'
+          retryAttempts: 1
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} ${{ env.TAURI_SIGN_ARGS }}
