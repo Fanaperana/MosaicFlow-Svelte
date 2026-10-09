@@ -6,3 +6,4 @@ export { highlightStyle } from './highlightStyle';
 export { tagParser } from './tagParser';
 export { RichEditPlugin } from './richEdit';
 export { renderBlock } from './renderBlock';
+export { tableKeymap, tableCommands } from './table';

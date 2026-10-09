@@ -31,6 +31,7 @@
   import { nodeRegistry, getIconByName } from '$lib/kernel/registries/node-registry';
   import { FileText } from 'lucide-svelte';
   import { wikilinkChips } from './wikilinkChips';
+  import { tableKeymap } from './table';
 
   interface Props {
     value?: string;
@@ -154,6 +155,7 @@
         highlightActiveLine(),
         indentOnInput(),
         syntaxHighlighting(defaultHighlightStyle),
+        tableKeymap,
         keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
         pickerKeymap,
         wikilinkChips,
