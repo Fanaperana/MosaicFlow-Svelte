@@ -87,6 +87,9 @@ jobs:
           - { name: Linux ARM64, runner: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu, bundles: 'appimage,deb,rpm' }
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
+    env:
+      # Bundling Mermaid and KaTeX exceeds Node's default heap on the smaller runners.
+      NODE_OPTIONS: --max-old-space-size=6144
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
