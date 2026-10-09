@@ -4,7 +4,7 @@
 
 import { workspace } from '$lib/stores/workspace.svelte';
 import type { WorkspaceData, UIState, NodeType } from '$lib/types';
-import { toPng, toSvg } from 'html-to-image';
+import { toSvg } from 'html-to-image';
 import { getNodesBounds, getViewportForBounds } from '@xyflow/svelte';
 import { toast } from 'svelte-sonner';
 import { loadAllNodes, readCanvasFiles } from './nodeFileService';

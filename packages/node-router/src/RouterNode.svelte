@@ -7,7 +7,7 @@
   import { type NodeProps, type Node } from '@xyflow/svelte';
   import type { RouterNodeData } from './types';
   import { workspace } from '@mosaicflow/node-sdk/store';
-  import { Router, Wifi, Signal, Network } from 'lucide-svelte';
+  import { Router, Network } from 'lucide-svelte';
   import { NodeWrapper, NodeField } from '@mosaicflow/node-sdk';
 
   type RouterNodeType = Node<RouterNodeData, 'router'>;
@@ -75,7 +75,7 @@
     <div class="open-ports">
       <span class="label">Open Ports</span>
       <div class="ports-list">
-        {#each data.ports as port}
+        {#each data.ports as port, i (i)}
           <span class="port-tag">{port}</span>
         {/each}
       </div>

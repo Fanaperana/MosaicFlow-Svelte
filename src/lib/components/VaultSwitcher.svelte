@@ -191,7 +191,7 @@
       <button class="action" onclick={manageVaults} role="menuitem">
         <Plus size={14} />Create or manage vaults…
       </button>
-      {#if shortcut}<div class="footer">{#each shortcut.split('+') as part}<kbd>{part}</kbd>{/each} to switch vaults</div>{/if}
+      {#if shortcut}<div class="footer">{#each shortcut.split('+') as part, i (i)}<kbd>{part}</kbd>{/each} to switch vaults</div>{/if}
     </div>
   {/if}
 </div>

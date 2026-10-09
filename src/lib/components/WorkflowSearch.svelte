@@ -185,7 +185,7 @@
         {#if searchQuery.trim() === ''}
           <div class="results-section">
             <div class="section-label">Recent Canvases</div>
-            {#each searchResults as result, index}
+            {#each searchResults as result, index (result.canvas.id)}
               <button
                 class="result-item"
                 class:selected={index === selectedIndex}
@@ -207,7 +207,7 @@
         {:else}
           <div class="results-section">
             <div class="section-label">{searchResults.length} result{searchResults.length !== 1 ? 's' : ''}</div>
-            {#each searchResults as result, index}
+            {#each searchResults as result, index (`${result.type}:${result.canvas.id}:${result.node?.id ?? ''}`)}
               {@const IconComponent = result.type === 'node' && result.node 
                 ? getNodeIcon(result.node.type) 
                 : FileText}

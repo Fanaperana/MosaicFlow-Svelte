@@ -8,17 +8,13 @@
   import type { LinkListNodeData, LinkItem } from './types';
   import { workspace } from '@mosaicflow/node-sdk/store';
   import { List, Plus, Trash2, ExternalLink, GripVertical } from 'lucide-svelte';
-  import { NodeWrapper, NodeField, openExternal } from '@mosaicflow/node-sdk';
+  import { NodeWrapper, openExternal } from '@mosaicflow/node-sdk';
 
   type LinkListNodeType = Node<LinkListNodeData, 'linkList'>;
 
   let { data, selected, id }: NodeProps<LinkListNodeType> = $props();
   
-  let links = $state<LinkItem[]>([]);
-  
-  $effect(() => {
-    links = data.links || [];
-  });
+  let links = $derived<LinkItem[]>(data.links || []);
 
   function addLink() {
     const newLinks = [...links, { id: crypto.randomUUID(), url: '', label: '' }];

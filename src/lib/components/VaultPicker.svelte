@@ -196,7 +196,7 @@
               Recent Vaults
             </h3>
             <div class="recent-list">
-              {#each vaultStore.recentVaults as vault}
+              {#each vaultStore.recentVaults as vault (vault.path)}
                 <div class="recent-item">
                   <button 
                     class="recent-info-btn"

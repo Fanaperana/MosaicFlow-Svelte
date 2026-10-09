@@ -16,7 +16,7 @@
 
   let { data, selected, id }: NodeProps<NoteNodeType> = $props();
   
-  let content = $state('');
+  let content = $derived(data.content || '');
   
   // Header is hidden by default
   const showHeader = $derived(data.showHeader ?? false);
@@ -33,10 +33,6 @@
   const borderStyle = $derived((data.borderStyle as string) ?? 'solid');
   const borderRadius = $derived((data.borderRadius as number) ?? 4);
   const bgOpacity = $derived((data.bgOpacity as number) ?? 1);
-  
-  $effect(() => {
-    content = data.content || '';
-  });
 
   // Track previous selected state to detect deselection
   let wasSelected = $state(false);

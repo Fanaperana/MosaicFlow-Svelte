@@ -72,7 +72,7 @@
 
   <!-- Quick Add Nodes -->
   <div class="toolbar-group">
-    {#each quickNodes as nodeInfo}
+    {#each quickNodes as nodeInfo (nodeInfo.type)}
       {@const IconComponent = getIconByName(nodeInfo.iconName)}
       <SimpleTooltip text={nodeInfo.label} position="bottom">
         <button 

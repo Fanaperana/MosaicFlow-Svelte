@@ -35,16 +35,6 @@
 
   const currentStatus = $derived(statuses.find(s => s.value === (data.status || 'pending')) || statuses[0]);
   
-  const priorityColor = $derived(() => {
-    const colors: Record<string, string> = {
-      low: '#22c55e',
-      medium: '#f59e0b',
-      high: '#f97316',
-      critical: '#ef4444',
-    };
-    return colors[data.priority || 'medium'] || '#888';
-  });
-  
   // Current status icon for rendering
   const StatusIcon = $derived(currentStatus.icon);
 </script>
@@ -81,7 +71,7 @@
   <div class="priority-section">
     <span class="section-label">Priority</span>
     <div class="priority-options">
-      {#each priorities as priority}
+      {#each priorities as priority (priority)}
         <button
           class="priority-btn nodrag"
           class:selected={data.priority === priority}

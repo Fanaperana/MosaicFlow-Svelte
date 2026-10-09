@@ -8,7 +8,7 @@
   import type { SocialPostNodeData } from './types';
   import { workspace } from '@mosaicflow/node-sdk/store';
   import { MessageCircle, Heart, Repeat2, ExternalLink, Calendar } from 'lucide-svelte';
-  import { NodeWrapper, NodeField, openExternal } from '@mosaicflow/node-sdk';
+  import { NodeWrapper, openExternal } from '@mosaicflow/node-sdk';
 
   type SocialPostNodeType = Node<SocialPostNodeData, 'socialPost'>;
 
@@ -23,19 +23,6 @@
       openExternal(data.url);
     }
   }
-
-  const platformColor = $derived(() => {
-    const colors: Record<string, string> = {
-      twitter: '#1DA1F2',
-      x: '#000000',
-      facebook: '#1877F2',
-      instagram: '#E4405F',
-      linkedin: '#0A66C2',
-      reddit: '#FF4500',
-      mastodon: '#6364FF',
-    };
-    return colors[data.platform?.toLowerCase() || ''] || '#666';
-  });
 </script>
 
 <NodeWrapper {data} {selected} {id} nodeType="socialPost" class="social-post-node">

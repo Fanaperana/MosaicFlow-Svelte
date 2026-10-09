@@ -187,7 +187,6 @@ export function findNonOverlappingPosition<T extends Node>(
   const position = { ...newPosition };
   let attempts = 0;
   const maxAttempts = 100;
-  let lastCollisionNode: T | null = null;
 
   while (attempts < maxAttempts) {
     let hasCollision = false;
@@ -211,11 +210,6 @@ export function findNonOverlappingPosition<T extends Node>(
 
       if (overlapsX && overlapsY) {
         hasCollision = true;
-        lastCollisionNode = node;
-
-        // Calculate which direction has less overlap
-        const overlapRight = node.position.x + nodeWidth + margin - position.x;
-        const overlapDown = node.position.y + nodeHeight + margin - position.y;
 
         // Try moving right first, then down if we've tried right too many times
         if (attempts % 3 !== 2) {

@@ -7,7 +7,6 @@
   import { NodeResizer, type NodeProps, type Node } from '@xyflow/svelte';
   import type { SimpleTextNodeData } from './types';
   import { workspace } from '@mosaicflow/node-sdk/store';
-  import { Type } from 'lucide-svelte';
   import { hexToRgba } from '@mosaicflow/node-sdk';
   import { NodeFloatingToolbar, NodeHandles } from '@mosaicflow/node-sdk';
 
@@ -15,7 +14,7 @@
 
   let { data, selected, id }: NodeProps<SimpleTextNodeType> = $props();
   
-  let content = $state('');
+  let content = $derived(data.content || '');
   
   // Check if node is locked
   const isLocked = $derived(data.locked ?? false);
@@ -29,10 +28,6 @@
   // Text styling
   const textAlign = $derived((data.textAlign as string) ?? 'left');
   const fontSize = $derived((data.fontSize as number) ?? 14);
-  
-  $effect(() => {
-    content = data.content || '';
-  });
 
   function handleInput(event: Event) {
     const target = event.target as HTMLTextAreaElement;

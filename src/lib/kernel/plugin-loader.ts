@@ -5,7 +5,7 @@
  * Handles both core plugins (bundled) and community plugins (external).
  */
 
-import type { PluginManifest, PluginInfo } from './types';
+import type { PluginManifest } from './types';
 import { nodeRegistry, type NodeTypeRegistration } from './registries/node-registry';
 import { panelRegistry, type PanelRegistration } from './registries/panel-registry';
 import { commandRegistry, type CommandRegistration } from './registries/command-registry';

@@ -15,7 +15,6 @@
   let { data, selected, id }: NodeProps<CredentialNodeType> = $props();
   
   let showPassword = $state(false);
-  let copied = $state(false);
 
   function updateField(field: keyof CredentialNodeData, value: string) {
     workspace.updateNodeData(id, { [field]: value });
@@ -24,12 +23,8 @@
   function copyField(value: string | undefined) {
     if (value) {
       navigator.clipboard.writeText(value);
-      copied = true;
-      setTimeout(() => copied = false, 2000);
     }
   }
-
-  const maskedPassword = $derived(data.password ? '•'.repeat(data.password.length) : '');
 </script>
 
 <NodeWrapper {data} {selected} {id} nodeType="credential" class="credential-node">

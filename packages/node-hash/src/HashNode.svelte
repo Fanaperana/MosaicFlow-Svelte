@@ -8,7 +8,7 @@
   import type { HashNodeData } from './types';
   import { workspace } from '@mosaicflow/node-sdk/store';
   import { Hash, Copy, CheckCircle, XCircle } from 'lucide-svelte';
-  import { NodeWrapper, NodeField } from '@mosaicflow/node-sdk';
+  import { NodeWrapper } from '@mosaicflow/node-sdk';
 
   type HashNodeType = Node<HashNodeData, 'hash'>;
 

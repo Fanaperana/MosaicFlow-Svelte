@@ -1,6 +1,6 @@
 <script lang="ts">
   import { workspace } from '$lib/stores/workspace.svelte';
-  import type { MosaicEdge, MarkerShape, EdgeStrokeStyle } from '$lib/types';
+  import type { MosaicEdge, MarkerShape, EdgeStrokeStyle, EdgeType, EdgePathType, BaseNodeData } from '$lib/types';
   import { nodeRegistry, getIconByName } from '$lib/kernel/registries/node-registry';
   import { MarkerType } from '@xyflow/svelte';
   import {
@@ -43,6 +43,28 @@
     }
     return { hex: color, alpha: 1 };
   }
+
+  type PanelNodeData = BaseNodeData & {
+    labelColor?: string;
+    fontSize?: number;
+    textAlign?: string;
+    viewMode?: string;
+    customTimestamp?: string;
+    use24HourFormat?: boolean;
+    multiLine?: boolean;
+    arrowPosition?: string;
+    arrowShape?: string;
+    arrowRotation?: number;
+    arrowFlipX?: boolean;
+    arrowFlipY?: boolean;
+    fontFamily?: string;
+    fontWeight?: string;
+    fontStyle?: string;
+    label?: string;
+    hash?: string;
+    email?: string;
+    domain?: string;
+  };
 
   interface Props {
     onClose: () => void;
@@ -474,8 +496,8 @@
               // Map edge type to path type for GlowEdge
               const pathType = edgeType === 'default' ? 'bezier' : edgeType;
               workspace.updateEdgeWithRefresh(selectedEdge.id, {
-                type: edgeType as any,
-                data: { ...selectedEdge.data, pathType: pathType as any }
+                type: edgeType as EdgeType,
+                data: { ...selectedEdge.data, pathType: pathType as EdgePathType }
               });
             }}
           >
@@ -599,7 +621,7 @@
     </div>
 
   {:else if selectedNode}
-    {@const data = selectedNode.data as Record<string, any>}
+    {@const data = selectedNode.data as PanelNodeData}
     <div class="panel-content">
       <!-- Type-specific fields, generated from the node plugin's schema -->
       {#if schemaFields.length > 0}
@@ -631,7 +653,7 @@
                 {#if field.type === 'enum'}
                   <select class="pp-control" value={typeof value === 'string' ? value : ''} onchange={(e) => updateNodeData(key, (e.target as HTMLSelectElement).value)}>
                     <option value="">Empty</option>
-                    {#each field.values ?? [] as option}
+                    {#each field.values ?? [] as option, i (i)}
                       <option value={option}>{option}</option>
                     {/each}
                   </select>

@@ -58,7 +58,7 @@
   
   {#snippet headerActions()}
     <select class="language-select nodrag" value={language} onchange={handleLanguageChange}>
-      {#each languages as lang}
+      {#each languages as lang (lang)}
         <option value={lang}>{lang}</option>
       {/each}
     </select>

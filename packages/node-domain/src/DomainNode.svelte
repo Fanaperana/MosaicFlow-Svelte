@@ -68,7 +68,7 @@
   {#if data.nameservers && data.nameservers.length > 0}
     <div class="nameservers">
       <span class="label">Nameservers</span>
-      {#each data.nameservers as ns}
+      {#each data.nameservers as ns, i (i)}
         <span class="ns-item">{ns}</span>
       {/each}
     </div>

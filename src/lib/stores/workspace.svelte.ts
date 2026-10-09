@@ -2,13 +2,11 @@
 // Manages the workspace state including nodes, edges, and settings
 // Uses real-time file operations for persistence (no save button needed)
 
-import { type Node, type Edge } from '@xyflow/svelte';
 import { v4 as uuidv4 } from 'uuid';
 import type {
   MosaicNode,
   MosaicEdge,
   WorkspaceSettings,
-  WorkspaceMetadata,
   WorkspaceData,
   UIState,
   Viewport,
@@ -16,7 +14,7 @@ import type {
   MosaicNodeData,
   CanvasMode,
 } from '$lib/types';
-import { DEFAULT_SETTINGS, DEFAULT_VIEWPORT } from '$lib/types';
+import { DEFAULT_VIEWPORT } from '$lib/types';
 import { CANVAS_FILE, CANVAS_FORMAT_VERSION, type CanvasFile } from '@mosaicflow/vault-core';
 import {
   initNodeFileService,

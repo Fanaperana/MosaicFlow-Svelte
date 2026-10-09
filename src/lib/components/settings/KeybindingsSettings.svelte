@@ -103,7 +103,7 @@
           <div class="keys">
             {#each chords as chord (chord)}
               <span class="chord">
-                {#each chordParts(chord) as part}<kbd>{part}</kbd>{/each}
+                {#each chordParts(chord) as part, i (i)}<kbd>{part}</kbd>{/each}
                 <button class="remove" onclick={() => keybindings.remove(cmd.id, chord)} aria-label="Remove {chord}" title="Remove"><X size={10} /></button>
               </span>
             {/each}

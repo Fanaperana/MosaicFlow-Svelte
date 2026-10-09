@@ -1,7 +1,6 @@
 <script lang="ts">
   import {
     SvelteFlow,
-    SvelteFlowProvider,
     Controls,
     MiniMap,
     Background,
@@ -35,7 +34,6 @@
     cross: BackgroundVariant.Cross,
   } as const;
   import * as ContextMenu from '$lib/components/ui/context-menu';
-  import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   interface Props {
     showNodeList?: boolean;
     onToggleNodeList?: () => void;
@@ -50,11 +48,7 @@
     Group,
     Ungroup,
     Copy,
-    Clipboard,
     Trash2,
-    ZoomIn,
-    ZoomOut,
-    Maximize,
     Link2,
     Lock,
     LockOpen,
@@ -116,8 +110,6 @@
   
   // Context menu state
   let contextMenuPosition = $state({ x: 0, y: 0 });
-  let contextMenuOpen = $state(false);
-  let contextMenuOnNode = $state(false); // Track if context menu was opened on a node
 
   // Block picker: `menu` is where it opens, `at` is where the node goes (screen coords).
   let insertMenu = $state<{ menu: { x: number; y: number }; at: { x: number; y: number }; centered: boolean } | null>(null);
@@ -132,7 +124,7 @@
   function handleWheel(e: WheelEvent) {
     const target = e.target as HTMLElement | null;
     if (target?.closest('.svelte-flow__panel, .svelte-flow__minimap')) return;
-    let dx = 0;
+    let dx: number;
     let dy = 0;
     if (e.altKey) {
       dx = e.deltaY || e.deltaX;
@@ -898,10 +890,6 @@
       onpointermove={(e) => (lastPointer = { x: e.clientX, y: e.clientY })}
       oncontextmenu={(e) => { 
         contextMenuPosition = { x: e.clientX, y: e.clientY };
-        // Check if right-click is on a node
-        const target = e.target as HTMLElement;
-        const nodeElement = target.closest('.svelte-flow__node');
-        contextMenuOnNode = nodeElement !== null || workspace.selectedNodeIds.length > 0;
       }}
       role="application"
     >

@@ -33,17 +33,12 @@
   let showColorPicker = $state(false);
   let showCustomColorPicker = $state(false);
   let customHex = $state('#3b82f6');
-  let localOpacity = $state(1);
+  let localOpacity = $derived(bgOpacity);
 
   // Get current node to check locked state
   // Only the selected node looks itself up; this component exists on every node.
   const currentNode = $derived(selected ? workspace.getNode(nodeId) : undefined);
   const isLocked = $derived(currentNode?.data?.locked ?? false);
-
-  // Sync local opacity with prop
-  $effect(() => {
-    localOpacity = bgOpacity;
-  });
 
   // Sync custom color when opening picker
   $effect(() => {
@@ -158,7 +153,7 @@
             </button>
           </div>
         {:else}
-          {#each presetColors as preset}
+          {#each presetColors as preset (preset.color)}
             <button
               class="color-swatch"
               class:active={color === preset.color}

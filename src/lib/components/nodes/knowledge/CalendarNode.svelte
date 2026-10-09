@@ -9,7 +9,7 @@
   import { workspace } from '$lib/stores/workspace.svelte';
   import type { BaseNodeData } from '$lib/types';
   import {
-    type CalendarEvent, type Repeat, REPEAT_LABELS, REMIND_OPTIONS,
+    type CalendarEvent, REPEAT_LABELS, REMIND_OPTIONS,
     ymd, parseDay, addDays, startOfDay, eventsOn, upcoming, formatTime,
   } from '$lib/utils/calendar';
 

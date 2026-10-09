@@ -20,16 +20,12 @@
   let { data, selected, id, width, height }: NodeProps<AnnotationNodeType> = $props();
   
   let isEditing = $state(false);
-  let labelText = $state('');
+  let labelText = $derived(data.label || 'Double-click to edit...');
   let textareaRef = $state<HTMLTextAreaElement | null>(null);
   
   // Rotation handle state
   let isRotating = $state(false);
   let rotationHandleRef = $state<HTMLDivElement | null>(null);
-  
-  $effect(() => {
-    labelText = data.label || 'Double-click to edit...';
-  });
 
   // Calculate font size based on node dimensions
   const calculatedFontSize = $derived(() => {
