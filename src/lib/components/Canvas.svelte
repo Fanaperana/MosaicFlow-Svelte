@@ -138,9 +138,7 @@
     e.stopPropagation();
     const scale = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
     const delta = (e.deltaY || e.deltaX) * scale;
-    viewport = e.altKey
-      ? { ...viewport, x: viewport.x - delta }
-      : { ...viewport, y: viewport.y - delta };
+    window.dispatchEvent(new CustomEvent('mosaicflow:panBy', { detail: e.altKey ? { x: -delta, y: 0 } : { x: 0, y: -delta } }));
   }
 
   $effect(() => {

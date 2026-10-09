@@ -43,6 +43,12 @@
     const { id, updates } = event.detail;
     updateEdge(id, updates);
   }
+
+  // Through setViewport (not the bound viewport) so the next wheel zoom starts from here.
+  function handlePanBy(event: CustomEvent<{ x: number; y: number }>) {
+    const vp = getViewport();
+    setViewport({ x: vp.x + event.detail.x, y: vp.y + event.detail.y, zoom: vp.zoom });
+  }
   
   onMount(() => {
     // Listen for fitView events from anywhere in the app
@@ -51,8 +57,10 @@
     window.addEventListener('mosaicflow:zoomOut', handleZoomOut);
     window.addEventListener('mosaicflow:updateEdge', handleUpdateEdge as EventListener);
     window.addEventListener('mosaicflow:focusNode', handleFocusNode as EventListener);
+    window.addEventListener('mosaicflow:panBy', handlePanBy as EventListener);
     
     return () => {
+      window.removeEventListener('mosaicflow:panBy', handlePanBy as EventListener);
       window.removeEventListener('mosaicflow:focusNode', handleFocusNode as EventListener);
       window.removeEventListener('mosaicflow:fitView', handleFitView as EventListener);
       window.removeEventListener('mosaicflow:zoomIn', handleZoomIn);
