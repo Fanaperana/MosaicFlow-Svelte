@@ -1,2 +1,9 @@
 packages:
   - 'packages/*'
+
+# lang-jinja imports these without declaring them
+packageExtensions:
+  '@codemirror/lang-jinja':
+    dependencies:
+      '@codemirror/state': '^6.5.2'
+      '@codemirror/view': '^6.39.4'

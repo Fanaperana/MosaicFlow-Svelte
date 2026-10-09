@@ -39,7 +39,6 @@ src/
 │   │   │   ├── data/      # Data nodes (Domain, Hash, Account, etc.)
 │   │   │   └── utility/   # Utility nodes (Group, Map, LinkList, etc.)
 │   │   ├── edges/     # Edge components
-│   │   ├── editor/    # Editor components
 │   │   └── ui/        # UI components
 │   ├── services/      # Business logic services
 │   ├── stores/        # Svelte stores (using runes)

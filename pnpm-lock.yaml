@@ -4,43 +4,21 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+packageExtensionsChecksum: sha256-U0h6OMhAZDhD4SPtM5Iulv9hd36pXeWANU4Pzos0woo=
+
 importers:
 
   .:
     dependencies:
-      '@codemirror/commands':
-        specifier: ^6.10.1
-        version: 6.10.1
-      '@codemirror/lang-markdown':
-        specifier: ^6.5.0
-        version: 6.5.0
-      '@codemirror/language':
-        specifier: ^6.11.3
-        version: 6.11.3
-      '@codemirror/language-data':
-        specifier: ^6.5.2
-        version: 6.5.2
-      '@codemirror/state':
-        specifier: ^6.5.2
-        version: 6.5.2
-      '@codemirror/view':
-        specifier: ^6.39.4
-        version: 6.39.4
       '@fontsource-variable/space-grotesk':
         specifier: ^5.3.0
         version: 5.3.0
       '@fontsource/pt-mono':
         specifier: ^5.3.0
         version: 5.3.0
-      '@lezer/highlight':
-        specifier: ^1.2.3
-        version: 1.2.3
-      '@lezer/markdown':
-        specifier: ^1.6.1
-        version: 1.6.1
-      '@markdoc/markdoc':
-        specifier: ^0.5.4
-        version: 0.5.4
+      '@mosaicflow/editor':
+        specifier: workspace:*
+        version: link:packages/editor
       '@mosaicflow/node-action':
         specifier: workspace:*
         version: link:packages/node-action
@@ -231,6 +209,45 @@ importers:
       vite:
         specifier: ^6.0.3
         version: 6.4.1(@types/node@26.6.4)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.23.15)(yaml@2.9.1)
+
+  packages/editor:
+    dependencies:
+      '@codemirror/commands':
+        specifier: ^6.10.1
+        version: 6.10.1
+      '@codemirror/lang-markdown':
+        specifier: ^6.5.0
+        version: 6.5.0
+      '@codemirror/language':
+        specifier: ^6.11.3
+        version: 6.11.3
+      '@codemirror/language-data':
+        specifier: ^6.5.2
+        version: 6.5.2
+      '@codemirror/state':
+        specifier: ^6.5.2
+        version: 6.5.2
+      '@codemirror/view':
+        specifier: ^6.39.4
+        version: 6.39.4
+      '@lezer/highlight':
+        specifier: ^1.2.3
+        version: 1.2.3
+      '@lezer/markdown':
+        specifier: ^1.6.1
+        version: 1.6.1
+      '@markdoc/markdoc':
+        specifier: ^0.5.4
+        version: 0.5.4
+      dompurify:
+        specifier: ^3.4.16
+        version: 3.4.16
+      lucide-svelte:
+        specifier: '>=0.400.0'
+        version: 0.561.0(svelte@5.46.0)
+      svelte:
+        specifier: ^5.0.0
+        version: 5.46.0
 
   packages/mcp-server:
     dependencies:
@@ -511,6 +528,9 @@ importers:
 
   packages/node-sdk:
     dependencies:
+      '@mosaicflow/editor':
+        specifier: workspace:*
+        version: link:../editor
       '@xyflow/svelte':
         specifier: ^1.5.0
         version: 1.5.0(svelte@5.46.0)
@@ -3079,6 +3099,8 @@ snapshots:
     dependencies:
       '@codemirror/lang-html': 6.4.11
       '@codemirror/language': 6.11.3
+      '@codemirror/state': 6.5.2
+      '@codemirror/view': 6.39.4
       '@lezer/common': 1.4.0
       '@lezer/highlight': 1.2.3
       '@lezer/lr': 1.4.5
