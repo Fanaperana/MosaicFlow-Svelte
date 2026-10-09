@@ -8,7 +8,7 @@
   import type { NoteNodeData } from './types';
   import { workspace } from '@mosaicflow/node-sdk/store';
   import { StickyNote, Check, Pencil } from 'lucide-svelte';
-  import { RichMarkdownEditor } from '@mosaicflow/node-sdk/editor';
+  import { RichMarkdownEditor, richContent } from '@mosaicflow/node-sdk/editor';
   import { hexToRgba, renderMarkdown } from '@mosaicflow/node-sdk';
   import { NodeFloatingToolbar, NodeHandles } from '@mosaicflow/node-sdk';
 
@@ -146,9 +146,7 @@
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="note-preview" ondblclick={handleDoubleClick}>
         {#if content}
-          <div class="markdown-content">
-            {@html renderedHtml}
-          </div>
+          <div class="markdown-content" use:richContent={renderedHtml}></div>
           {#if truncated}
             <button class="show-all nodrag" onclick={() => (showAll = true)}>
               Showing {Math.round(previewSource.length / 1000)} of {Math.round(content.length / 1000).toLocaleString()} KB · Show all

@@ -55,8 +55,40 @@ const hashtag: TokenizerAndRendererExtension = {
   },
 };
 
+// Math is kept away from markdown (so `_` and `*` in TeX survive) and left as a placeholder showing the source;
+// hydrateRichContent() from the editor package renders it.
+const blockMath: TokenizerAndRendererExtension = {
+  name: 'blockMath',
+  level: 'block',
+  start: (src) => src.indexOf('$$'),
+  tokenizer(src) {
+    const m = /^ {0,3}\$\$([\s\S]+?)\$\$[ \t]*(?:\n|$)/.exec(src);
+    if (!m || !m[1].trim()) return undefined;
+    return { type: 'blockMath', raw: m[0], tex: m[1].trim() };
+  },
+  renderer(token) {
+    const tex = escapeHtml(String(token.tex));
+    return `<div class="mf-tex" data-tex="${tex}">$$${tex}$$</div>`;
+  },
+};
+
+const inlineMath: TokenizerAndRendererExtension = {
+  name: 'inlineMath',
+  level: 'inline',
+  start: (src) => src.indexOf('$'),
+  tokenizer(src) {
+    const m = /^\$(?![\s$])((?:\\.|[^\\$\n])+?)(?<!\s)\$(?!\d)/.exec(src);
+    if (!m) return undefined;
+    return { type: 'inlineMath', raw: m[0], tex: m[1] };
+  },
+  renderer(token) {
+    const tex = escapeHtml(String(token.tex));
+    return `<span class="mf-tex" data-tex="${tex}">$${tex}$</span>`;
+  },
+};
+
 const md = new Marked({ breaks: true, gfm: true });
-md.use({ extensions: [wikilink, hashtag] });
+md.use({ extensions: [blockMath, inlineMath, wikilink, hashtag] });
 
 let hooked = false;
 function purifier() {

@@ -230,6 +230,9 @@ importers:
       '@codemirror/view':
         specifier: ^6.39.4
         version: 6.39.4
+      '@lezer/common':
+        specifier: ^1.4.0
+        version: 1.4.0
       '@lezer/highlight':
         specifier: ^1.2.3
         version: 1.2.3

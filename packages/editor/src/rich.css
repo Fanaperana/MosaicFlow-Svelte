@@ -1,0 +1,53 @@
+/* Math and diagrams; shared by the editor and rendered (view mode) markdown. */
+.mf-math-display {
+  display: block;
+  margin: 0.5em 0;
+  padding: 0.25em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: center;
+}
+
+.mf-math-inline {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: baseline;
+}
+
+.mf-math-error {
+  color: #f87171;
+  font-family: var(--mf-font-mono);
+  border-bottom: 1px dashed currentColor;
+}
+
+.mf-mermaid {
+  display: flex;
+  justify-content: center;
+  margin: 0.5em 0;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  color: #a1a1aa;
+  font-size: 12px;
+  overflow: auto;
+}
+
+.mf-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mf-mermaid-error {
+  color: #f87171;
+  font-family: var(--mf-font-mono);
+  white-space: pre-wrap;
+}
+
+.cm-rich-block {
+  cursor: text;
+}
+
+.cm-math-source {
+  color: #c4b5fd;
+}

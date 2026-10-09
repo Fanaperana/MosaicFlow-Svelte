@@ -31,7 +31,7 @@ export function richMarkdownPlugin(config: MarkdocPluginConfig) {
     ],
     eventHandlers: {
       mousedown({ target }, view) {
-        if (target instanceof Element && target.matches('.cm-markdoc-renderBlock *'))
+        if (target instanceof Element && target.matches('.cm-markdoc-renderBlock *, .cm-rich-block, .cm-rich-block *, .cm-rich-inline, .cm-rich-inline *'))
           view.dispatch({ selection: { anchor: view.posAtDOM(target) } });
       }
     }

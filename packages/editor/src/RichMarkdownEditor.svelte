@@ -32,6 +32,8 @@
   import { FileText } from 'lucide-svelte';
   import { wikilinkChips } from './wikilinkChips';
   import { tableKeymap } from './table';
+  import { mathParser } from './mathParser';
+  import { richBlocks } from './richBlocks';
 
   interface Props {
     value?: string;
@@ -147,8 +149,9 @@
         richMarkdownPlugin({
           markdoc: markdocConfig,
           codeLanguages: languages,
-          extensions: [Table, TaskList, Strikethrough, wikilinkParser]
+          extensions: [Table, TaskList, Strikethrough, wikilinkParser, mathParser]
         }),
+        richBlocks,
         EditorView.lineWrapping,
         history(),
         drawSelection(),

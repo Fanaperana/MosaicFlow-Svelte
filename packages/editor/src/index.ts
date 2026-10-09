@@ -7,3 +7,8 @@ export { tagParser } from './tagParser';
 export { RichEditPlugin } from './richEdit';
 export { renderBlock } from './renderBlock';
 export { tableKeymap, tableCommands } from './table';
+export { mathParser } from './mathParser';
+export { richBlocks } from './richBlocks';
+export { renderMath } from './math';
+export { renderMermaid } from './mermaid';
+export { hydrateRichContent, richContent } from './hydrate';
