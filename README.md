@@ -137,6 +137,7 @@ Every shortcut can be changed in **Settings → Keyboard shortcuts** (<kbd>Ctrl<
 | <kbd>[[</kbd> in a note | Link to a node or page |
 | <kbd>Shift</kbd> + <kbd>1</kbd> | Fit view |
 | <kbd>Ctrl</kbd> + <kbd>=</kbd> / <kbd>Ctrl</kbd> + <kbd>-</kbd> | Zoom in / out |
+| <kbd>Ctrl</kbd> + scroll / <kbd>Alt</kbd> + scroll | Pan up/down / left/right |
 | <kbd>V</kbd> / <kbd>H</kbd> | Select tool / hand tool |
 | <kbd>Ctrl</kbd> + <kbd>G</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> | Group / ungroup |
 | <kbd>Ctrl</kbd> + <kbd>D</kbd> | Duplicate selection |

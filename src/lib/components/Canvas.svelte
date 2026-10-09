@@ -128,6 +128,28 @@
     insertMenu = { menu, at, centered };
   }
 
+  // Plain wheel zooms (xyflow); Ctrl+wheel pans up/down and Alt+wheel pans left/right.
+  function handleWheel(e: WheelEvent) {
+    if (!e.ctrlKey && !e.altKey) return;
+    // Trackpad pinch arrives as Ctrl+wheel with fractional deltas; leave it as zoom.
+    if (e.ctrlKey && !Number.isInteger(e.deltaY)) return;
+    if ((e.target as HTMLElement | null)?.closest('.svelte-flow__panel, .svelte-flow__minimap')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const scale = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+    const delta = (e.deltaY || e.deltaX) * scale;
+    viewport = e.altKey
+      ? { ...viewport, x: viewport.x - delta }
+      : { ...viewport, y: viewport.y - delta };
+  }
+
+  $effect(() => {
+    const el = flowContainer;
+    if (!el) return;
+    el.addEventListener('wheel', handleWheel, { capture: true, passive: false });
+    return () => el.removeEventListener('wheel', handleWheel, { capture: true });
+  });
+
   // View-only pages: block edits inside nodes but keep links, scrolling and the hover previews working.
   // Controls marked data-nav (open page, open original, open link) only navigate, so they stay usable.
   const LOCKED_TARGETS = 'input, textarea, select, button, [contenteditable], .cm-editor, .svelte-flow__resize-control, .svelte-flow__handle';
