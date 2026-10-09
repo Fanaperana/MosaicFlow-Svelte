@@ -62,7 +62,7 @@ On macOS, read `Ctrl` as `Cmd` throughout this guide.
 | Select | Click; `Shift`+click to add; drag on empty space to box-select; `Ctrl+A` for all |
 | Move | Drag. Hold `Shift` to snap to the edges and centres of nearby blocks (guides appear) |
 | Resize | Drag a selected block's edges or corners; `Shift` snaps here too |
-| Pan | Drag empty space with the hand tool (`H`); `V` returns to the select tool. `Ctrl`+scroll pans up/down, `Alt`+scroll pans left/right |
+| Pan | Drag empty space with the hand tool (`H`); `V` returns to the select tool. `Ctrl`+scroll pans up/down, `Alt`+scroll or a horizontal wheel / sideways swipe pans left/right |
 | Zoom | Scroll, `Ctrl+=` / `Ctrl+-`, or the ribbon; `Shift+1` fits everything |
 | Duplicate / delete | `Ctrl+D` / `Delete` |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Y` |
@@ -315,7 +315,7 @@ All of these can be changed in **Settings → Keyboard shortcuts** (`Ctrl+/`).
 | `Ctrl+Shift+E` | Export as `.mosaic` |
 | `Shift+1` | Fit view |
 | `Ctrl+=` / `Ctrl+-` | Zoom in / out |
-| `Ctrl`+scroll / `Alt`+scroll | Pan up/down / left/right |
+| `Ctrl`+scroll / `Alt`+scroll or horizontal wheel | Pan up/down / left/right |
 | `V` / `H` | Select tool / hand tool |
 | `Ctrl+A` | Select all |
 | `Ctrl+D` | Duplicate |

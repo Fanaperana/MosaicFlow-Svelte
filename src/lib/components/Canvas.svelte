@@ -128,17 +128,30 @@
     insertMenu = { menu, at, centered };
   }
 
-  // Plain wheel zooms (xyflow); Ctrl+wheel pans up/down and Alt+wheel pans left/right.
+  // Plain wheel zooms (xyflow); Ctrl+wheel pans up/down, Alt+wheel and a horizontal wheel pan left/right.
   function handleWheel(e: WheelEvent) {
-    if (!e.ctrlKey && !e.altKey) return;
-    // Trackpad pinch arrives as Ctrl+wheel with fractional deltas; leave it as zoom.
-    if (e.ctrlKey && !Number.isInteger(e.deltaY)) return;
-    if ((e.target as HTMLElement | null)?.closest('.svelte-flow__panel, .svelte-flow__minimap')) return;
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('.svelte-flow__panel, .svelte-flow__minimap')) return;
+    let dx = 0;
+    let dy = 0;
+    if (e.altKey) {
+      dx = e.deltaY || e.deltaX;
+    } else if (e.ctrlKey) {
+      // Trackpad pinch arrives as Ctrl+wheel with fractional deltas; leave it as zoom.
+      if (!Number.isInteger(e.deltaY)) return;
+      dx = e.deltaX;
+      dy = e.deltaY;
+    } else if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+      // Tilt wheel or sideways swipe; scrollable content inside nodes keeps it.
+      if (target?.closest('.nowheel')) return;
+      dx = e.deltaX;
+    } else {
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     const scale = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
-    const delta = (e.deltaY || e.deltaX) * scale;
-    window.dispatchEvent(new CustomEvent('mosaicflow:panBy', { detail: e.altKey ? { x: -delta, y: 0 } : { x: 0, y: -delta } }));
+    window.dispatchEvent(new CustomEvent('mosaicflow:panBy', { detail: { x: -dx * scale, y: -dy * scale } }));
   }
 
   $effect(() => {
