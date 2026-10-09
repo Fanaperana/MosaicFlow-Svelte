@@ -34,6 +34,9 @@
   import { tableKeymap } from './table';
   import { mathParser } from './mathParser';
   import { richBlocks } from './richBlocks';
+  import { filterSlashCommands, applySlashCommand, type SlashCommand } from './slashCommands';
+  import { slashIcons } from './slashIcons';
+  import { syntaxTree } from '@codemirror/language';
 
   interface Props {
     value?: string;
@@ -118,17 +121,72 @@
   }
 
   const pickerKeymap = Prec.highest(keymap.of([
-    { key: 'ArrowDown', run: () => (picker && pickItems.length ? (movePick(1), true) : false) },
-    { key: 'ArrowUp', run: () => (picker && pickItems.length ? (movePick(-1), true) : false) },
-    { key: 'Enter', run: () => (picker && pickItems.length ? (applyPick(pickItems[pickIndex]), true) : false) },
-    { key: 'Tab', run: () => (picker && pickItems.length ? (applyPick(pickItems[pickIndex]), true) : false) },
-    { key: 'Escape', run: () => (picker ? ((picker = null), true) : false) },
+    { key: 'ArrowDown', run: () => (picker && pickItems.length ? (movePick(1), true) : slashOpen() ? (moveSlash(1), true) : false) },
+    { key: 'ArrowUp', run: () => (picker && pickItems.length ? (movePick(-1), true) : slashOpen() ? (moveSlash(-1), true) : false) },
+    { key: 'Enter', run: () => (picker && pickItems.length ? (applyPick(pickItems[pickIndex]), true) : slashOpen() ? (applySlash(slashItems[slashIndex]), true) : false) },
+    { key: 'Tab', run: () => (picker && pickItems.length ? (applyPick(pickItems[pickIndex]), true) : slashOpen() ? (applySlash(slashItems[slashIndex]), true) : false) },
+    { key: 'Escape', run: () => (picker ? ((picker = null), true) : slash ? (dismissSlash(), true) : false) },
   ]));
+
+  // ---- / command menu: typed at line start or after a space ----
+  const NO_SLASH_IN = new Set(['FencedCode', 'CodeBlock', 'InlineCode', 'BlockMath', 'InlineMath', 'Wikilink', 'URL']);
+  let slash = $state<{ from: number; query: string; x: number; y: number } | null>(null);
+  let slashIndex = $state(0);
+  let slashDismissedAt = -1;
+  let slashItems = $derived(slash && view ? filterSlashCommands(view, slash.query) : []);
+
+  function slashOpen() {
+    return !!slash && slashItems.length > 0;
+  }
+
+  function updateSlash(v: EditorView) {
+    const sel = v.state.selection.main;
+    if (!sel.empty || !v.hasFocus) return (slash = null);
+    const line = v.state.doc.lineAt(sel.head);
+    const m = /(?:^|\s)\/([\w-]*)$/.exec(line.text.slice(0, sel.head - line.from));
+    if (!m) {
+      slashDismissedAt = -1;
+      return (slash = null);
+    }
+    const from = sel.head - m[1].length - 1;
+    if (from === slashDismissedAt) return (slash = null);
+    for (let node: ReturnType<ReturnType<typeof syntaxTree>['resolveInner']> | null = syntaxTree(v.state).resolveInner(from + 1, -1); node; node = node.parent) {
+      if (NO_SLASH_IN.has(node.name)) return (slash = null);
+    }
+    const coords = v.coordsAtPos(from);
+    if (!coords) return (slash = null);
+    if (!slash || slash.from !== from || slash.query !== m[1]) slashIndex = 0;
+    slash = { from, query: m[1], x: coords.left, y: coords.bottom + 4 };
+  }
+
+  function moveSlash(delta: number) {
+    const n = slashItems.length;
+    if (n) slashIndex = (slashIndex + delta + n) % n;
+  }
+
+  function applySlash(cmd: SlashCommand | undefined) {
+    if (!view || !slash || !cmd) return;
+    const { from } = slash;
+    slash = null;
+    applySlashCommand(view, cmd, from, view.state.selection.main.head);
+    view.focus();
+  }
+
+  function dismissSlash() {
+    slashDismissedAt = slash?.from ?? -1;
+    slash = null;
+  }
 
   /** Renders the picker on <body> so the canvas transform doesn't offset it. */
   function portal(el: HTMLElement) {
     document.body.appendChild(el);
     return { destroy: () => el.remove() };
+  }
+
+  function scrollIfActive(el: HTMLElement, active: boolean) {
+    const apply = (on: boolean) => on && el.scrollIntoView({ block: 'nearest' });
+    apply(active);
+    return { update: apply };
   }
 
   function createEditor() {
@@ -140,7 +198,10 @@
         onChange(update.state.doc.toString());
         isInternalChange = false;
       }
-      if (update.docChanged || update.selectionSet || update.focusChanged) updatePicker(update.view);
+      if (update.docChanged || update.selectionSet || update.focusChanged) {
+        updatePicker(update.view);
+        updateSlash(update.view);
+      }
     });
 
     const state = EditorState.create({
@@ -288,6 +349,36 @@
   </div>
 {/if}
 
+{#if slash && slashItems.length}
+  <div
+    class="wl-picker slash-menu"
+    use:portal
+    style="left: {Math.min(slash.x, window.innerWidth - 250)}px; top: {Math.min(slash.y, window.innerHeight - 300)}px"
+    role="listbox"
+    tabindex="-1"
+    onmousedown={(e) => e.preventDefault()}
+  >
+    {#each slashItems as item, i (item.id)}
+      {@const Icon = slashIcons[item.icon]}
+      {#if !slash.query && item.group !== slashItems[i - 1]?.group}
+        <div class="wl-head">{item.group}</div>
+      {/if}
+      <button
+        class="wl-item"
+        class:active={i === slashIndex}
+        role="option"
+        aria-selected={i === slashIndex}
+        onmouseenter={() => (slashIndex = i)}
+        onclick={() => applySlash(item)}
+        use:scrollIfActive={i === slashIndex}
+      >
+        <Icon size={14} />
+        <span class="wl-title">{item.label}</span>
+      </button>
+    {/each}
+  </div>
+{/if}
+
 <style>
   .rich-markdown-editor {
     width: 100%;
@@ -355,5 +446,9 @@
   .wl-empty {
     padding: 8px;
     color: var(--mf-text-3, #888);
+  }
+
+  .slash-menu {
+    width: 240px;
   }
 </style>

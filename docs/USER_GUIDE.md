@@ -11,6 +11,7 @@ maps, …) on **pages**, connect them, and everything is saved as plain Markdown
 - [Groups](#groups)
 - [The properties panel](#the-properties-panel)
 - [Links, backlinks and tags](#links-backlinks-and-tags)
+- [Writing notes](#writing-notes)
 - [Finding things](#finding-things)
 - [Graph view](#graph-view)
 - [Story and node list](#story-and-node-list)
@@ -143,6 +144,28 @@ In any text field that supports Markdown, type `[[` to pick a block or page to l
   Settings → General).
 - **Click** a link to go there; `Alt+←` / `Alt+→` (or the mouse's back/forward buttons) move through your history.
 - **`#tags`** in text and the **Tags** property are collected vault-wide. Click a tag to highlight it.
+
+## Writing notes
+
+- **`/` commands:** type `/` at the start of a line or after a space for headings, lists, tasks, quotes, code,
+  tables, math, Mermaid diagrams, dividers, inline formatting and links. Keep typing to filter, `Enter` or `Tab`
+  inserts, `Esc` closes. Text already on the line is converted where it makes sense (`Intro /h1` → `# Intro`).
+  Inside a table it also offers add/delete row or column, column alignment and format.
+- **Tables:** `Tab` / `Shift+Tab` move between cells and re-align the whole table as you type; `Enter` goes to
+  the next row (adding one at the end); `Ctrl+Enter` leaves the table. Typing `| a | b` and pressing `Tab` turns
+  it into a table.
+
+  | Shortcut | In a table |
+  |----------|------------|
+  | `Ctrl+Shift+F` / `Ctrl+Alt+Shift+F` | Format this table / every table in the note |
+  | `Ctrl+Alt+←` `→` `↑` `↓` | Align column left / right / center / none |
+  | `Alt+↑` `↓` / `Alt+←` `→` | Move row / column |
+
+- **Math:** `$x^2$` inline, `$$ … $$` or a ` ```math ` block for display equations (KaTeX). Amounts like
+  `$5 and $10` stay text.
+- **Diagrams:** a ` ```mermaid ` block renders as a diagram.
+
+Formulas, diagrams and tables show their source while the cursor is inside them; click one to edit it.
 
 ## Finding things
 

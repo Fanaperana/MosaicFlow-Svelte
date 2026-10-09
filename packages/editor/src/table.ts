@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference -- the kernel ships no types; packages/ is outside the tsconfig include
 /// <reference path="./mte-kernel.d.ts" />
 // Markdown table editing: Tab moves between cells and re-aligns the whole table as you type.
 import { Prec, EditorSelection, ChangeSet, type EditorState, type Text } from '@codemirror/state';
