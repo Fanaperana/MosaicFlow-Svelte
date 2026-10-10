@@ -37,6 +37,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .manage(PendingOpenFiles::default())
+        .manage(services::mcp_http::McpHttpState::default())
         .setup(|app| {
             let args: Vec<String> = std::env::args().collect();
             let files = accept_paths(app.handle(), paths_from_args(&args));
@@ -116,6 +117,10 @@ pub fn run() {
             open_plugins_dir,
             // Files opened from the OS
             take_pending_open_files,
+            // Built-in MCP server
+            mcp_http_start,
+            mcp_http_stop,
+            mcp_http_reply,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
