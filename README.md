@@ -7,6 +7,10 @@
 </p>
 
 <p align="center">
+  <em>Built for students, researchers, clinicians, OSINT investigators, writers, analysts, product teams and anyone who wants their knowledge to stay local, searchable and portable.</em>
+</p>
+
+<p align="center">
   <a href="#who-its-for">Who it's for</a> •
   <a href="#features">Features</a> •
   <a href="#getting-started">Getting started</a> •
@@ -44,7 +48,7 @@ Anyone whose knowledge is made of **things and how they relate**, and who wants 
 | **OSINT / security investigator** | Build investigation boards with Person, Organization, Domain, Hash, Credential, Social post, Router, Snapshot and Map blocks, timelines, labelled relations and view-only (locked) pages for sharing findings. |
 | **Journalist / analyst** | Connect people, organisations, events and sources; keep evidence and reasoning on one canvas and export it as an image or a shareable `.mosaic` package. |
 | **Developer / engineer** | Sketch architectures and processes, keep code snippets with syntax highlighting, import Mermaid flowcharts and document systems next to the decisions behind them. |
-| **Writer / teacher / team lead / anyone curious** | Plan, brainstorm and explain: notes, checklists, callouts, groups and links on a canvas that grows with your ideas. |
+| **Writer / teacher / product team / anyone curious** | Map arguments and outlines, plan and brainstorm, capture team knowledge: notes, checklists, callouts, groups and links on a canvas that grows with your ideas. |
 
 Your vault is a folder of Markdown files, so it works offline, syncs with whatever you already use (Git, a cloud drive) and never locks your knowledge in.
 
