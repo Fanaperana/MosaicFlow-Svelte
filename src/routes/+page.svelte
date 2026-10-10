@@ -5,6 +5,8 @@
   import Canvas from '$lib/components/Canvas.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import PropertiesPanel from '$lib/components/PropertiesPanel.svelte';
+  import PropertiesPopover from '$lib/components/PropertiesPopover.svelte';
+  import NodePeek from '$lib/components/NodePeek.svelte';
   import VaultPicker from '$lib/components/VaultPicker.svelte';
   import CanvasList from '$lib/components/CanvasList.svelte';
   import CanvasHeader from '$lib/components/CanvasHeader.svelte';
@@ -76,6 +78,23 @@
     pageNav.sidebarOpen = false;
     workspace.propertiesPanelOpen = false;
   }
+
+  // Not persisted, so the sidebar preference for wide windows survives.
+  $effect(() => {
+    if (ui.compact && settings.current.canvas.autoHidePagesOnNarrow) untrack(() => (pageNav.sidebarOpen = false));
+  });
+
+  // Remembers where each page was left; saving waits until the page's own view has been applied.
+  let viewReady = false;
+  let saveTimer: ReturnType<typeof setTimeout> | undefined;
+  $effect(() => {
+    const { x, y, zoom } = workspace.viewport;
+    const nodeList = ui.nodeListOpen;
+    const id = currentCanvasId;
+    if (!id || !viewReady) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => pageNav.saveView(id, { x, y, zoom, nodeList }), 400);
+  });
 
   // Files opened from the OS (double-clicked .mosaic etc.) are imported once a vault is open.
   onMount(() => {
@@ -149,6 +168,10 @@
     if (!vaultStore.currentCanvas) return;
     
     try {
+      viewReady = false;
+      clearTimeout(saveTimer);
+      ui.zoomReturn = null;
+      if (ui.compact && settings.current.canvas.autoHidePagesOnNarrow) pageNav.sidebarOpen = false;
       knowledge.detachLive();
       // Clear workspace first
       workspace.clear();
@@ -165,17 +188,25 @@
         console.log('No existing workspace data, starting fresh');
       }
       knowledge.attachLive(vaultStore.currentCanvas.id);
-      if (!(await consumePendingFocus())) fitLoadedCanvas();
+      const focused = await consumePendingFocus();
+      showLoadedCanvas(vaultStore.currentCanvas.id, focused);
     } catch (err) {
       console.error('Failed to load canvas:', err);
     }
   }
   
-  // Each page opens fitted to its content instead of inheriting the previous page's zoom.
-  async function fitLoadedCanvas() {
+  // Pages reopen where they were left, or fitted to their content (also when the setting is "fit").
+  async function showLoadedCanvas(id: string, focused: boolean) {
     await tick();
+    const saved = !focused && settings.current.canvas.pageOpenView === 'restore' ? pageNav.viewOf(id) : undefined;
+    if (saved) ui.nodeListOpen = saved.nodeList;
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.1, maxZoom: 1, duration: 0 } }));
+      if (saved) {
+        window.dispatchEvent(new CustomEvent('mosaicflow:setViewport', { detail: { x: saved.x, y: saved.y, zoom: saved.zoom } }));
+      } else if (!focused) {
+        window.dispatchEvent(new CustomEvent('mosaicflow:fitView', { detail: { padding: 0.1, maxZoom: 1, duration: 0 } }));
+      }
+      if (currentCanvasId === id) viewReady = true;
     }));
   }
 
@@ -287,7 +318,7 @@
         {/if}
       </div>
       
-      {#if workspace.propertiesPanelOpen}
+      {#if workspace.propertiesPanelOpen && !ui.propertiesPopover}
         <div class="panel-slot right" transition:slide={PANEL_TRANSITION}>
           <PropertiesPanel onClose={() => workspace.propertiesPanelOpen = false} />
         </div>
@@ -307,6 +338,10 @@
       onCanvasSelect={handleCanvasSelect}
     />
     <LinkPreview />
+    {#if workspace.propertiesPanelOpen && ui.propertiesPopover}
+      <PropertiesPopover onClose={() => (workspace.propertiesPanelOpen = false)} />
+    {/if}
+    <NodePeek />
   </div>
 {:else}
   <VaultPicker />

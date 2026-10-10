@@ -68,9 +68,10 @@
 
   interface Props {
     onClose: () => void;
+    variant?: 'panel' | 'popover';
   }
   
-  let { onClose }: Props = $props();
+  let { onClose, variant = 'panel' }: Props = $props();
 
   // Accordion states for PropertyGroup
   let generalOpen = $state(true);
@@ -411,6 +412,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div 
   class="properties-panel"
+  class:popover={variant === 'popover'}
   class:readonly={workspace.locked}
   onclick={handlePanelEvent}
   onkeydown={handlePanelEvent}
@@ -1248,6 +1250,16 @@
     font-size: 12.5px;
   }
 
+  .properties-panel.popover {
+    width: 288px;
+    height: auto;
+    max-height: 100%;
+    border: 1px solid var(--mf-border-strong);
+    border-radius: 10px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+  }
+
   /* Header: type crumb + actions, then a page-style title */
   .pp-header {
     display: flex;
@@ -1418,6 +1430,7 @@
 
   .panel-content {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: 2px 6px 16px;
     display: flex;

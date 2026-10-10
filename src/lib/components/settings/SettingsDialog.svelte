@@ -312,12 +312,56 @@
             {@render toggle(s.canvas.doubleClickInsert, (v) => settings.update('canvas', { doubleClickInsert: v }), 'Double-click to insert')}
           </div>
           <div class="row">
-            <div class="text"><span>Open properties on select</span><small>"Wide windows" keeps the canvas uncluttered on small screens. Ctrl+Shift+\ always toggles it.</small></div>
+            <div class="text"><span>Open properties on select</span><small>"Wide windows" keeps the canvas uncluttered on small screens. E or Ctrl+Shift+\ always toggles it.</small></div>
             <div class="seg">
               {#each [['always', 'Always'], ['wide', 'Wide windows'], ['never', 'Never']] as [value, label] (value)}
                 <button class:active={s.canvas.propertiesOnSelect === value} onclick={() => settings.update('canvas', { propertiesOnSelect: value as 'always' | 'wide' | 'never' })}>{label}</button>
               {/each}
             </div>
+          </div>
+          <div class="row">
+            <div class="text"><span>Properties style</span><small>Side panel, or a popover next to the selected node. "Auto" uses the popover on narrow windows.</small></div>
+            <div class="seg">
+              {#each [['auto', 'Auto'], ['panel', 'Panel'], ['popover', 'Popover']] as [value, label] (value)}
+                <button class:active={s.canvas.propertiesView === value} onclick={() => settings.update('canvas', { propertiesView: value as 'auto' | 'panel' | 'popover' })}>{label}</button>
+              {/each}
+            </div>
+          </div>
+          <div class="row">
+            <div class="text"><span>Peek with Alt</span><small>Hold Alt over a node to see its fields, tags and backlinks.</small></div>
+            {@render toggle(s.canvas.peekOnAlt, (v) => settings.update('canvas', { peekOnAlt: v }), 'Peek with Alt')}
+          </div>
+          <div class="row">
+            <div class="text"><span>Esc returns from zoom</span><small>After zooming to a selection (Shift+2), Esc goes back to the previous view.</small></div>
+            {@render toggle(s.canvas.escapeRestoresView, (v) => settings.update('canvas', { escapeRestoresView: v }), 'Esc returns from zoom')}
+          </div>
+          <div class="row">
+            <div class="text"><span>Hide pages sidebar on narrow windows</span><small>Closes it when the window gets narrow or a page opens; use Ctrl+K to switch pages.</small></div>
+            {@render toggle(s.canvas.autoHidePagesOnNarrow, (v) => settings.update('canvas', { autoHidePagesOnNarrow: v }), 'Hide pages sidebar on narrow windows')}
+          </div>
+          <div class="row">
+            <div class="text"><span>When a page opens</span><small>Return to where you left it, or fit all content on screen.</small></div>
+            <div class="seg">
+              {#each [['restore', 'Last view'], ['fit', 'Fit content']] as [value, label] (value)}
+                <button class:active={s.canvas.pageOpenView === value} onclick={() => settings.update('canvas', { pageOpenView: value as 'restore' | 'fit' })}>{label}</button>
+              {/each}
+            </div>
+          </div>
+          <div class="row">
+            <div class="text"><span>Keyboard navigation</span><small>Ctrl+Arrow moves the selection to the nearest node in that direction, or only along connections.</small></div>
+            <div class="seg">
+              {#each [['spatial', 'Nearest'], ['connected', 'Connected']] as [value, label] (value)}
+                <button class:active={s.canvas.keyboardNav === value} onclick={() => settings.update('canvas', { keyboardNav: value as 'spatial' | 'connected' })}>{label}</button>
+              {/each}
+            </div>
+          </div>
+          <div class="row">
+            <div class="text"><span>Fade scrollable content</span><small>Fades the edge of node content that has more to scroll.</small></div>
+            {@render toggle(s.canvas.scrollFade, (v) => settings.update('canvas', { scrollFade: v }), 'Fade scrollable content')}
+          </div>
+          <div class="row">
+            <div class="text"><span>Touch and pen drag pans</span><small>One-finger or pen drags move the canvas; long-press opens the context menu.</small></div>
+            {@render toggle(s.canvas.touchDragPans, (v) => settings.update('canvas', { touchDragPans: v }), 'Touch and pen drag pans')}
           </div>
 
         {:else if ui.settingsSection === 'keybindings'}
