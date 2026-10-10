@@ -6,6 +6,7 @@
 pub mod canvas_service;
 pub mod config_service;
 pub mod history_service;
+pub mod mcp_http;
 pub mod migration_service;
 pub mod plugin_service;
 pub mod state_service;
