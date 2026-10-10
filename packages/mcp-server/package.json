@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "description": "MCP server that lets AI assistants read, search and build MosaicFlow canvases directly in a vault folder.",
   "type": "module",
+  "exports": {
+    "./server": {
+      "default": "./src/server.ts"
+    }
+  },
   "bin": {
     "mosaicflow-mcp": "./dist/mosaicflow-mcp.mjs"
   },
