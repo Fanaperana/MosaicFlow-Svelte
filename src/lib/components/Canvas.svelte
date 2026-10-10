@@ -120,10 +120,29 @@
     insertMenu = { menu, at, centered };
   }
 
-  // Plain wheel zooms (xyflow); Ctrl+wheel pans up/down, Alt+wheel and a horizontal wheel pan left/right.
+  // True when the pointer is over node content that can scroll along this axis.
+  function overScrollableNodeContent(target: HTMLElement | null, vertical: boolean): boolean {
+    if (!target?.closest('.svelte-flow__node')) return false;
+    for (let el: HTMLElement | null = target; el && !el.classList.contains('svelte-flow__node'); el = el.parentElement) {
+      if (el.classList.contains('nowheel')) return true;
+      const overflow = vertical ? getComputedStyle(el).overflowY : getComputedStyle(el).overflowX;
+      if (overflow !== 'auto' && overflow !== 'scroll') continue;
+      if (vertical ? el.scrollHeight > el.clientHeight : el.scrollWidth > el.clientWidth) return true;
+    }
+    return false;
+  }
+
+  // Plain wheel zooms (xyflow) unless it is over scrollable node content, which scrolls instead.
+  // Ctrl+wheel pans up/down, Alt+wheel and a horizontal wheel pan left/right.
   function handleWheel(e: WheelEvent) {
     const target = e.target as HTMLElement | null;
     if (target?.closest('.svelte-flow__panel, .svelte-flow__minimap')) return;
+    const horizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+    if (!e.ctrlKey && !e.altKey && overScrollableNodeContent(target, !horizontal)) {
+      // Keep the event from xyflow but let the browser scroll the content natively.
+      e.stopPropagation();
+      return;
+    }
     let dx: number;
     let dy = 0;
     if (e.altKey) {
@@ -133,9 +152,7 @@
       if (!Number.isInteger(e.deltaY)) return;
       dx = e.deltaX;
       dy = e.deltaY;
-    } else if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-      // Tilt wheel or sideways swipe; scrollable content inside nodes keeps it.
-      if (target?.closest('.nowheel')) return;
+    } else if (horizontal) {
       dx = e.deltaX;
     } else {
       return;

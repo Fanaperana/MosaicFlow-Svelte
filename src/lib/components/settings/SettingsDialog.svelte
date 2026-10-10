@@ -311,6 +311,14 @@
             <div class="text"><span>Double-click to insert</span><small>Double-click empty space to open the block menu.</small></div>
             {@render toggle(s.canvas.doubleClickInsert, (v) => settings.update('canvas', { doubleClickInsert: v }), 'Double-click to insert')}
           </div>
+          <div class="row">
+            <div class="text"><span>Open properties on select</span><small>"Wide windows" keeps the canvas uncluttered on small screens. Ctrl+Shift+\ always toggles it.</small></div>
+            <div class="seg">
+              {#each [['always', 'Always'], ['wide', 'Wide windows'], ['never', 'Never']] as [value, label] (value)}
+                <button class:active={s.canvas.propertiesOnSelect === value} onclick={() => settings.update('canvas', { propertiesOnSelect: value as 'always' | 'wide' | 'never' })}>{label}</button>
+              {/each}
+            </div>
+          </div>
 
         {:else if ui.settingsSection === 'keybindings'}
           <KeybindingsSettings />

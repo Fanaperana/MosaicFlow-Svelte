@@ -83,6 +83,8 @@ class WorkspaceStore {
   propertiesPanelOpen = $state(false);
   selectedNodeForProperties = $state<MosaicNode | null>(null);
   suppressPropertiesPanel = $state(false);
+  /** Whether a new selection may open the properties panel; set by the page from settings and window size. */
+  autoOpenProperties = $state(true);
   
   // Canvas mode (select or drag)
   canvasMode = $state<CanvasMode>('select');
@@ -734,7 +736,7 @@ class WorkspaceStore {
       const node = this.nodes.find(n => n.id === ids[0]);
       if (node) {
         this.selectedNodeForProperties = node;
-        this.propertiesPanelOpen = true;
+        if (this.autoOpenProperties) this.propertiesPanelOpen = true;
       }
     } else {
       this.selectedNodeForProperties = null;
@@ -746,8 +748,7 @@ class WorkspaceStore {
 
   setSelectedEdges(ids: string[]) {
     this.selectedEdgeIds = ids;
-    // Open properties panel when an edge is selected
-    if (ids.length === 1) {
+    if (ids.length === 1 && this.autoOpenProperties) {
       this.propertiesPanelOpen = true;
     }
   }

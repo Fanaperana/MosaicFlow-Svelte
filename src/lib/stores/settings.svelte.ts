@@ -50,6 +50,8 @@ export interface AppSettings {
     showMinimap: boolean;
     showControls: boolean;
     doubleClickInsert: boolean;
+    /** When selecting a node opens the properties panel; 'wide' skips narrow windows. */
+    propertiesOnSelect: 'always' | 'wide' | 'never';
   };
   /** Command id -> chords; only commands the user changed are stored. */
   keybindings: Record<string, string[]>;
@@ -77,7 +79,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
     reduceMotion: false,
     customCss: '',
   },
-  canvas: { background: 'dots', gridSize: 20, snapToGrid: false, showMinimap: true, showControls: true, doubleClickInsert: true },
+  canvas: { background: 'dots', gridSize: 20, snapToGrid: false, showMinimap: true, showControls: true, doubleClickInsert: true, propertiesOnSelect: 'wide' },
   keybindings: {},
   plugins: {},
 };

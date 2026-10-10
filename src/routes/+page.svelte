@@ -17,6 +17,8 @@
   import PluginPanel from '$lib/plugins/PluginPanel.svelte';
   import { panels } from '$lib/stores/panels.svelte';
   import { ui } from '$lib/stores/ui.svelte';
+  import { settings } from '$lib/stores/settings.svelte';
+  import { toggleFocusMode } from '$lib/commands/core';
   import { keybindings } from '$lib/kernel/keybindings.svelte';
   import { pageNav } from '$lib/stores/pages.svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
@@ -60,6 +62,20 @@
     // Initialize vault store on mount
     await vaultStore.initialize();
   });
+
+  onMount(() => ui.watchViewport());
+
+  $effect(() => {
+    const mode = settings.current.canvas.propertiesOnSelect;
+    workspace.autoOpenProperties = !ui.focusMode && (mode === 'always' || (mode === 'wide' && !ui.compact));
+  });
+
+  // On narrow windows the panels float over the canvas, so touching the canvas puts them away.
+  function dismissOverlays(e: PointerEvent) {
+    if (!ui.compact || !(e.target as HTMLElement).closest('.svelte-flow__pane')) return;
+    pageNav.sidebarOpen = false;
+    workspace.propertiesPanelOpen = false;
+  }
 
   // Files opened from the OS (double-clicked .mosaic etc.) are imported once a vault is open.
   onMount(() => {
@@ -240,6 +256,7 @@
   <CanvasList />
 {:else if vaultStore.appView === 'canvas' && vaultStore.currentCanvas}
   <div class="app">
+    {#if !ui.focusMode}
     <Sidebar 
       onSearch={handleSearch}
       onExport={handleExport}
@@ -249,16 +266,21 @@
       onPlugins={() => ui.openSettings('plugins')}
       onSettings={() => ui.openSettings()}
     />
+    {/if}
     
-    <div class="main-content">
+    <div class="main-content" class:compact={ui.compact} class:focus={ui.focusMode}>
       {#if pageNav.sidebarOpen}
-        <div class="panel-slot" transition:slide={PANEL_TRANSITION}>
+        <div class="panel-slot left" transition:slide={PANEL_TRANSITION}>
           <PagesSidebar onSearch={handleSearch} onNewCanvas={handleNewCanvas} onAllPages={handleHome} />
         </div>
       {/if}
-      <div class="canvas-container">
+      <div class="canvas-container" onpointerdowncapture={dismissOverlays}>
         <CanvasHeader onToggleNodeList={() => (ui.nodeListOpen = !ui.nodeListOpen)} />
-        <QuickToolbar />
+        {#if !ui.focusMode}
+          <QuickToolbar />
+        {:else}
+          <button class="exit-focus" onclick={toggleFocusMode} title="Exit focus mode (Ctrl+.)">Exit focus</button>
+        {/if}
         <Canvas showNodeList={ui.nodeListOpen} onToggleNodeList={() => (ui.nodeListOpen = !ui.nodeListOpen)} />
         {#if ui.graphOpen}
           <GraphView />
@@ -359,6 +381,46 @@
     flex: 1;
     margin-left: 44px;
     overflow: hidden;
+    position: relative;
+  }
+
+  .main-content.focus {
+    margin-left: 0;
+  }
+
+  .main-content.compact .panel-slot {
+    position: absolute;
+    top: 0;
+    z-index: 20;
+    box-shadow: 0 0 24px rgba(0, 0, 0, 0.45);
+  }
+
+  .main-content.compact .panel-slot.left {
+    left: 0;
+  }
+
+  .main-content.compact .panel-slot.right {
+    right: 0;
+  }
+
+  .exit-focus {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    color: var(--mf-text-2);
+    background: var(--mf-surface-2);
+    border: 1px solid var(--mf-border-strong);
+    border-radius: var(--mf-radius);
+    opacity: 0.6;
+    cursor: pointer;
+  }
+
+  .exit-focus:hover {
+    opacity: 1;
   }
   
   .canvas-container {

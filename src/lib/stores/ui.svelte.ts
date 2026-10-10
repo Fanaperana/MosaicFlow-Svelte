@@ -2,7 +2,14 @@
 
 export type SettingsSection = 'general' | 'appearance' | 'canvas' | 'keybindings' | 'plugins' | 'about';
 
+const COMPACT_QUERY = '(max-width: 1100px)';
+
 class UiStore {
+  /** Narrow window: side panels float over the canvas instead of shrinking it. */
+  compact = $state(false);
+  /** Hides the ribbon, side panels and toolbar so only the canvas remains. */
+  focusMode = $state(false);
+  private beforeFocus: { pages: boolean; properties: boolean; nodeList: boolean } | null = null;
   searchOpen = $state(false);
   nodeListOpen = $state(false);
   settingsOpen = $state(false);
@@ -19,6 +26,27 @@ class UiStore {
   openSettings(section: SettingsSection = this.settingsSection) {
     this.settingsSection = section;
     this.settingsOpen = true;
+  }
+
+  /** Takes the current panel state and returns the one to apply; leaving focus mode restores it. */
+  toggleFocusMode(current: { pages: boolean; properties: boolean; nodeList: boolean }) {
+    if (this.focusMode) {
+      this.focusMode = false;
+      const restore = this.beforeFocus ?? current;
+      this.beforeFocus = null;
+      return restore;
+    }
+    this.beforeFocus = current;
+    this.focusMode = true;
+    return { pages: false, properties: false, nodeList: false };
+  }
+
+  watchViewport() {
+    const mq = window.matchMedia(COMPACT_QUERY);
+    const update = () => (this.compact = mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
   }
 }
 

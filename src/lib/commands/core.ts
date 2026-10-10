@@ -16,6 +16,14 @@ const onCanvas = () => vaultStore.appView === 'canvas' && !!vaultStore.currentCa
 
 type CoreCommand = Omit<CommandRegistration, 'pluginId'>;
 
+// Sets the panels directly so hiding them doesn't overwrite the saved sidebar preference.
+export function toggleFocusMode() {
+  const next = ui.toggleFocusMode({ pages: pageNav.sidebarOpen, properties: workspace.propertiesPanelOpen, nodeList: ui.nodeListOpen });
+  pageNav.sidebarOpen = next.pages;
+  workspace.propertiesPanelOpen = next.properties;
+  ui.nodeListOpen = next.nodeList;
+}
+
 const COMMANDS: CoreCommand[] = [
   // App
   { id: 'app.commandPalette', label: 'Command palette', category: 'App', shortcut: 'Ctrl+P', context: 'global',
@@ -48,6 +56,8 @@ const COMMANDS: CoreCommand[] = [
     enabled: onCanvas, handler: () => workspace.togglePropertiesPanel() },
   { id: 'view.toggleNodeList', label: 'Toggle node list', category: 'View', shortcut: 'Ctrl+Shift+L', context: 'global',
     enabled: onCanvas, handler: () => { ui.nodeListOpen = !ui.nodeListOpen; } },
+  { id: 'view.focusMode', label: 'Toggle focus mode', category: 'View', shortcut: 'Ctrl+.', context: 'global',
+    enabled: onCanvas, handler: toggleFocusMode },
   { id: 'view.graph', label: 'Open graph view', category: 'View', shortcut: 'Ctrl+Alt+G', context: 'global',
     enabled: onCanvas, handler: () => { ui.graphOpen = !ui.graphOpen; } },
   { id: 'view.fit', label: 'Fit view', category: 'View', shortcut: 'Shift+1', handler: emit('mosaicflow:fitView', { padding: 0.1 }) },
