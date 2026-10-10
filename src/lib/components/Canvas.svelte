@@ -26,6 +26,7 @@
   import CanvasFilterBar from '$lib/components/CanvasFilterBar.svelte';
   import NodeInsertMenu from '$lib/components/NodeInsertMenu.svelte';
   import { settings } from '$lib/stores/settings.svelte';
+  import { ui } from '$lib/stores/ui.svelte';
   import { keybindings } from '$lib/kernel/keybindings.svelte';
 
   const BACKGROUND_VARIANTS = {
@@ -130,6 +131,27 @@
       if (vertical ? el.scrollHeight > el.clientHeight : el.scrollWidth > el.clientWidth) return true;
     }
     return false;
+  }
+
+  // Tags scrollable node content on hover so the scroll-fade CSS can hint at more content.
+  function markScrollable(e: PointerEvent) {
+    if (!settings.current.canvas.scrollFade) return;
+    const target = e.target as HTMLElement | null;
+    if (!target?.closest('.svelte-flow__node')) return;
+    for (let el: HTMLElement | null = target; el && !el.classList.contains('svelte-flow__node'); el = el.parentElement) {
+      if (el.hasAttribute('data-scroll-fade') || el.scrollHeight <= el.clientHeight) continue;
+      const overflow = getComputedStyle(el).overflowY;
+      if (overflow === 'auto' || overflow === 'scroll') el.setAttribute('data-scroll-fade', '');
+    }
+  }
+
+  // Touch and pen drags pan the canvas; the mouse keeps box selection.
+  let pointerType = $state('mouse');
+  function handlePointerDownCapture(e: PointerEvent) {
+    pointerType = e.pointerType;
+    // Long-press opens the context menu without a contextmenu event carrying a position.
+    if (e.pointerType !== 'mouse') contextMenuPosition = { x: e.clientX, y: e.clientY };
+    guardLocked(e);
   }
 
   // Plain wheel zooms (xyflow) unless it is over scrollable node content, which scrolls instead.
@@ -868,6 +890,14 @@
       pendingConnectionSource = null;
       return;
     }
+    if (ui.propertiesPopover && workspace.propertiesPanelOpen) {
+      workspace.propertiesPanelOpen = false;
+      return;
+    }
+    if (ui.zoomReturn && settings.current.canvas.escapeRestoresView) {
+      window.dispatchEvent(new CustomEvent('mosaicflow:zoomBack'));
+      return;
+    }
     if (workspace.selectedNodeIds.length > 0 || workspace.selectedEdgeIds.length > 0) {
       workspace.setSelectedEdges([]);
       workspace.edges = workspace.edges.map(e => (e.selected ? { ...e, selected: false } : e));
@@ -883,8 +913,9 @@
   }
 
   // Derive interaction modes from canvas mode
-  const panOnDrag = $derived(workspace.canvasMode === 'drag' ? [0, 1, 2] : [1, 2]);
-  const selectionOnDrag = $derived(workspace.canvasMode === 'select');
+  const touchPan = $derived(pointerType !== 'mouse' && settings.current.canvas.touchDragPans);
+  const panOnDrag = $derived(workspace.canvasMode === 'drag' || touchPan ? [0, 1, 2] : [1, 2]);
+  const selectionOnDrag = $derived(workspace.canvasMode === 'select' && !touchPan);
 </script>
 
 <svelte:window onkeydown={handleKeyDown} onmouseup={handleMouseUp} />
@@ -895,12 +926,14 @@
       class="canvas-container"
       class:drag-mode={workspace.canvasMode === 'drag'}
       class:page-locked={workspace.locked}
+      class:scroll-fade={settings.current.canvas.scrollFade}
       bind:this={flowContainer}
       ondragover={handleDragOver}
       ondrop={handleDrop}
       ondblclick={handlePaneDoubleClick}
       ondblclickcapture={guardLocked}
-      onpointerdowncapture={guardLocked}
+      onpointerdowncapture={handlePointerDownCapture}
+      onpointerover={markScrollable}
       onclickcapture={guardLocked}
       onkeydowncapture={guardLocked}
       onbeforeinputcapture={guardLocked}

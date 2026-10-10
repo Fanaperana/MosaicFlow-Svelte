@@ -8,6 +8,7 @@ import { pageNav } from '$lib/stores/pages.svelte';
 import { packageDialogs } from '$lib/stores/packages.svelte';
 import { ui } from '$lib/stores/ui.svelte';
 import { registerCoreLayouts } from '$lib/services/contributions';
+import { selectInDirection } from '$lib/services/canvasNav';
 
 const emit = (name: string, detail?: unknown) => () => {
   window.dispatchEvent(new CustomEvent(name, { detail }));
@@ -61,6 +62,12 @@ const COMMANDS: CoreCommand[] = [
   { id: 'view.graph', label: 'Open graph view', category: 'View', shortcut: 'Ctrl+Alt+G', context: 'global',
     enabled: onCanvas, handler: () => { ui.graphOpen = !ui.graphOpen; } },
   { id: 'view.fit', label: 'Fit view', category: 'View', shortcut: 'Shift+1', handler: emit('mosaicflow:fitView', { padding: 0.1 }) },
+  { id: 'view.zoomToSelection', label: 'Zoom to selection', category: 'View', shortcut: 'Shift+2',
+    enabled: () => workspace.selectedNodeIds.length > 0, handler: emit('mosaicflow:zoomToSelection') },
+  { id: 'view.zoomBack', label: 'Back to previous view', category: 'View', enabled: () => !!ui.zoomReturn, handler: emit('mosaicflow:zoomBack') },
+  { id: 'view.editProperties', label: 'Show / hide properties of selection', category: 'View', shortcut: 'E',
+    enabled: () => workspace.selectedNodeIds.length === 1 || workspace.selectedEdgeIds.length === 1,
+    handler: () => workspace.togglePropertiesPanel() },
   { id: 'view.zoomIn', label: 'Zoom in', category: 'View', shortcut: ['Ctrl+=', 'Shift+='], handler: emit('mosaicflow:zoomIn') },
   { id: 'view.zoomOut', label: 'Zoom out', category: 'View', shortcut: 'Ctrl+-', handler: emit('mosaicflow:zoomOut') },
 
@@ -68,6 +75,10 @@ const COMMANDS: CoreCommand[] = [
   { id: 'canvas.insert', label: 'Insert block', category: 'Canvas', shortcut: '/', enabled: () => !workspace.locked, handler: emit('mosaicflow:insertAtPointer') },
   { id: 'canvas.selectMode', label: 'Select tool', category: 'Canvas', shortcut: 'V', handler: () => workspace.setCanvasMode('select') },
   { id: 'canvas.panMode', label: 'Hand (pan) tool', category: 'Canvas', shortcut: 'H', handler: () => workspace.setCanvasMode('drag') },
+  { id: 'canvas.selectLeft', label: 'Select node to the left', category: 'Canvas', shortcut: 'Ctrl+ArrowLeft', handler: () => selectInDirection('left') },
+  { id: 'canvas.selectRight', label: 'Select node to the right', category: 'Canvas', shortcut: 'Ctrl+ArrowRight', handler: () => selectInDirection('right') },
+  { id: 'canvas.selectUp', label: 'Select node above', category: 'Canvas', shortcut: 'Ctrl+ArrowUp', handler: () => selectInDirection('up') },
+  { id: 'canvas.selectDown', label: 'Select node below', category: 'Canvas', shortcut: 'Ctrl+ArrowDown', handler: () => selectInDirection('down') },
 
   // Edit
   { id: 'edit.undo', label: 'Undo', category: 'Edit', shortcut: 'Ctrl+Z', enabled: () => workspace.canUndo, handler: () => workspace.undo() },

@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import { absoluteRects } from '@mosaicflow/vault-core';
   import { workspace } from '$lib/stores/workspace.svelte';
+  import { ui } from '$lib/stores/ui.svelte';
   
   // Get the SvelteFlow instance functions
   const { fitView, getViewport, setViewport, zoomIn, zoomOut, updateEdge, setCenter } = useSvelteFlow();
@@ -49,8 +50,43 @@
     const vp = getViewport();
     setViewport({ x: vp.x + event.detail.x, y: vp.y + event.detail.y, zoom: vp.zoom });
   }
+
+  // Repeated zooms keep the first saved view, so going back returns to the overview.
+  function handleZoomToSelection() {
+    const ids = workspace.selectedNodeIds;
+    if (!ids.length) return;
+    ui.zoomReturn ??= getViewport();
+    fitView({ nodes: ids.map((id) => ({ id })), padding: 0.25, maxZoom: 1.5, duration: 300 });
+  }
+
+  function handleZoomBack() {
+    const view = ui.zoomReturn;
+    if (!view) return;
+    ui.zoomReturn = null;
+    setViewport(view, { duration: 300 });
+  }
+
+  function handleSetViewport(event: CustomEvent<{ x: number; y: number; zoom: number }>) {
+    setViewport(event.detail);
+  }
+
+  // Pans (without zooming) only when the node is not already fully on screen.
+  function handleRevealNode(event: CustomEvent<{ id: string }>) {
+    const rect = absoluteRects(workspace.nodes).get(event.detail.id);
+    const pane = document.querySelector('.svelte-flow')?.getBoundingClientRect();
+    if (!rect || !pane) return;
+    const vp = getViewport();
+    const left = rect.x * vp.zoom + vp.x;
+    const top = rect.y * vp.zoom + vp.y;
+    const inside = left >= 0 && top >= 0 && left + rect.width * vp.zoom <= pane.width && top + rect.height * vp.zoom <= pane.height;
+    if (!inside) setCenter(rect.x + rect.width / 2, rect.y + rect.height / 2, { zoom: vp.zoom, duration: 200 });
+  }
   
   onMount(() => {
+    window.addEventListener('mosaicflow:zoomToSelection', handleZoomToSelection);
+    window.addEventListener('mosaicflow:zoomBack', handleZoomBack);
+    window.addEventListener('mosaicflow:setViewport', handleSetViewport as EventListener);
+    window.addEventListener('mosaicflow:revealNode', handleRevealNode as EventListener);
     // Listen for fitView events from anywhere in the app
     window.addEventListener('mosaicflow:fitView', handleFitView as EventListener);
     window.addEventListener('mosaicflow:zoomIn', handleZoomIn);
@@ -60,6 +96,10 @@
     window.addEventListener('mosaicflow:panBy', handlePanBy as EventListener);
     
     return () => {
+      window.removeEventListener('mosaicflow:zoomToSelection', handleZoomToSelection);
+      window.removeEventListener('mosaicflow:zoomBack', handleZoomBack);
+      window.removeEventListener('mosaicflow:setViewport', handleSetViewport as EventListener);
+      window.removeEventListener('mosaicflow:revealNode', handleRevealNode as EventListener);
       window.removeEventListener('mosaicflow:panBy', handlePanBy as EventListener);
       window.removeEventListener('mosaicflow:focusNode', handleFocusNode as EventListener);
       window.removeEventListener('mosaicflow:fitView', handleFitView as EventListener);

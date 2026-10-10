@@ -215,6 +215,32 @@ html.mf-icon-weighted svg.lucide:not(.svelte-flow__viewport *) {
   stroke-width: var(--mf-icon-stroke);
 }
 
+/* Scrollable node content fades at an edge that has more to scroll. The scroll timeline is
+   inactive when the element can't scroll, so the fade sizes stay 0 and nothing is masked. */
+@property --mf-fade-top {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --mf-fade-bottom {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@keyframes mf-scroll-fade {
+  0% { --mf-fade-top: 0px; --mf-fade-bottom: 20px; }
+  8%, 92% { --mf-fade-top: 20px; --mf-fade-bottom: 20px; }
+  100% { --mf-fade-top: 20px; --mf-fade-bottom: 0px; }
+}
+
+.scroll-fade .svelte-flow__node [data-scroll-fade] {
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--mf-fade-top), #000 calc(100% - var(--mf-fade-bottom)), transparent);
+  animation: mf-scroll-fade linear both;
+  animation-timeline: scroll(self block);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
