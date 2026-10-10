@@ -1,5 +1,7 @@
 // Shared UI state that commands and components toggle (search, settings, node list).
 
+import { settings } from '$lib/stores/settings.svelte';
+
 export type SettingsSection = 'general' | 'appearance' | 'canvas' | 'keybindings' | 'plugins' | 'about';
 
 const COMPACT_QUERY = '(max-width: 1100px)';
@@ -10,6 +12,8 @@ class UiStore {
   /** Hides the ribbon, side panels and toolbar so only the canvas remains. */
   focusMode = $state(false);
   private beforeFocus: { pages: boolean; properties: boolean; nodeList: boolean } | null = null;
+  /** View to go back to after "zoom to selection". */
+  zoomReturn: { x: number; y: number; zoom: number } | null = null;
   searchOpen = $state(false);
   nodeListOpen = $state(false);
   settingsOpen = $state(false);
@@ -21,6 +25,12 @@ class UiStore {
 
   togglePanel(id: string) {
     this.openPanel = this.openPanel === id ? null : id;
+  }
+
+  /** Properties show as a popover next to the selection instead of the side panel. */
+  get propertiesPopover(): boolean {
+    const mode = settings.current.canvas.propertiesView;
+    return mode === 'popover' || (mode === 'auto' && this.compact);
   }
 
   openSettings(section: SettingsSection = this.settingsSection) {

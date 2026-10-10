@@ -9,8 +9,12 @@ import { flushPendingSaves as flushEdgeSaves } from '$lib/services/edgeFileServi
 
 const SIDEBAR_KEY = 'mosaicflow:pages-sidebar';
 const RECENTS_KEY = 'mosaicflow:recent-pages';
+const VIEWS_KEY = 'mosaicflow:page-views';
 const MAX_HISTORY = 50;
 const MAX_RECENTS = 8;
+const MAX_VIEWS = 300;
+
+export type PageView = { x: number; y: number; zoom: number; nodeList: boolean };
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -35,6 +39,8 @@ class PageNavigation {
   sidebarOpen = $state(readJson(SIDEBAR_KEY, true));
   /** Recently opened canvas ids per vault path, most recent first. */
   private recents = $state<Record<string, string[]>>(readJson(RECENTS_KEY, {}));
+  /** Last viewport and node-list state per canvas id, oldest first. */
+  private views: Record<string, PageView> = readJson(VIEWS_KEY, {});
 
   private current: string | null = null;
   private vaultPath: string | null = null;
@@ -117,6 +123,18 @@ class PageNavigation {
   toggleSidebar(open = !this.sidebarOpen) {
     this.sidebarOpen = open;
     writeJson(SIDEBAR_KEY, open);
+  }
+
+  viewOf(canvasId: string): PageView | undefined {
+    return this.views[canvasId];
+  }
+
+  saveView(canvasId: string, view: PageView) {
+    delete this.views[canvasId];
+    this.views[canvasId] = view;
+    const ids = Object.keys(this.views);
+    for (const id of ids.slice(0, Math.max(0, ids.length - MAX_VIEWS))) delete this.views[id];
+    writeJson(VIEWS_KEY, this.views);
   }
 
   /** Renames any canvas; the open one is flushed first because its folder moves on disk. */

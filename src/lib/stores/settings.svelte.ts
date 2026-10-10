@@ -52,6 +52,15 @@ export interface AppSettings {
     doubleClickInsert: boolean;
     /** When selecting a node opens the properties panel; 'wide' skips narrow windows. */
     propertiesOnSelect: 'always' | 'wide' | 'never';
+    /** Side panel, a popover next to the node, or the popover only on narrow windows. */
+    propertiesView: 'auto' | 'panel' | 'popover';
+    peekOnAlt: boolean;
+    escapeRestoresView: boolean;
+    autoHidePagesOnNarrow: boolean;
+    pageOpenView: 'restore' | 'fit';
+    keyboardNav: 'spatial' | 'connected';
+    scrollFade: boolean;
+    touchDragPans: boolean;
   };
   /** Command id -> chords; only commands the user changed are stored. */
   keybindings: Record<string, string[]>;
@@ -79,7 +88,11 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
     reduceMotion: false,
     customCss: '',
   },
-  canvas: { background: 'dots', gridSize: 20, snapToGrid: false, showMinimap: true, showControls: true, doubleClickInsert: true, propertiesOnSelect: 'wide' },
+  canvas: {
+    background: 'dots', gridSize: 20, snapToGrid: false, showMinimap: true, showControls: true, doubleClickInsert: true,
+    propertiesOnSelect: 'wide', propertiesView: 'auto', peekOnAlt: true, escapeRestoresView: true, autoHidePagesOnNarrow: true,
+    pageOpenView: 'restore', keyboardNav: 'spatial', scrollFade: true, touchDragPans: true,
+  },
   keybindings: {},
   plugins: {},
 };
