@@ -3,10 +3,11 @@
 </p>
 
 <p align="center">
-  <strong>A node-based knowledge base: notes, research and ideas on an infinite canvas, stored as plain files you own.</strong>
+  <strong>A visual knowledge base for anyone who thinks in connections: notes, research, cases and ideas on an infinite canvas, stored as plain files you own.</strong>
 </p>
 
 <p align="center">
+  <a href="#who-its-for">Who it's for</a> •
   <a href="#features">Features</a> •
   <a href="#getting-started">Getting started</a> •
   <a href="#blocks">Blocks</a> •
@@ -31,6 +32,24 @@
 
 ---
 
+## Who it's for
+
+Anyone whose knowledge is made of **things and how they relate**, and who wants to see it, not scroll through it.
+
+| You are | MosaicFlow helps you |
+|---------|----------------------|
+| **Student** | Turn courses into connected study maps: notes with formulas (LaTeX) and diagrams (Mermaid), a Story view to revise step by step, timers for focus sessions and a calendar for exams. |
+| **Researcher / academic** | Map literature, authors, institutions and findings; link sources across projects with `[[wikilinks]]` and backlinks; tag, search and let an AI assistant build or query maps through MCP. |
+| **Doctor / clinician / health professional** | Organise clinical knowledge, protocols, differentials and study notes as linked pages. Everything stays in local files on your machine, with no account or cloud sync. |
+| **OSINT / security investigator** | Build investigation boards with Person, Organization, Domain, Hash, Credential, Social post, Router, Snapshot and Map blocks, timelines, labelled relations and view-only (locked) pages for sharing findings. |
+| **Journalist / analyst** | Connect people, organisations, events and sources; keep evidence and reasoning on one canvas and export it as an image or a shareable `.mosaic` package. |
+| **Developer / engineer** | Sketch architectures and processes, keep code snippets with syntax highlighting, import Mermaid flowcharts and document systems next to the decisions behind them. |
+| **Writer / teacher / team lead / anyone curious** | Plan, brainstorm and explain: notes, checklists, callouts, groups and links on a canvas that grows with your ideas. |
+
+Your vault is a folder of Markdown files, so it works offline, syncs with whatever you already use (Git, a cloud drive) and never locks your knowledge in.
+
+---
+
 ## Features
 
 ### 🧭 Navigate like Notion and Obsidian
@@ -49,6 +68,13 @@ Press <kbd>/</kbd> or double-click empty canvas space to open the block menu: ty
 <p align="center">
   <img src="docs/images/insert-menu.png" alt="The / block menu" width="100%">
 </p>
+
+### 📝 Rich notes
+- **Math**: LaTeX with KaTeX, inline `$E = mc^2$` or display `$$ … $$` blocks.
+- **Diagrams**: ` ```mermaid ` blocks render as flowcharts, sequence, timeline, mind-map and other diagrams.
+- **Tables that format themselves**: <kbd>Tab</kbd> moves between cells and re-aligns the table as you type.
+- **`/` commands inside notes**: headings, lists, tasks, code, tables, math, diagrams and links from one menu.
+- Live Markdown rendering, syntax-highlighted code blocks, task lists, `[[links]]` and `#tags`.
 
 ### 🔗 A connected knowledge base
 - `[[Wikilinks]]` between nodes, across pages (`[[Page#Node]]`) or to whole pages, with **backlinks** and **#tags**.
@@ -101,12 +127,12 @@ On first launch, create a vault (any folder) or open an existing one, then start
 |-------|--------|
 | **Basic blocks** | Note (Markdown), Simple Text, Checklist, Callout, Page link, Image, Link, Code, Iframe |
 | **People & organizations** | Person, Organization, Timestamp |
-| **Research data** | Domain, Hash, Credential, Social Post, Router, Snapshot |
+| **Research & OSINT data** | Domain, Hash, Credential, Social Post, Router, Snapshot |
 | **Layout & embeds** | Group, Map, Link List, Action, Annotation, Embed, Calendar, Timer |
 | **Plugins** | Anything you install, e.g. the example [Flashcard](plugins/example-flashcard/) |
 
 Highlights:
-- **Note**: Markdown with live rendering, `[[wikilinks]]` and `#tags`.
+- **Note**: Markdown with live rendering, math, Mermaid diagrams, self-formatting tables, `[[wikilinks]]` and `#tags`.
 - **Checklist**: tasks with progress; <kbd>Enter</kbd> adds a task, <kbd>Backspace</kbd> on an empty one removes it.
 - **Callout**: tip / info / warning / danger box; click the emoji to change its style.
 - **Page link**: a card linking to another page, with a live outline of it.
@@ -362,5 +388,5 @@ MIT; see [LICENSE](LICENSE).
 [Tauri](https://tauri.app/), [Svelte](https://svelte.dev/), [xyflow](https://xyflow.com/), [shadcn-svelte](https://shadcn-svelte.com/) and [MapLibre](https://maplibre.org/), and the Notion and Obsidian teams for the inspiration.
 
 <p align="center">
-  Made with ❤️ for researchers, students and visual thinkers
+  Made with ❤️ for students, researchers, clinicians, investigators and every curious mind that thinks in connections
 </p>
