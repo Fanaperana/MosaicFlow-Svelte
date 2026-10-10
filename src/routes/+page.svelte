@@ -20,6 +20,7 @@
   import { panels } from '$lib/stores/panels.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import { settings } from '$lib/stores/settings.svelte';
+  import { mcp } from '$lib/stores/mcp.svelte';
   import { toggleFocusMode } from '$lib/commands/core';
   import { keybindings } from '$lib/kernel/keybindings.svelte';
   import { pageNav } from '$lib/stores/pages.svelte';
@@ -66,6 +67,11 @@
   });
 
   onMount(() => ui.watchViewport());
+
+  $effect(() => {
+    void settings.current.mcp;
+    untrack(() => mcp.sync());
+  });
 
   $effect(() => {
     const mode = settings.current.canvas.propertiesOnSelect;

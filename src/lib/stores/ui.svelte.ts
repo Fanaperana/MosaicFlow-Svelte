@@ -2,7 +2,7 @@
 
 import { settings } from '$lib/stores/settings.svelte';
 
-export type SettingsSection = 'general' | 'appearance' | 'canvas' | 'keybindings' | 'plugins' | 'about';
+export type SettingsSection = 'general' | 'appearance' | 'canvas' | 'ai' | 'keybindings' | 'plugins' | 'about';
 
 const COMPACT_QUERY = '(max-width: 1100px)';
 

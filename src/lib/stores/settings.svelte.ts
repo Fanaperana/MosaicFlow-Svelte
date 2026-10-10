@@ -36,6 +36,29 @@ export interface AppearanceSettings {
   customCss: string;
 }
 
+export interface McpSettings {
+  enabled: boolean;
+  port: number;
+  /** `mosaic_…`; stays the same until regenerated. */
+  key: string;
+  requireKey: boolean;
+  /** Also accept the key as `?token=` for clients that can only take a URL. */
+  allowKeyInUrl: boolean;
+}
+
+const MCP_KEY = /^mosaic_[A-Za-z0-9_-]{32,}$/;
+
+function sanitizeMcp(p: McpSettings): McpSettings {
+  const port = Math.round(Number(p.port));
+  return {
+    enabled: p.enabled === true,
+    port: port >= 1024 && port <= 65535 ? port : 4317,
+    key: MCP_KEY.test(String(p.key)) ? String(p.key) : '',
+    requireKey: p.requireKey !== false,
+    allowKeyInUrl: p.allowKeyInUrl === true,
+  };
+}
+
 export interface AppSettings {
   general: {
     hoverPreviews: boolean;
@@ -64,6 +87,8 @@ export interface AppSettings {
   };
   /** Command id -> chords; only commands the user changed are stored. */
   keybindings: Record<string, string[]>;
+  /** Built-in MCP server (Streamable HTTP on 127.0.0.1). */
+  mcp: McpSettings;
   /** Plugin id -> setting key -> value. */
   plugins: Record<string, Record<string, unknown>>;
 }
@@ -94,6 +119,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
     pageOpenView: 'restore', keyboardNav: 'spatial', scrollFade: true, touchDragPans: true,
   },
   keybindings: {},
+  mcp: { enabled: false, port: 4317, key: '', requireKey: true, allowKeyInUrl: false },
   plugins: {},
 };
 
@@ -197,6 +223,7 @@ function merge(saved: Partial<AppSettings>): AppSettings {
     appearance: sanitizeAppearance(saved.appearance ?? {}, d.appearance),
     canvas: { ...d.canvas, ...saved.canvas },
     keybindings: { ...saved.keybindings },
+    mcp: sanitizeMcp({ ...d.mcp, ...saved.mcp }),
     plugins: { ...saved.plugins },
   };
 }
@@ -241,11 +268,13 @@ class SettingsStore {
   }
 
   /** Changes one section and saves. */
-  update<K extends 'general' | 'appearance' | 'canvas'>(section: K, patch: Partial<AppSettings[K]>) {
+  update<K extends 'general' | 'appearance' | 'canvas' | 'mcp'>(section: K, patch: Partial<AppSettings[K]>) {
     const next =
       section === 'appearance'
         ? sanitizeAppearance(patch as Partial<AppearanceSettings>, this.current.appearance)
-        : { ...this.current[section], ...patch };
+        : section === 'mcp'
+          ? sanitizeMcp({ ...this.current.mcp, ...(patch as Partial<McpSettings>) })
+          : { ...this.current[section], ...patch };
     this.current = { ...this.current, [section]: next };
     if (section === 'appearance') {
       this.apply();

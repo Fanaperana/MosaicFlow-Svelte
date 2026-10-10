@@ -179,7 +179,7 @@ Every shortcut can be changed in **Settings → Keyboard shortcuts** (<kbd>Ctrl<
 
 ## Settings
 
-Open with the gear at the bottom of the left ribbon or <kbd>Ctrl</kbd> + <kbd>,</kbd>: **General** (hover previews, delete confirmation), **Appearance** (theme, accent color, interface scale, text size, density, corner radius, fonts, icon size/color/weight, reduced motion, custom CSS), **Canvas** (background, grid, snapping, minimap, controls), **Keyboard shortcuts**, **Plugins** and **About**. Everything is saved to `settings.json` in the app data folder, so you can back it up or copy it to another machine.
+Open with the gear at the bottom of the left ribbon or <kbd>Ctrl</kbd> + <kbd>,</kbd>: **General** (hover previews, delete confirmation), **Appearance** (theme, accent color, interface scale, text size, density, corner radius, fonts, icon size/color/weight, reduced motion, custom CSS), **Canvas** (background, grid, snapping, minimap, controls), **AI / MCP** (built-in MCP server, key and client setup), **Keyboard shortcuts**, **Plugins** and **About**. Everything is saved to `settings.json` in the app data folder, so you can back it up or copy it to another machine.
 
 ---
 
@@ -242,9 +242,46 @@ is asked before they're installed. Read the [plugin guide](docs/PLUGIN_DEVELOPME
 
 ## AI assistants (MCP)
 
-`packages/mcp-server` is a [Model Context Protocol](https://modelcontextprotocol.io/) server that lets any MCP-capable assistant (Claude Desktop, VS Code Copilot, Cursor, Windsurf, LM Studio, …) read, search and build pages directly in a vault. Changes appear live in the open app.
+MosaicFlow includes a [Model Context Protocol](https://modelcontextprotocol.io/) server that lets any MCP-capable assistant (VS Code Copilot, Claude Code, Cursor, Claude Desktop, Windsurf, LM Studio, …) read, search and build pages directly in a vault. Changes appear live in the open app.
 
-**1. Build it once** (a single self-contained file, only Node.js 20+ is needed to run it):
+**1. Turn it on** in **Settings → AI / MCP**. The app serves MCP over Streamable HTTP at `http://127.0.0.1:4317/mcp` (port configurable), reachable only from your computer and only while MosaicFlow runs. Clients send a key (`mosaic_…`) as `Authorization: Bearer …`; it stays the same until you regenerate it.
+
+**2. Connect your assistant.** The settings page shows a ready-to-copy snippet for each client, for example:
+
+<details open>
+<summary>VS Code (Copilot agent mode) — <code>.vscode/mcp.json</code> or the user <code>mcp.json</code></summary>
+
+```json
+{
+  "servers": {
+    "mosaicflow": {
+      "type": "http",
+      "url": "http://127.0.0.1:4317/mcp",
+      "headers": { "Authorization": "Bearer mosaic_…" }
+    }
+  }
+}
+```
+</details>
+
+<details>
+<summary>Claude Code</summary>
+
+```bash
+claude mcp add --transport http mosaicflow http://127.0.0.1:4317/mcp --header "Authorization: Bearer mosaic_…"
+```
+</details>
+
+<details>
+<summary>Claude Desktop, Cursor and other clients</summary>
+
+Cursor takes the same `url` and `headers` in `~/.cursor/mcp.json` (under `mcpServers`). Claude Desktop only starts local commands, so it connects through the [mcp-remote](https://www.npmjs.com/package/mcp-remote) bridge (needs Node.js); the settings page generates that config too. For clients that only accept a URL, enable **Allow key in URL** to get `…/mcp?token=mosaic_…`.
+</details>
+
+<details>
+<summary>Without the app running (stdio)</summary>
+
+`packages/mcp-server` is the same server as a standalone command that works directly on the vault files, even when MosaicFlow is closed. Build it once (only Node.js 20+ is needed to run it):
 
 ```bash
 pnpm install
@@ -252,10 +289,7 @@ pnpm --filter @mosaicflow/mcp-server build
 # -> packages/mcp-server/dist/mosaicflow-mcp.mjs
 ```
 
-**2. Add it to your assistant**, replacing both paths:
-
-<details open>
-<summary>Claude Desktop — <code>claude_desktop_config.json</code> (Settings → Developer → Edit config)</summary>
+Then point your client at it, replacing both paths:
 
 ```json
 {
@@ -267,28 +301,8 @@ pnpm --filter @mosaicflow/mcp-server build
   }
 }
 ```
-</details>
 
-<details>
-<summary>VS Code (Copilot agent mode) — <code>.vscode/mcp.json</code> or the user <code>mcp.json</code></summary>
-
-```json
-{
-  "servers": {
-    "mosaicflow": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["C:/path/to/MosaicFlow-Svelte/packages/mcp-server/dist/mosaicflow-mcp.mjs", "E:/MosaicVault/MyVault"]
-    }
-  }
-}
-```
-</details>
-
-<details>
-<summary>Cursor / Windsurf / other clients</summary>
-
-Use the same `command` and `args` in the client's MCP settings (`~/.cursor/mcp.json`, `~/.codeium/windsurf/mcp_config.json`, …). The vault can also be passed as the `MOSAICFLOW_VAULT` environment variable instead of the second argument.
+VS Code uses `"servers"` with `"type": "stdio"` instead of `"mcpServers"`. The vault can also be passed as the `MOSAICFLOW_VAULT` environment variable instead of the second argument.
 </details>
 
 **3. Ask for knowledge, or ask your knowledge.** For example: *"Build a MosaicFlow knowledge map about the history of cryptography, with people, algorithms and a timeline."* or *"What do my notes say about shortest paths?"* The server tells the model to look things up in the vault before answering and to cite the pages and nodes it used. Clients that support MCP prompts also offer **knowledge_map** (build a map) and **ask_vault** (answer from your notes).

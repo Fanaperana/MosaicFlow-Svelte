@@ -19,6 +19,9 @@ importers:
       '@mosaicflow/editor':
         specifier: workspace:*
         version: link:packages/editor
+      '@mosaicflow/mcp-server':
+        specifier: workspace:*
+        version: link:packages/mcp-server
       '@mosaicflow/node-action':
         specifier: workspace:*
         version: link:packages/node-action

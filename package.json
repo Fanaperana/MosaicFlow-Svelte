@@ -22,6 +22,7 @@
     "@fontsource-variable/space-grotesk": "^5.3.0",
     "@fontsource/pt-mono": "^5.3.0",
     "@mosaicflow/editor": "workspace:*",
+    "@mosaicflow/mcp-server": "workspace:*",
     "@mosaicflow/node-action": "workspace:*",
     "@mosaicflow/node-annotation": "workspace:*",
     "@mosaicflow/node-code": "workspace:*",

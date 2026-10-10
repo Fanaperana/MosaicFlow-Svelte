@@ -1,11 +1,12 @@
 <!--
-  Settings window (Ctrl+,): General, Appearance, Canvas, Keyboard shortcuts, Plugins, About.
+  Settings window (Ctrl+,): General, Appearance, Canvas, AI / MCP, Keyboard shortcuts, Plugins, About.
   Everything is saved to {APP_DATA}/settings.json.
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Settings2, Palette, LayoutGrid, Keyboard, Puzzle, Info, X, FileJson, RotateCcw, Check } from 'lucide-svelte';
+  import { Settings2, Palette, LayoutGrid, Keyboard, Puzzle, Info, X, FileJson, RotateCcw, Check, Bot, Copy, Eye, EyeOff, RefreshCw } from 'lucide-svelte';
   import { ui, type SettingsSection } from '$lib/stores/ui.svelte';
+  import { mcp } from '$lib/stores/mcp.svelte';
   import {
     settings,
     ACCENT_PRESETS,
@@ -24,6 +25,7 @@
     { id: 'general', label: 'General', icon: Settings2 },
     { id: 'appearance', label: 'Appearance', icon: Palette },
     { id: 'canvas', label: 'Canvas', icon: LayoutGrid },
+    { id: 'ai', label: 'AI / MCP', icon: Bot },
     { id: 'keybindings', label: 'Keyboard shortcuts', icon: Keyboard },
     { id: 'plugins', label: 'Plugins', icon: Puzzle },
     { id: 'about', label: 'About', icon: Info },
@@ -43,6 +45,62 @@
 
   const num = (e: Event) => Number((e.target as HTMLInputElement).value);
   const percent = (v: number) => `${Math.round(v * 100)}%`;
+
+  type McpClient = 'vscode' | 'claude-code' | 'cursor' | 'claude-desktop' | 'url';
+  const MCP_CLIENTS: [McpClient, string, string][] = [
+    ['vscode', 'VS Code', 'Paste into .vscode/mcp.json or your user mcp.json (command "MCP: Open User Configuration").'],
+    ['claude-code', 'Claude Code', 'Run once in a terminal.'],
+    ['cursor', 'Cursor', 'Paste into ~/.cursor/mcp.json.'],
+    ['claude-desktop', 'Claude Desktop', 'Claude Desktop only starts local commands, so this goes through the mcp-remote bridge (needs Node.js). Paste into claude_desktop_config.json.'],
+    ['url', 'URL only', 'For clients that only take a URL.'],
+  ];
+  let mcpClient = $state<McpClient>('vscode');
+  let showKey = $state(false);
+  let copied = $state('');
+
+  const mcpSnippet = $derived.by(() => {
+    const { key, requireKey, allowKeyInUrl } = s.mcp;
+    const url = mcp.url;
+    const headers = requireKey ? { Authorization: `Bearer ${key}` } : undefined;
+    const json = (value: unknown) => JSON.stringify(value, null, 2);
+    switch (mcpClient) {
+      case 'vscode':
+        return json({ servers: { mosaicflow: { type: 'http', url, ...(headers && { headers }) } } });
+      case 'claude-code':
+        return `claude mcp add --transport http mosaicflow ${url}${requireKey ? ` --header "Authorization: Bearer ${key}"` : ''}`;
+      case 'cursor':
+        return json({ mcpServers: { mosaicflow: { url, ...(headers && { headers }) } } });
+      case 'claude-desktop':
+        // The header goes through env: some clients split args that contain spaces.
+        return json({
+          mcpServers: {
+            mosaicflow: {
+              command: 'npx',
+              args: ['-y', 'mcp-remote', url, ...(requireKey ? ['--header', 'Authorization:${AUTH_HEADER}'] : [])],
+              ...(requireKey && { env: { AUTH_HEADER: `Bearer ${key}` } }),
+            },
+          },
+        });
+      case 'url':
+        if (!requireKey) return url;
+        return allowKeyInUrl ? `${url}?token=${key}` : '';
+    }
+  });
+
+  async function copyText(id: string, text: string) {
+    await navigator.clipboard.writeText(text);
+    copied = id;
+    setTimeout(() => copied === id && (copied = ''), 1200);
+  }
+
+  async function regenerateMcpKey() {
+    const { ask } = await import('@tauri-apps/plugin-dialog');
+    const ok = await ask('Clients using the current key will be disconnected until you paste the new one.', {
+      title: 'Regenerate MCP key?',
+      kind: 'warning',
+    });
+    if (ok) mcp.regenerateKey();
+  }
 
   function editCss(value: string) {
     cssDraft = value;
@@ -363,6 +421,83 @@
             <div class="text"><span>Touch and pen drag pans</span><small>One-finger or pen drags move the canvas; long-press opens the context menu.</small></div>
             {@render toggle(s.canvas.touchDragPans, (v) => settings.update('canvas', { touchDragPans: v }), 'Touch and pen drag pans')}
           </div>
+
+        {:else if ui.settingsSection === 'ai'}
+          <div class="row">
+            <div class="text">
+              <span>Built-in MCP server</span>
+              <small>Lets AI assistants (VS Code, Claude Code, Cursor, …) search, read and build pages in the open vault. Only reachable from this computer, and only while MosaicFlow is running.</small>
+            </div>
+            {@render toggle(s.mcp.enabled, (v) => settings.update('mcp', { enabled: v }), 'Built-in MCP server')}
+          </div>
+          <div class="row">
+            <div class="text">
+              <span>Status</span>
+              <small>
+                {#if mcp.status === 'running'}Listening on <code>{mcp.url}</code>
+                {:else if mcp.status === 'starting'}Starting…
+                {:else if mcp.status === 'error'}{mcp.error}
+                {:else}Off{/if}
+              </small>
+            </div>
+            <span class="mcp-status {mcp.status}">{mcp.status === 'running' ? 'Running' : mcp.status === 'error' ? 'Error' : mcp.status === 'starting' ? 'Starting' : 'Off'}</span>
+          </div>
+          <div class="row">
+            <div class="text"><span>Port</span><small>Local port the server listens on (1024–65535).</small></div>
+            <input class="port" type="number" min="1024" max="65535" value={s.mcp.port} aria-label="MCP port"
+              onchange={(e) => settings.update('mcp', { port: num(e) })} />
+          </div>
+          <div class="row">
+            <div class="text"><span>Require key</span><small>Clients must send the key as <code>Authorization: Bearer …</code>. Keeps other programs and users on this computer out.</small></div>
+            {@render toggle(s.mcp.requireKey, (v) => settings.update('mcp', { requireKey: v }), 'Require key')}
+          </div>
+          <div class="row column" class:disabled={!s.mcp.requireKey}>
+            <div class="text"><span>Key</span><small>Stays the same until you regenerate it. Regenerating disconnects every client using the old key.</small></div>
+            <div class="key-line">
+              <code class="key">{s.mcp.key ? (showKey ? s.mcp.key : `mosaic_${'•'.repeat(24)}`) : 'Created when the server is first enabled'}</code>
+              <button class="icon-btn" onclick={() => (showKey = !showKey)} disabled={!s.mcp.key} aria-label={showKey ? 'Hide key' : 'Show key'}>
+                {#if showKey}<EyeOff size={14} />{:else}<Eye size={14} />{/if}
+              </button>
+              <button class="icon-btn" onclick={() => copyText('key', s.mcp.key)} disabled={!s.mcp.key} aria-label="Copy key">
+                {#if copied === 'key'}<Check size={14} />{:else}<Copy size={14} />{/if}
+              </button>
+              <button class="ghost" onclick={regenerateMcpKey}><RefreshCw size={13} />Regenerate</button>
+            </div>
+          </div>
+          <div class="row" class:disabled={!s.mcp.requireKey}>
+            <div class="text"><span>Allow key in URL</span><small>Also accept <code>?token=</code> for clients that only take a URL. URLs end up in logs and history, so leave this off when you can.</small></div>
+            {@render toggle(s.mcp.allowKeyInUrl, (v) => settings.update('mcp', { allowKeyInUrl: v }), 'Allow key in URL')}
+          </div>
+          <div class="row column">
+            <div class="text">
+              <span>Connect a client</span>
+              <small>{MCP_CLIENTS.find(([id]) => id === mcpClient)?.[2]}</small>
+            </div>
+            <div class="seg">
+              {#each MCP_CLIENTS as [id, label] (id)}
+                <button class:active={mcpClient === id} onclick={() => (mcpClient = id)}>{label}</button>
+              {/each}
+            </div>
+            {#if mcpSnippet}
+              <div class="snippet">
+                <pre>{mcpSnippet}</pre>
+                <button class="icon-btn" onclick={() => copyText('snippet', mcpSnippet)} aria-label="Copy">
+                  {#if copied === 'snippet'}<Check size={14} />{:else}<Copy size={14} />{/if}
+                </button>
+              </div>
+            {:else}
+              <small class="hint">Turn on "Allow key in URL" (or turn off "Require key") to get a URL-only address.</small>
+            {/if}
+          </div>
+          {#if mcp.activity.length}
+            <h3>Recent tool calls</h3>
+            <dl>
+              {#each mcp.activity as entry (entry.at + entry.tool)}
+                <dt>{new Date(entry.at).toLocaleTimeString()}</dt>
+                <dd>{entry.tool}</dd>
+              {/each}
+            </dl>
+          {/if}
 
         {:else if ui.settingsSection === 'keybindings'}
           <KeybindingsSettings />
@@ -805,6 +940,79 @@
 
   .hint {
     font-size: 12px;
+  }
+
+  .mcp-status {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    background: var(--mf-active);
+    color: var(--mf-text-2);
+  }
+
+  .mcp-status.running {
+    background: color-mix(in srgb, #22c55e 20%, transparent);
+    color: #4ade80;
+  }
+
+  .mcp-status.error {
+    background: var(--mf-danger-soft);
+    color: var(--mf-danger);
+  }
+
+  .port {
+    width: 90px;
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid var(--mf-border-strong);
+    border-radius: var(--mf-radius);
+    background: var(--mf-bg);
+    color: var(--mf-text);
+    font-family: var(--mf-font-mono);
+    font-size: 12px;
+  }
+
+  .key-line {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .key {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 8px;
+    border: 1px solid var(--mf-border-strong);
+    border-radius: var(--mf-radius);
+    background: var(--mf-bg);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .snippet {
+    position: relative;
+  }
+
+  .snippet pre {
+    margin: 0;
+    padding: 10px 40px 10px 10px;
+    border: 1px solid var(--mf-border-strong);
+    border-radius: var(--mf-radius);
+    background: var(--mf-bg);
+    font-family: var(--mf-font-mono);
+    font-size: 11.5px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+    user-select: text;
+  }
+
+  .snippet .icon-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
   }
 
   code {
