@@ -9,7 +9,7 @@
   import { workspace } from '@mosaicflow/node-sdk/store';
   import { StickyNote, Check, Pencil } from 'lucide-svelte';
   import { RichMarkdownEditor, richContent } from '@mosaicflow/node-sdk/editor';
-  import { hexToRgba, renderMarkdown } from '@mosaicflow/node-sdk';
+  import { autoFit, hexToRgba, renderMarkdown } from '@mosaicflow/node-sdk';
   import { NodeFloatingToolbar, NodeHandles } from '@mosaicflow/node-sdk';
 
   type NoteNodeType = Node<NoteNodeData, 'note'>;
@@ -113,6 +113,7 @@
     border-radius: {borderRadius}px;
     color: {data.textColor || '#e0e0e0'};
   "
+  use:autoFit={{ id }}
 >
   {#if showHeader}
     <div class="node-header">

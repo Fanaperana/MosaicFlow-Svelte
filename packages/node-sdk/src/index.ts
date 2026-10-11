@@ -24,6 +24,7 @@ export {
   type NodeDimensions,
 } from '$lib/components/nodes/_shared/utils';
 export { openExternal } from '$lib/utils';
+export { autoFit } from '$lib/components/nodes/_shared/autoFit';
 export { renderMarkdown, setWikilinkLabelResolver, type WikilinkLabelResolver } from './markdown';
 
 // Types

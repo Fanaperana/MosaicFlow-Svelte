@@ -26,7 +26,11 @@
   import NodeHandles from './NodeHandles.svelte';
   import NodeFloatingToolbar from './NodeFloatingToolbar.svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
+  import { autoFit } from './autoFit';
   import '$lib/components/nodes/_shared/styles.css';
+
+  // Media fills whatever box the user gives it, so these keep their size.
+  const FIXED_SIZE_TYPES = new Set(['image', 'map', 'iframe', 'snapshot']);
 
   interface Props {
     data: BaseNodeData;
@@ -40,7 +44,6 @@
     hideHandles?: boolean;
     hideToolbar?: boolean;
     class?: string;
-    onResizeEnd?: () => void;
   }
 
   let { 
@@ -55,7 +58,6 @@
     hideHandles = false,
     hideToolbar = false,
     class: className = '',
-    onResizeEnd,
   }: Props = $props();
   
   // showHeader defaults to data.showHeader ?? false (hidden by default like original)
@@ -94,7 +96,6 @@
   isVisible={selected && !isLocked}
   lineStyle="border-color: #3b82f6"
   handleStyle="background: #3b82f6; width: 8px; height: 8px; border-radius: 2px;"
-  onResizeEnd={() => onResizeEnd?.()}
 />
 
 <div 
@@ -104,6 +105,7 @@
   style={styleString}
   data-node-id={id}
   data-node-type={nodeType}
+  use:autoFit={{ id, enabled: !FIXED_SIZE_TYPES.has(nodeType) }}
 >
   {#if shouldShowHeader}
     <div class="node-header">

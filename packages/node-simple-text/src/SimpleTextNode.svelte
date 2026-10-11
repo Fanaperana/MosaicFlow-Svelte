@@ -7,7 +7,7 @@
   import { NodeResizer, type NodeProps, type Node } from '@xyflow/svelte';
   import type { SimpleTextNodeData } from './types';
   import { workspace } from '@mosaicflow/node-sdk/store';
-  import { hexToRgba } from '@mosaicflow/node-sdk';
+  import { autoFit, hexToRgba } from '@mosaicflow/node-sdk';
   import { NodeFloatingToolbar, NodeHandles } from '@mosaicflow/node-sdk';
 
   type SimpleTextNodeType = Node<SimpleTextNodeData, 'simpleText'>;
@@ -71,6 +71,7 @@
   style:border-style={borderStyle}
   style:border-color={data.borderColor || '#27272a'}
   style:border-radius="{borderRadius}px"
+  use:autoFit={{ id }}
 >
   <textarea
     class="text-content"

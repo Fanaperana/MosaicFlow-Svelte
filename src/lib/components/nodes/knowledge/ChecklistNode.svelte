@@ -13,12 +13,7 @@
     done: boolean;
   }
 
-  type ChecklistData = BaseNodeData & {
-    items?: ChecklistItem[];
-    hideDone?: boolean;
-    /** Set when the user resized the node smaller than its tasks; it then scrolls instead of growing. */
-    fixedHeight?: boolean;
-  };
+  type ChecklistData = BaseNodeData & { items?: ChecklistItem[]; hideDone?: boolean };
   let { data, selected, id }: NodeProps<Node<ChecklistData, 'checklist'>> = $props();
 
   let list = $state<HTMLDivElement>();
@@ -26,28 +21,6 @@
   let items = $derived(data.items ?? []);
   let doneCount = $derived(items.filter((i) => i.done).length);
   let visible = $derived(data.hideDone ? items.filter((i) => !i.done) : items);
-
-  $effect(() => {
-    void items.length;
-    void visible.length;
-    if (!data.fixedHeight) tick().then(growToFit);
-  });
-
-  function growToFit() {
-    if (!list || workspace.locked) return;
-    const overflow = list.scrollHeight - list.clientHeight;
-    if (overflow <= 0) return;
-    const height = workspace.getNode(id)?.height ?? list.closest<HTMLElement>('.svelte-flow__node')?.offsetHeight;
-    if (height) workspace.updateNode(id, { height: Math.ceil(height + overflow) });
-  }
-
-  // Shrinking below the tasks pins the height (scrolls); resizing back to fit resumes auto-grow.
-  async function handleResizeEnd() {
-    await tick();
-    if (!list) return;
-    const clipped = list.scrollHeight > list.clientHeight + 1;
-    if (clipped !== !!data.fixedHeight) workspace.updateNodeData(id, { fixedHeight: clipped || undefined });
-  }
 
   function save(next: ChecklistItem[]) {
     workspace.updateNodeData(id, { items: next });
@@ -95,7 +68,7 @@
   }
 </script>
 
-<NodeWrapper {data} {selected} {id} nodeType="checklist" onResizeEnd={handleResizeEnd}>
+<NodeWrapper {data} {selected} {id} nodeType="checklist">
   <div class="checklist" bind:this={list}>
     {#if items.length > 0}
       <div class="progress" title="{doneCount} of {items.length} done">

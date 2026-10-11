@@ -10,7 +10,7 @@
   import { Link2, ExternalLink, Unlink } from 'lucide-svelte';
   import { workspace, knowledge, openNode } from '@mosaicflow/node-sdk/store';
   import { nodeRegistry } from '@mosaicflow/node-sdk/registry';
-  import { renderMarkdown, NodeHandles } from '@mosaicflow/node-sdk';
+  import { autoFit, renderMarkdown, NodeHandles } from '@mosaicflow/node-sdk';
   import type { EmbedNodeData } from './types';
 
   type EmbedNodeType = Node<EmbedNodeData, 'embed'>;
@@ -79,6 +79,7 @@
   class="embed-node"
   class:selected
   style="border-color: {data.borderColor || '#4f46e5'}; background: {data.color || '#14152b'}; color: {data.textColor || '#e0e0e0'};"
+  use:autoFit={{ id }}
 >
   <div class="embed-header">
     <Link2 size={13} />

@@ -15,6 +15,8 @@ export interface BaseNodeData {
   showHeader?: boolean;
   locked?: boolean;
   sizeLocked?: boolean;
+  /** The user resized the node smaller than its content: keep the height and scroll instead of growing. */
+  fixedHeight?: boolean;
   [key: string]: unknown;
 }
 
