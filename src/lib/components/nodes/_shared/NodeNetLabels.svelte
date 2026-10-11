@@ -194,6 +194,12 @@
           <circle class="port" cx={p.x} cy={p.y} r="3" style:--c={color} />
         {/if}
       {/each}
+      {#each labels as label (label.id)}
+        {@const a = anchors[label.id]}
+        {#if a}
+          <circle class="label-port" cx={a.x} cy={a.y} r="2.5" style:--c={label.color || color} />
+        {/if}
+      {/each}
       {#if rewire?.target?.nodeId === nodeId}
         {@const p = sidePoint(rewire.target.side)}
         <circle class="port-target" cx={p.x} cy={p.y} r="7" />
@@ -220,6 +226,7 @@
               data-side={side}
               class="{dragging?.id === label.id ? 'dragging' : ''} {dragging && dragging.side === side && dragging.over === i ? 'drop-before' : ''} {dragging && dragging.side === side && dragging.over === stack.length && i === stack.length - 1 ? 'drop-after' : ''}"
               onpointerdown={(e) => onPointerDown(e, label)}
+              onclick={(e) => e.stopPropagation()}
               onmouseenter={(e) => !dragging && !rewire && netHover.enter(label.name, `node:${nodeId}:${label.id}`, e.currentTarget)}
               onmouseleave={() => netHover.leave()}
               title="Click to edit, drag to reorder"
@@ -238,8 +245,8 @@
           class="rewire-dot nodrag nopan"
           style:left="{p.x}px"
           style:top="{p.y}px"
-          style:--c={label.color || color}
           onpointerdown={(e) => startRewire(e, label.id)}
+          onclick={(e) => e.stopPropagation()}
           title="Drag to another side or another node's connection point"
           aria-label="Move label connection"
         ></button>
@@ -330,18 +337,29 @@
     align-items: flex-start;
   }
 
+  .label-port {
+    fill: var(--c);
+  }
+
+  /* Same look as an edge's reconnect handle. */
   .rewire-dot {
     position: absolute;
+    z-index: 2;
     width: 12px;
     height: 12px;
     padding: 0;
-    border: 2px solid var(--c);
+    border: 2px solid var(--mf-accent, #5b8def);
     border-radius: 50%;
-    background: var(--mf-surface, #0d1117);
-    box-shadow: 0 0 6px var(--c);
+    background: var(--mf-surface, #111318);
+    box-shadow: 0 0 0 3px rgba(91, 141, 239, 0.25);
     transform: translate(-50%, -50%);
     cursor: grab;
     pointer-events: auto;
+    transition: transform 0.1s;
+  }
+
+  .rewire-dot:hover {
+    transform: translate(-50%, -50%) scale(1.3);
   }
 
   .rewire-dot:active {

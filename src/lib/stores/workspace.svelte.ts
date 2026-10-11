@@ -887,7 +887,7 @@ class WorkspaceStore {
   // Open/close the properties panel to match the current node selection
   syncPropertiesPanel() {
     const ids = this.selectedNodeIds;
-    if (this.selectedNetLabel && (ids.length !== 1 || ids[0] !== this.selectedNetLabel.nodeId)) this.selectedNetLabel = null;
+    if (this.selectedNetLabel && (ids.length > 0 || this.selectedEdgeIds.length > 0)) this.selectedNetLabel = null;
     if (this.suppressPropertiesPanel) return;
     if (ids.length === 1) {
       const node = this.nodes.find(n => n.id === ids[0]);
@@ -897,7 +897,7 @@ class WorkspaceStore {
       }
     } else {
       this.selectedNodeForProperties = null;
-      if (ids.length === 0 && this.selectedEdgeIds.length === 0) {
+      if (ids.length === 0 && this.selectedEdgeIds.length === 0 && !this.selectedNetLabel) {
         this.propertiesPanelOpen = false;
       }
     }
@@ -911,11 +911,21 @@ class WorkspaceStore {
     }
   }
 
-  /** Selects a node's net label and opens its properties. */
+  /** Selects a node's net label on its own (the node is deselected) and opens its properties. */
   selectNetLabel(nodeId: string, labelId: string) {
-    this.setSelectedNodes([nodeId]);
+    this.setSelectedNodes([]);
+    if (this.selectedEdgeIds.length) {
+      this.selectedEdgeIds = [];
+      this.edges = this.edges.map(e => (e.selected ? { ...e, selected: false } : e));
+    }
     this.selectedNetLabel = { nodeId, labelId };
     this.propertiesPanelOpen = true;
+  }
+
+  clearNetLabelSelection() {
+    if (!this.selectedNetLabel) return;
+    this.selectedNetLabel = null;
+    this.syncPropertiesPanel();
   }
 
   // Toggle properties panel

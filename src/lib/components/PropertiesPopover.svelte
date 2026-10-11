@@ -9,11 +9,13 @@
   const MARGIN = 8;
 
   const target = $derived(
-    workspace.selectedNodeIds.length === 1
-      ? { id: workspace.selectedNodeIds[0], edge: false }
-      : workspace.selectedEdgeIds.length === 1
-        ? { id: workspace.selectedEdgeIds[0], edge: true }
-        : null,
+    workspace.selectedNetLabel
+      ? { selector: `[data-label-id="${CSS.escape(workspace.selectedNetLabel.labelId)}"]` }
+      : workspace.selectedNodeIds.length === 1
+        ? { selector: `.svelte-flow__node[data-id="${CSS.escape(workspace.selectedNodeIds[0])}"]` }
+        : workspace.selectedEdgeIds.length === 1
+          ? { selector: `.svelte-flow__edge[data-id="${CSS.escape(workspace.selectedEdgeIds[0])}"]` }
+          : null,
   );
 
   let pos = $state<{ left: number; top: number } | null>(null);
@@ -28,8 +30,7 @@
       return;
     }
     const frame = requestAnimationFrame(() => {
-      const kind = t.edge ? 'edge' : 'node';
-      const el = document.querySelector(`.svelte-flow__${kind}[data-id="${CSS.escape(t.id)}"]`);
+      const el = document.querySelector(t.selector);
       if (!el) {
         pos = null;
         return;

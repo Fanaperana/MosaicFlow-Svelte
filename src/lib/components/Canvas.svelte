@@ -939,6 +939,10 @@
       window.dispatchEvent(new CustomEvent('mosaicflow:zoomBack'));
       return;
     }
+    if (workspace.selectedNetLabel) {
+      workspace.clearNetLabelSelection();
+      return;
+    }
     if (workspace.selectedNodeIds.length > 0 || workspace.selectedEdgeIds.length > 0) {
       workspace.setSelectedEdges([]);
       workspace.edges = workspace.edges.map(e => (e.selected ? { ...e, selected: false } : e));
@@ -1000,6 +1004,7 @@
         onreconnectstart={() => (reconnecting = true)}
         onreconnectend={() => setTimeout(() => (reconnecting = false))}
         onselectionchange={handleSelectionChange}
+        onpaneclick={() => workspace.clearNetLabelSelection()}
         onnodedragstart={handleNodeDragStart}
         onnodedrag={handleNodeDrag}
         onnodedragstop={handleNodeDragStop}

@@ -122,7 +122,9 @@
 
   let canvasId = $derived(vaultStore.currentCanvas?.id ?? '');
   let nodeTags = $derived(selectedNode ? extractTags(selectedNode.data as Record<string, unknown>) : []);
-  let netLabels = $derived(selectedNode ? nodeNetLabels(selectedNode.data) : []);
+  // The node whose labels are edited: the selected label's node, else the selected node.
+  let labelOwner = $derived(workspace.selectedNetLabel ? workspace.getNode(workspace.selectedNetLabel.nodeId) ?? null : selectedNode);
+  let netLabels = $derived(labelOwner ? nodeNetLabels(labelOwner.data) : []);
   const NET_SIDES: NodeSide[] = ['left', 'right', 'top', 'bottom'];
   const NET_ENDS: [NetLabelEnd, string][] = [['sharp', 'Sharp'], ['rounded', 'Rounded'], ['none', 'Square']];
   const NET_END_SIDES: [NetLabelEndSide, string][] = [['outer', 'Outer end (away from the node)'], ['inner', 'Inner end (towards the node)'], ['both', 'Both ends']];
@@ -151,9 +153,9 @@
   }
 
   function writeNetLabels(next: NodeNetLabel[]) {
-    if (!selectedNode) return;
+    if (!labelOwner) return;
     workspace.saveToHistory();
-    workspace.setNetLabels(selectedNode.id, next);
+    workspace.setNetLabels(labelOwner.id, next);
   }
 
   function patchNetLabel(id: string, patch: Partial<NodeNetLabel>) {
@@ -172,9 +174,7 @@
   }
 
   let selectedNetLabel = $derived(
-    selectedNode && workspace.selectedNetLabel?.nodeId === selectedNode.id
-      ? netLabels.find((l) => l.id === workspace.selectedNetLabel!.labelId) ?? null
-      : null
+    workspace.selectedNetLabel ? netLabels.find((l) => l.id === workspace.selectedNetLabel!.labelId) ?? null : null
   );
   let selectedNetCount = $derived(selectedNetLabel ? netMembers(selectedNetLabel.name).length : 0);
 
@@ -589,9 +589,9 @@
         onchange={(e) => patchNetLabel(selectedNetLabel!.id, { name: (e.target as HTMLInputElement).value })}
       />
       <div class="pp-id-row">
-        <button class="pp-id" onclick={() => (workspace.selectedNetLabel = null)} title="Back to the node's properties">
+        <button class="pp-id" onclick={() => labelOwner && workspace.setSelectedNodes([labelOwner.id])} title="Select the node">
           <ArrowLeft size={11} />
-          <span>{selectedNode?.data.title || 'Node'}</span>
+          <span>{labelOwner?.data.title || 'Node'}</span>
         </button>
       </div>
     {:else if selectedNode}
@@ -833,7 +833,7 @@
         <div class="prop">
           <span class="prop-label"><PaintBucket size={14} />Color</span>
           <span class="prop-value">
-            <ColorInput value={label.color || (selectedNode?.data.borderColor as string | undefined) || '#5b8def'} onchange={(color) => patchNetLabel(label.id, { color })} size="sm" />
+            <ColorInput value={label.color || (labelOwner?.data.borderColor as string | undefined) || '#5b8def'} onchange={(color) => patchNetLabel(label.id, { color })} size="sm" />
           </span>
         </div>
         <div class="prop">
