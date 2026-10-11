@@ -40,6 +40,7 @@
     hideHandles?: boolean;
     hideToolbar?: boolean;
     class?: string;
+    onResizeEnd?: () => void;
   }
 
   let { 
@@ -53,7 +54,8 @@
     showHeader,
     hideHandles = false,
     hideToolbar = false,
-    class: className = ''
+    class: className = '',
+    onResizeEnd,
   }: Props = $props();
   
   // showHeader defaults to data.showHeader ?? false (hidden by default like original)
@@ -92,6 +94,7 @@
   isVisible={selected && !isLocked}
   lineStyle="border-color: #3b82f6"
   handleStyle="background: #3b82f6; width: 8px; height: 8px; border-radius: 2px;"
+  onResizeEnd={() => onResizeEnd?.()}
 />
 
 <div 
