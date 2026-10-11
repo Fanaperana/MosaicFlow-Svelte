@@ -209,6 +209,7 @@
               name={label.name}
               {side}
               end={label.end}
+              endSide={label.endSide}
               color={label.color || color}
               textColor={label.textColor}
               bgColor={label.bgColor}

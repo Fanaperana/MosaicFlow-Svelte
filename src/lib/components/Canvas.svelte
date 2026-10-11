@@ -1046,7 +1046,7 @@
         position="bottom-left"
         pannable
         zoomable
-        nodeClass={(n) => (netLitIds?.has(n.id) ? 'mf-net-lit' : '')}
+        nodeClass={(n) => (netHover.focusNode === n.id ? 'mf-net-lit mf-net-focus' : netLitIds?.has(n.id) ? 'mf-net-lit' : '')}
         style="background: #1a1d21; border: 1px solid #333;"
       />
     {/if}
@@ -1427,6 +1427,13 @@
     stroke-width: 3px;
     vector-effect: non-scaling-stroke;
     filter: drop-shadow(0 0 40px #fbbf24);
+  }
+
+  :global(.svelte-flow__minimap-node.mf-net-focus) {
+    fill: #fff3c4 !important;
+    stroke: #fff3c4 !important;
+    stroke-width: 4px;
+    filter: drop-shadow(0 0 80px #fbbf24) drop-shadow(0 0 30px #fbbf24);
   }
 
   /* Make NodeResizer more subtle so it doesn't interfere with style previews */

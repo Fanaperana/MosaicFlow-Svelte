@@ -1,6 +1,6 @@
 <script lang="ts">
   import { workspace } from '$lib/stores/workspace.svelte';
-  import type { MosaicEdge, MarkerShape, EdgeStrokeStyle, EdgeType, EdgePathType, BaseNodeData, NodeNetLabel, NodeSide, NetLabelEnd, NetStyle } from '$lib/types';
+  import type { MosaicEdge, MarkerShape, EdgeStrokeStyle, EdgeType, EdgePathType, BaseNodeData, NodeNetLabel, NodeSide, NetLabelEnd, NetLabelEndSide, NetStyle } from '$lib/types';
   import { nodeRegistry, getIconByName } from '$lib/kernel/registries/node-registry';
   import { MarkerType } from '@xyflow/svelte';
   import {
@@ -124,7 +124,8 @@
   let nodeTags = $derived(selectedNode ? extractTags(selectedNode.data as Record<string, unknown>) : []);
   let netLabels = $derived(selectedNode ? nodeNetLabels(selectedNode.data) : []);
   const NET_SIDES: NodeSide[] = ['left', 'right', 'top', 'bottom'];
-  const NET_ENDS: [NetLabelEnd, string][] = [['sharp', 'Sharp'], ['rounded', 'Rounded'], ['none', 'None']];
+  const NET_ENDS: [NetLabelEnd, string][] = [['sharp', 'Sharp'], ['rounded', 'Rounded'], ['none', 'Square']];
+  const NET_END_SIDES: [NetLabelEndSide, string][] = [['outer', 'Outer end (away from the node)'], ['inner', 'Inner end (towards the node)'], ['both', 'Both ends']];
   const SIDE_ICONS = { left: ArrowLeftToLine, right: ArrowRightToLine, top: ArrowUpToLine, bottom: ArrowDownToLine };
 
   const WIDTH_KEY = 'mosaicflow:properties-width';
@@ -159,8 +160,8 @@
     if (patch.name !== undefined && !patch.name.trim()) return;
     const current = netLabels.find((l) => l.id === id);
     if (!current) return;
-    const { end, color, textColor, bgColor, fontSize, ...own } = patch;
-    const style: NetStyle = Object.fromEntries(Object.entries({ end, color, textColor, bgColor, fontSize }).filter(([, v]) => v !== undefined));
+    const { end, endSide, color, textColor, bgColor, fontSize, ...own } = patch;
+    const style: NetStyle = Object.fromEntries(Object.entries({ end, endSide, color, textColor, bgColor, fontSize }).filter(([, v]) => v !== undefined));
     if (Object.keys(own).length) {
       const name = (own.name ?? current.name).trim();
       // Joining another net takes on its look.
@@ -177,7 +178,7 @@
   );
   let selectedNetCount = $derived(selectedNetLabel ? netMembers(selectedNetLabel.name).length : 0);
 
-  const EDGE_NET_KEYS = { labelEnd: 'end', labelColor: 'textColor', labelBgColor: 'bgColor', labelFontSize: 'fontSize' } as const;
+  const EDGE_NET_KEYS = { labelEnd: 'end', labelEndSide: 'endSide', labelColor: 'textColor', labelBgColor: 'bgColor', labelFontSize: 'fontSize' } as const;
 
   /** Edge label styling; for edges shown as labels it restyles the whole net. */
   function updateEdgeLabelStyle(key: keyof typeof EDGE_NET_KEYS, value: string | number) {
@@ -487,6 +488,19 @@
   </svg>
 {/snippet}
 
+{#snippet endSideGlyph(which: NetLabelEndSide)}
+  <svg width="24" height="12" viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true">
+    <line x1="1" y1="1" x2="1" y2="11" stroke-width="2" />
+    {#if which === 'outer'}
+      <path d="M5 1.5 H18 L22.5 6 L18 10.5 H5 Z" />
+    {:else if which === 'inner'}
+      <path d="M9 1.5 H22 V10.5 H9 L4.5 6 Z" />
+    {:else}
+      <path d="M9 1.5 H18 L22.5 6 L18 10.5 H9 L4.5 6 Z" />
+    {/if}
+  </svg>
+{/snippet}
+
 {#snippet markerGlyph(kind: MarkerShape, start: boolean)}
   <svg
     class={start ? 'flip' : ''}
@@ -649,10 +663,20 @@
               {/each}
             </div>
           </div>
+          <div class="prop">
+            <span class="prop-label"><MoveHorizontal size={14} />Shape on</span>
+            <div class="seg" class:disabled={selectedEdge.data?.labelEnd === 'none'}>
+              {#each NET_END_SIDES as [value, title] (value)}
+                <button type="button" class="seg-btn" class:active={(selectedEdge.data?.labelEndSide ?? 'outer') === value}
+                  disabled={selectedEdge.data?.labelEnd === 'none'}
+                  onclick={() => updateEdgeLabelStyle('labelEndSide', value)} title={title} aria-label={title}>{@render endSideGlyph(value)}</button>
+              {/each}
+            </div>
+          </div>
           {#if !selectedEdge.label}
             <p class="hint">The edge label names the net; without one the tags read "NET".</p>
           {/if}
-        {/if}
+        {:else}
 
         <div class="prop">
           <span class="prop-label"><MoveHorizontal size={14} />Start</span>
@@ -683,6 +707,7 @@
             {/each}
           </div>
         </div>
+        {/if}
 
         <label class="prop">
           <span class="prop-label"><Sparkles size={14} />Animated</span>
@@ -789,6 +814,16 @@
             {#each NET_ENDS as [value, title] (value)}
               <button type="button" class="seg-btn" class:active={(label.end ?? 'sharp') === value}
                 onclick={() => patchNetLabel(label.id, { end: value })} title={title} aria-label={title}>{@render endGlyph(value)}</button>
+            {/each}
+          </div>
+        </div>
+        <div class="prop">
+          <span class="prop-label"><MoveHorizontal size={14} />Shape on</span>
+          <div class="seg" class:disabled={label.end === 'none'}>
+            {#each NET_END_SIDES as [value, title] (value)}
+              <button type="button" class="seg-btn" class:active={(label.endSide ?? 'outer') === value}
+                disabled={label.end === 'none'}
+                onclick={() => patchNetLabel(label.id, { endSide: value })} title={title} aria-label={title}>{@render endSideGlyph(value)}</button>
             {/each}
           </div>
         </div>
@@ -1971,6 +2006,14 @@
 
   .seg-btn.wide {
     padding: 0 8px;
+  }
+
+  .seg.disabled {
+    opacity: 0.4;
+  }
+
+  .seg-btn:disabled {
+    cursor: default;
   }
 
   .seg :global(svg.flip) {

@@ -49,6 +49,7 @@ function deselect<T extends { selected?: boolean }>(item: T): T {
 function pickNetStyle(s: NetStyle): NetStyle {
   const out: NetStyle = {};
   if (s.end) out.end = s.end;
+  if (s.endSide) out.endSide = s.endSide;
   if (s.color) out.color = s.color;
   if (s.textColor) out.textColor = s.textColor;
   if (s.bgColor) out.bgColor = s.bgColor;
@@ -421,7 +422,7 @@ class WorkspaceStore {
     }
     const e = this.edges.find((x) => x.data?.display === 'label' && ((typeof x.label === 'string' && x.label.trim()) || 'NET') === name);
     if (!e?.data) return {};
-    return pickNetStyle({ end: e.data.labelEnd, color: e.data.color, textColor: e.data.labelColor, bgColor: e.data.labelBgColor, fontSize: e.data.labelFontSize });
+    return pickNetStyle({ end: e.data.labelEnd, endSide: e.data.labelEndSide, color: e.data.color, textColor: e.data.labelColor, bgColor: e.data.labelBgColor, fontSize: e.data.labelFontSize });
   }
 
   /** Restyles every label of a net: node labels and edges shown as labels with that name. */
@@ -435,6 +436,7 @@ class WorkspaceStore {
     }
     const edgePatch = {
       ...(patch.end !== undefined ? { labelEnd: patch.end } : {}),
+      ...(patch.endSide !== undefined ? { labelEndSide: patch.endSide } : {}),
       ...(patch.color !== undefined ? { color: patch.color } : {}),
       ...(patch.textColor !== undefined ? { labelColor: patch.textColor } : {}),
       ...(patch.bgColor !== undefined ? { labelBgColor: patch.bgColor } : {}),

@@ -12,7 +12,7 @@
   import { edgeObstacles } from '$lib/stores/edge-obstacles.svelte';
   import { netHover, netNameOf } from '$lib/stores/net-hover.svelte';
   import NetTag from '$lib/components/nodes/_shared/NetTag.svelte';
-  import type { NetLabelEnd, NodeSide } from '$lib/types';
+  import type { NetLabelEnd, NetLabelEndSide, NodeSide } from '$lib/types';
   import { hitsObstacle, roundedPath, routeOrthogonal, sampleBezier, sampleLine, type Point, type Side } from '@mosaicflow/vault-core';
 
   let {
@@ -247,6 +247,7 @@
         name={netName}
         side={tag.side as NodeSide}
         end={labelEnd as NetLabelEnd}
+        endSide={data?.labelEndSide as NetLabelEndSide | undefined}
         color={markerColor}
         lit={netLit}
         {selected}

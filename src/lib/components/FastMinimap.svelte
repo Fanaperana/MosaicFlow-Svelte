@@ -41,14 +41,14 @@
     let minX = view.x, minY = view.y, maxX = view.x + view.w, maxY = view.y + view.h;
     const lit = netHover.name ? new Set(netMembers(netHover.name).map((m) => m.nodeId)) : null;
     const rects: [number, number, number, number, boolean, boolean][] = [];
-    const litRects: [number, number, number, number][] = [];
+    const litRects: [number, number, number, number, boolean][] = [];
     for (const node of store.nodeLookup.values()) {
       if (node.hidden) continue;
       const { x, y } = node.internals.positionAbsolute;
       const w = node.measured.width ?? node.width ?? 0;
       const h = node.measured.height ?? node.height ?? 0;
       rects.push([x, y, w, h, node.type === 'group', !!node.selected]);
-      if (lit?.has(node.id)) litRects.push([x, y, w, h]);
+      if (lit?.has(node.id)) litRects.push([x, y, w, h, netHover.focusNode === node.id]);
       if (x < minX) minX = x;
       if (y < minY) minY = y;
       if (x + w > maxX) maxX = x + w;
@@ -89,7 +89,13 @@
       ctx.shadowColor = NET_GLOW;
       ctx.shadowBlur = 8;
       ctx.fillStyle = NET_GLOW;
-      for (const [x, y, w, h] of litRects) ctx.fillRect(tx(x), ty(y), Math.max(3, w * scale), Math.max(3, h * scale));
+      const focused = netHover.focusNode;
+      for (const [x, y, w, h, focus] of litRects) {
+        ctx.globalAlpha = focused && !focus ? 0.45 : 1;
+        ctx.shadowBlur = focus ? 14 : 8;
+        ctx.fillStyle = focus ? '#fff3c4' : NET_GLOW;
+        ctx.fillRect(tx(x), ty(y), Math.max(focus ? 5 : 3, w * scale), Math.max(focus ? 5 : 3, h * scale));
+      }
       ctx.restore();
     }
   }
@@ -101,6 +107,7 @@
     void store.width;
     void store.height;
     void netHover.name;
+    void netHover.focusNode;
     if (!frame) frame = requestAnimationFrame(draw);
   });
 

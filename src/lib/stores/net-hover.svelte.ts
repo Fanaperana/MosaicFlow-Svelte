@@ -58,6 +58,8 @@ export function netNames(): { name: string; count: number }[] {
 class NetHover {
   name = $state('');
   anchor = $state<NetAnchor | null>(null);
+  /** Node under the pointer in the popover list; glows stronger than the rest of the net. */
+  focusNode = $state<string | null>(null);
   private hideTimer: ReturnType<typeof setTimeout> | undefined;
 
   enter(name: string, key: string, el: HTMLElement) {
@@ -81,6 +83,7 @@ class NetHover {
     clearTimeout(this.hideTimer);
     this.name = '';
     this.anchor = null;
+    this.focusNode = null;
   }
 }
 

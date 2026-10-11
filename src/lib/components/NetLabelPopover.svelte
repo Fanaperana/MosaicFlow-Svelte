@@ -55,6 +55,26 @@
     window.dispatchEvent(new CustomEvent('mosaicflow:focusNode', { detail: { id: nodeId } }));
   }
 
+  const GLOW = {
+    net: 'drop-shadow(0 0 8px rgba(251, 191, 36, 0.75))',
+    focus: 'drop-shadow(0 0 4px #fbbf24) drop-shadow(0 0 18px #fbbf24)',
+    dim: 'drop-shadow(0 0 5px rgba(251, 191, 36, 0.35))',
+  };
+
+  // Nodes on the hovered net glow; a stylesheet survives node re-renders, unlike toggled classes.
+  $effect(() => {
+    if (!netHover.anchor) return;
+    const ids = [...new Set(all.map((m) => m.nodeId))];
+    if (!ids.length) return;
+    const focus = netHover.focusNode;
+    const sheet = document.createElement('style');
+    sheet.textContent = ids
+      .map((id) => `.svelte-flow__node[data-id="${CSS.escape(id)}"] { filter: ${id === focus ? GLOW.focus : focus ? GLOW.dim : GLOW.net}; }`)
+      .join('\n');
+    document.head.appendChild(sheet);
+    return () => sheet.remove();
+  });
+
   // Node labels only: `node:<nodeId>:<labelId>`.
   const ownLabel = $derived.by(() => {
     const [kind, nodeId, labelId] = netHover.anchor?.key.split(':') ?? [];
@@ -85,7 +105,12 @@
       <ul>
         {#each entries as entry (entry.key)}
           <li>
-            <button onclick={() => go(entry.nodeId)} title="Go to {entry.title}">
+            <button
+              onclick={() => go(entry.nodeId)}
+              onmouseenter={() => (netHover.focusNode = entry.nodeId)}
+              onmouseleave={() => (netHover.focusNode = null)}
+              title="Go to {entry.title}"
+            >
               <span class="text">
                 <span class="title">{entry.title}</span>
                 <span class="meta">{entry.type}{entry.detail ? ` · ${entry.detail}` : ''}</span>

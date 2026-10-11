@@ -95,11 +95,13 @@ export type EdgePathType = 'bezier' | 'straight' | 'step' | 'smoothstep';
 /** 'label' draws a named tag at each end instead of a line (a KiCad-style net label). */
 export type EdgeDisplay = 'line' | 'label';
 export type NetLabelEnd = 'sharp' | 'rounded' | 'none';
+export type NetLabelEndSide = 'outer' | 'inner' | 'both';
 export type NodeSide = 'left' | 'right' | 'top' | 'bottom';
 
 /** Look shared by every label of a net: changing one label restyles all of them. */
 export interface NetStyle {
   end?: NetLabelEnd;
+  endSide?: NetLabelEndSide;
   color?: string;
   textColor?: string;
   bgColor?: string;
@@ -133,6 +135,7 @@ export interface MosaicEdge extends Edge {
     animated?: boolean;
     display?: EdgeDisplay;
     labelEnd?: NetLabelEnd;
+    labelEndSide?: NetLabelEndSide;
   };
 }
 

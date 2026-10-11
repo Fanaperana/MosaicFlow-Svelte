@@ -1,12 +1,14 @@
 <!-- One net label tag (KiCad-style). Used on node sides and at both ends of edges shown as labels. -->
 <script lang="ts">
   import type { HTMLAttributes } from 'svelte/elements';
-  import type { NetLabelEnd, NodeSide } from '$lib/types';
+  import type { NetLabelEnd, NetLabelEndSide, NodeSide } from '$lib/types';
 
   interface Props extends HTMLAttributes<HTMLDivElement> {
     name: string;
     side: NodeSide;
     end?: NetLabelEnd;
+    /** Which end gets the shape: away from the node, towards it, or both. */
+    endSide?: NetLabelEndSide;
     color: string;
     lit?: boolean;
     selected?: boolean;
@@ -19,11 +21,20 @@
     offset?: boolean;
   }
 
-  let { name, side, end = 'sharp', color, lit = false, selected = false, fontSize = 12, textColor, bgColor, offset = false, class: className = '', ...rest }: Props = $props();
+  let { name, side, end = 'sharp', endSide = 'outer', color, lit = false, selected = false, fontSize = 12, textColor, bgColor, offset = false, class: className = '', ...rest }: Props = $props();
+
+  // Left-side tags point left, so their outer end is the physical left one.
+  const outerIsLeft = $derived(side === 'left');
+  const shapeLeft = $derived(end !== 'none' && (endSide === 'both' || (endSide === 'outer') === outerIsLeft));
+  const shapeRight = $derived(end !== 'none' && (endSide === 'both' || (endSide === 'outer') !== outerIsLeft));
 </script>
 
 <div
-  class="net-tag side-{side} end-{end} {className}"
+  class="net-tag side-{side} {className}"
+  class:l-sharp={shapeLeft && end === 'sharp'}
+  class:r-sharp={shapeRight && end === 'sharp'}
+  class:l-round={shapeLeft && end === 'rounded'}
+  class:r-round={shapeRight && end === 'rounded'}
   class:offset
   class:lit
   class:selected
@@ -34,8 +45,13 @@
   {...rest}
 >
   {name}
-  {#if end === 'sharp'}
-    <svg class="tip" viewBox="0 0 10 22" preserveAspectRatio="none" aria-hidden="true">
+  {#if shapeLeft && end === 'sharp'}
+    <svg class="tip left" viewBox="0 0 10 22" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M 0 0.75 L 9.25 11 L 0 21.25" />
+    </svg>
+  {/if}
+  {#if shapeRight && end === 'sharp'}
+    <svg class="tip right" viewBox="0 0 10 22" preserveAspectRatio="none" aria-hidden="true">
       <path d="M 0 0.75 L 9.25 11 L 0 21.25" />
     </svg>
   {/if}
@@ -85,33 +101,37 @@
     stroke-linejoin: round;
   }
 
-  .net-tag.end-sharp:not(.side-left) {
+  .net-tag.r-sharp {
     margin-right: 10px;
     border-right: none;
-    border-radius: 3px 0 0 3px;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
   }
 
-  .net-tag.end-sharp:not(.side-left) .tip {
+  .tip.right {
     right: -10px;
   }
 
-  .net-tag.end-sharp.side-left {
+  .net-tag.l-sharp {
     margin-left: 10px;
     border-left: none;
-    border-radius: 0 3px 3px 0;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
   }
 
-  .net-tag.end-sharp.side-left .tip {
+  .tip.left {
     left: -10px;
     transform: scaleX(-1);
   }
 
-  .net-tag.end-rounded:not(.side-left) {
-    border-radius: 3px 999px 999px 3px;
+  .net-tag.r-round {
+    border-top-right-radius: 999px;
+    border-bottom-right-radius: 999px;
   }
 
-  .net-tag.end-rounded.side-left {
-    border-radius: 999px 3px 3px 999px;
+  .net-tag.l-round {
+    border-top-left-radius: 999px;
+    border-bottom-left-radius: 999px;
   }
 
   .net-tag.lit,
