@@ -9,16 +9,22 @@
   import { workspace } from '@mosaicflow/node-sdk/store';
   import { Image, Camera, Upload, Link } from 'lucide-svelte';
   import { open } from '@tauri-apps/plugin-dialog';
-  import { convertFileSrc } from '@tauri-apps/api/core';
-  import { NodeWrapper } from '@mosaicflow/node-sdk';
+  import { NodeWrapper, attachmentUrl, importImageFile, importImageBytes } from '@mosaicflow/node-sdk';
 
   type ImageNodeType = Node<ImageNodeData, 'image'>;
 
   let { data, selected, id }: NodeProps<ImageNodeType> = $props();
+
+  // A picture stored in the vault (imagePath) wins over a link (imageUrl).
+  const src = $derived((data.imagePath && attachmentUrl(data.imagePath)) || data.imageUrl || '');
   
   let isDraggingOver = $state(false);
   let showUrlInput = $state(false);
   let urlInputValue = $state('');
+
+  function useStored(path: string) {
+    workspace.updateNodeData(id, { imagePath: path, imageUrl: '' });
+  }
 
   function handleDragOver(e: DragEvent) {
     e.preventDefault();
@@ -29,27 +35,16 @@
     isDraggingOver = false;
   }
 
-  function handleDrop(e: DragEvent) {
+  async function handleDrop(e: DragEvent) {
     e.preventDefault();
     isDraggingOver = false;
-    
-    const files = e.dataTransfer?.files;
-    if (files && files.length > 0) {
-      const file = files[0];
-      if (file.type.startsWith('image/')) {
-        const filePath = (file as unknown as { path?: string }).path;
-        if (filePath) {
-          const assetUrl = convertFileSrc(filePath);
-          workspace.updateNodeData(id, { imageUrl: assetUrl });
-        } else {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            const imageUrl = event.target?.result as string;
-            workspace.updateNodeData(id, { imageUrl });
-          };
-          reader.readAsDataURL(file);
-        }
-      }
+    const file = e.dataTransfer?.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    try {
+      const stored = await importImageBytes(new Uint8Array(await file.arrayBuffer()), file.name);
+      useStored(stored.path);
+    } catch (err) {
+      console.error('Failed to import image:', err);
     }
   }
 
@@ -59,13 +54,10 @@
         multiple: false,
         filters: [{
           name: 'Images',
-          extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg']
+          extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif']
         }]
       });
-      if (file) {
-        const assetUrl = convertFileSrc(file as string);
-        workspace.updateNodeData(id, { imageUrl: assetUrl });
-      }
+      if (typeof file === 'string') useStored((await importImageFile(file)).path);
     } catch (err) {
       console.error('Failed to pick image:', err);
     }
@@ -73,7 +65,7 @@
 
   function handleUrlSubmit() {
     if (urlInputValue.trim()) {
-      workspace.updateNodeData(id, { imageUrl: urlInputValue.trim() });
+      workspace.updateNodeData(id, { imageUrl: urlInputValue.trim(), imagePath: '' });
       showUrlInput = false;
       urlInputValue = '';
     }
@@ -103,8 +95,8 @@
     ondragleave={handleDragLeave}
     ondrop={handleDrop}
   >
-    {#if data.imageUrl}
-      <img src={data.imageUrl} alt={data.caption || data.title} />
+    {#if src}
+      <img {src} alt={data.caption || data.title} />
       {#if data.caption}
         <div class="caption">{data.caption}</div>
       {/if}

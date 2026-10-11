@@ -11,3 +11,4 @@ export * from './knowledge';
 export * from './autolayout';
 export * from './routing';
 export * from './importers';
+export * from './attachments';

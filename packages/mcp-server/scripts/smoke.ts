@@ -178,6 +178,17 @@ async function main() {
     const afterConvert = await call('read_canvas', { canvas: 'Built Map' });
     assert(asLabel.label === 'see also' && afterConvert.nets?.['see also']?.length === 2 && !afterConvert.edges.some((e: { label?: string }) => e.label === 'see also'),
       'an edge shown as labels is stored as a local label on both nodes');
+
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAYAAAB/qH1jAAAAEUlEQVR4nGP8z8DwnwEJMBEcAJ1nAgOsWVOMAAAAAElFTkSuQmCC';
+    const img = await call('add_image', { canvas: 'Built Map', source: png, title: 'Tiny diagram', near: map.ids.intro });
+    const imgNode = (await call('read_canvas', { canvas: 'Built Map', detail: 'full' })).nodes.find((n: { id: string }) => n.id === img.id);
+    const stat = await fs.stat(path.join(vault, img.path)).catch(() => null);
+    assert(img.path?.startsWith('attachments/') && stat?.isFile() && imgNode?.data.imagePath === img.path && img.markdown === `![Tiny diagram](${img.path})`,
+      'add_image stores the picture in attachments/ and places an image node');
+    assert(imgNode.width >= 160 && Math.abs(imgNode.height - 44 - imgNode.width / 2) <= 1, 'image node is sized to the picture (4x2)');
+    const again2 = await call('add_image', { canvas: 'Built Map', source: png, attach: 'none' });
+    assert(again2.path === img.path && !again2.id, 'the same picture is stored once; attach "none" only returns markdown');
+    assert(await callError('add_image', { canvas: 'Built Map', source: 'file:///etc/passwd' }), 'add_image refuses non-http sources');
     const labelled = await call('build_knowledge', {
       canvas: 'Labelled Map',
       nodes: [

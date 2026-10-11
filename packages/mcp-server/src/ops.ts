@@ -3,6 +3,7 @@
 import {
   DESIGN_GUIDE,
   KnowledgeIndex,
+  decodeDataUrl,
   absoluteRects,
   autoLayout,
   gridLayout,
@@ -44,7 +45,7 @@ const SAFE_ID = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
 
 // What markdown fields (note.content, callout.content, notes, ...) render in the app.
 const MARKDOWN_GUIDE = {
-  basics: 'Headings, **bold**, *italic*, ~~strike~~, `inline code`, > quotes, lists, - [ ] task lists, --- dividers, [links](https://...) and ![images](url).',
+  basics: 'Headings, **bold**, *italic*, ~~strike~~, `inline code`, > quotes, lists, - [ ] task lists, --- dividers, [links](https://...) and ![images](url). Images stored with add_image are written ![alt](attachments/name.png).',
   tables: 'GFM tables: | a | b | then | --- | --- |; :---: centres a column, ---: right-aligns it.',
   code: '```lang fenced blocks are syntax-highlighted (rust, ts, python, sql, bash, ...).',
   math: 'LaTeX via KaTeX: $E = mc^2$ inline (no space after the opening $), $$ ... $$ on their own lines or a ```math block for display equations.',
@@ -423,6 +424,7 @@ export class MosaicOps {
         'Finish with set_story_order so the Story view walks the canvas in a sensible order, then check_layout (fix: true) so nothing overlaps and every edge takes a clean route; auto_layout if the canvas got messy.',
         'Link related notes with [[Node title]] in text and tag them with #tag; get_links shows outgoing links and backlinks.',
         'Rename a node with update_node (title); its id never changes, so links and edges keep working. Rename, retag, describe or lock a canvas with update_canvas.',
+        'Pictures: add_image stores an image (http(s) URL or data: URL) in the vault and places an image node; with attach "none" it only stores it and returns markdown (![alt](attachments/...)) to put inside a note.',
         'Changes are written to the vault and appear live in the MosaicFlow app.',
       ],
       markdown: MARKDOWN_GUIDE,
@@ -1047,6 +1049,61 @@ export class MosaicOps {
       members: nodes.flatMap((n) => netLabelsOf(n).filter((l) => l.name === name).map((l) => ({ id: n.id, side: l.side }))),
       changedNodes: changed.size,
     };
+  }
+
+  /**
+   * Stores a picture in the vault (attachments/) from an http(s) URL or a data: URL and, unless
+   * attach is "none", places an image node for it. Returns the path and a markdown snippet that
+   * shows it inside a note. If the image cannot be downloaded here, the node keeps the URL.
+   */
+  async addImage(input: {
+    canvas: string;
+    source: string;
+    title?: string;
+    caption?: string;
+    attach?: 'node' | 'none';
+    near?: string;
+    parentId?: string;
+    position?: { x: number; y: number };
+    width?: number;
+  }) {
+    const source = input.source.trim();
+    const isData = source.startsWith('data:');
+    if (!isData && !/^https?:\/\//i.test(source)) throw new Error('source must be an http(s) URL or a data: URL');
+    const alt = (input.caption || input.title || 'image').replace(/[[\]\n]/g, ' ').trim();
+    const nameHint = input.title || (isData ? 'image' : decodeURIComponent(source.split(/[?#]/)[0].split('/').pop() || 'image'));
+
+    let stored: { path: string; size: { width: number; height: number } | null } | null = null;
+    let warning: string | undefined;
+    if (this.vault.canStoreFiles) {
+      try {
+        const bytes = isData ? decodeDataUrl(source)?.bytes : (await this.vault.fetchBinary(source)).bytes;
+        if (!bytes) throw new Error('Invalid data: URL');
+        stored = await this.vault.saveImage(bytes, nameHint);
+      } catch (error) {
+        if (isData) throw error;
+        warning = `Not stored in the vault (${error instanceof Error ? error.message : String(error)}); the image links to the URL.`;
+      }
+    } else if (isData) {
+      throw new Error('This host cannot store files; pass an http(s) URL');
+    }
+    const ref = stored?.path ?? source;
+    const markdown = `![${alt}](${ref})`;
+    if (input.attach === 'none') return { path: stored?.path, url: stored ? undefined : source, markdown, ...(warning ? { warning } : {}) };
+
+    const width = Math.round(Math.min(Math.max(input.width ?? Math.min(stored?.size?.width ?? 360, 480), 160), 1200));
+    const ratio = stored?.size ? stored.size.height / stored.size.width : 0.75;
+    const node = await this.createNode({
+      canvas: input.canvas,
+      type: 'image',
+      title: input.title || alt,
+      data: { ...(stored ? { imagePath: stored.path } : { imageUrl: source }), caption: input.caption ?? '' },
+      size: { width, height: Math.round(width * ratio) + (input.caption ? 64 : 44) },
+      near: input.near,
+      parentId: input.parentId,
+      position: input.position,
+    });
+    return { ...node, path: stored?.path, markdown, ...(warning ? { warning } : {}) };
   }
 
   async deleteEdge(canvas: string, id: string) {

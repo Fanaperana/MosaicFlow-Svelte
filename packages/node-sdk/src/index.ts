@@ -25,7 +25,8 @@ export {
 } from '$lib/components/nodes/_shared/utils';
 export { openExternal } from '$lib/utils';
 export { autoFit } from '$lib/components/nodes/_shared/autoFit';
-export { renderMarkdown, setWikilinkLabelResolver, type WikilinkLabelResolver } from './markdown';
+export { renderMarkdown, setWikilinkLabelResolver, setImageSrcResolver, type WikilinkLabelResolver, type ImageSrcResolver } from './markdown';
+export { attachmentUrl, importImageFile, importImageBytes } from '$lib/services/attachments';
 
 // Types
 export type { BaseNodeData, NodeType } from './types';

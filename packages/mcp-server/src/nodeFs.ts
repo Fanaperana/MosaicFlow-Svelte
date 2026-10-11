@@ -34,6 +34,12 @@ export const nodeFsAdapter: FsAdapter = {
     (await fs.readdir(p, { withFileTypes: true }))
       .filter((e) => !e.name.includes('.tmp-'))
       .map((e) => ({ name: e.name, isDirectory: e.isDirectory() })),
+  writeBinary: (p, bytes) => fs.writeFile(p, bytes),
+  fetchBinary: async (url) => {
+    const res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(20_000) });
+    if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
+    return { bytes: new Uint8Array(await res.arrayBuffer()), contentType: res.headers.get('content-type') };
+  },
 };
 
 export function toVaultPath(p: string): string {

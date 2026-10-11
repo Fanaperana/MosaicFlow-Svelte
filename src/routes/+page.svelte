@@ -34,12 +34,14 @@
   import PackageExportDialog from '$lib/components/PackageExportDialog.svelte';
   import { knowledge } from '$lib/stores/knowledge.svelte';
   import { consumePendingFocus, openWikilink, wikilinkLabel } from '$lib/services/navigation';
-  import { setWikilinkLabelResolver } from '@mosaicflow/node-sdk';
+  import { setWikilinkLabelResolver, setImageSrcResolver } from '@mosaicflow/node-sdk';
+  import { attachmentUrl } from '$lib/services/attachments';
   import GraphView from '$lib/components/graph/GraphView.svelte';
   import { startReminders } from '$lib/services/reminders';
   import { watchVaultPages } from '$lib/services/vaultWatcher';
 
   setWikilinkLabelResolver(wikilinkLabel);
+  setImageSrcResolver(attachmentUrl);
   import { initOpenFiles, processOpenFiles } from '$lib/services/openFiles';
   import { openExternal } from '$lib/utils';
   import { message } from '@tauri-apps/plugin-dialog';

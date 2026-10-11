@@ -1,6 +1,7 @@
 // Vault-level access: list/create canvases and open a CanvasRepository for one of them.
 
 import { bodyMappingFor, type BodyMappingResolver } from './node-codec';
+import { ATTACHMENTS_DIR, MAX_IMAGE_BYTES, attachmentFileName, contentHash, imageExtension, imageSize, sniffImageType } from './attachments';
 import { sanitizeFolderName } from './package';
 import { CanvasRepository, type FsAdapter } from './repository';
 import { NODE_TYPES_FILE } from './schema';
@@ -70,6 +71,36 @@ export class VaultRepository {
 
   get canvasesDir(): string {
     return `${this.root}/canvases`;
+  }
+
+  /** Whether this host can store images (binary writes) and download them. */
+  get canStoreFiles(): boolean {
+    return !!this.fs.writeBinary;
+  }
+
+  async fetchBinary(url: string) {
+    if (!this.fs.fetchBinary) throw new Error('Downloading is not available here');
+    return this.fs.fetchBinary(url);
+  }
+
+  /**
+   * Stores an image in <vault>/attachments (content-addressed, so the same image is stored once) and
+   * returns its vault-relative path, e.g. "attachments/diagram-1a2b3c4d5e.png".
+   */
+  async saveImage(bytes: Uint8Array, originalName: string): Promise<{ path: string; size: { width: number; height: number } | null }> {
+    if (!this.fs.writeBinary) throw new Error('This host cannot store files');
+    if (bytes.byteLength > MAX_IMAGE_BYTES) throw new Error(`Image is larger than ${MAX_IMAGE_BYTES / 1024 / 1024} MB`);
+    const mime = sniffImageType(bytes);
+    const ext = mime && imageExtension(mime);
+    if (!ext) throw new Error('Not a supported image (png, jpg, gif, webp, svg, avif, bmp)');
+    const dir = `${this.root}/${ATTACHMENTS_DIR}`;
+    const suffix = `-${await contentHash(bytes)}.${ext}`;
+    const same = (await this.fs.exists(dir)) ? (await this.fs.list(dir)).find((f) => !f.isDirectory && f.name.endsWith(suffix)) : undefined;
+    if (same) return { path: `${ATTACHMENTS_DIR}/${same.name}`, size: imageSize(bytes) };
+    const path = `${ATTACHMENTS_DIR}/${await attachmentFileName(bytes, originalName, ext)}`;
+    await this.fs.mkdir(dir);
+    await this.fs.writeBinary(`${this.root}/${path}`, bytes);
+    return { path, size: imageSize(bytes) };
   }
 
   async readNodeTypes(): Promise<NodeTypesDocument | null> {

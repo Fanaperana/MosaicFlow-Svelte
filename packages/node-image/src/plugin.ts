@@ -14,8 +14,8 @@ export const metadata: Omit<NodeTypeRegistration, "pluginId"> = {
     purpose: "An image used as evidence or illustration.",
     bodyField: "caption",
     fields: {
-      imageUrl: { type: "url", description: "Remote (http) or asset:// image URL" },
-      imagePath: { type: "string", description: "Path of an image stored in the canvas images/ folder" },
+      imageUrl: { type: "url", description: "Remote (http) image URL, used when imagePath is empty" },
+      imagePath: { type: "string", description: "Vault-relative path of a stored image (attachments/...); use add_image to store one" },
       caption: { type: "markdown", description: "Caption shown under the image" },
     },
   },

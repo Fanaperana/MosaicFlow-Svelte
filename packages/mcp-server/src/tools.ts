@@ -238,6 +238,26 @@ export function registerTools(server: McpServer, ops: MosaicOps) {
     annotations: write,
   }, (args) => run(() => ops.labelNodes(args)));
 
+  server.registerTool('add_image', {
+    title: 'Add image',
+    description:
+      'Add a picture: downloads an http(s) image (or decodes a data: URL), stores it in the vault attachments/ folder and places an image node sized to the picture. ' +
+      'With attach "none" it only stores the file and returns markdown (![alt](attachments/...)) to put inside a note with update_node. ' +
+      'If the image cannot be downloaded, the node links to the URL instead (see warning).',
+    inputSchema: {
+      canvas,
+      source: z.string().min(1).describe('http(s) image URL or data:image/...;base64,... URL'),
+      title: z.string().optional(),
+      caption: z.string().optional().describe('Shown under the image; also the alt text'),
+      attach: z.enum(['node', 'none']).optional().describe('"node" (default) places an image node; "none" only stores the file and returns markdown'),
+      near: z.string().optional().describe('Place next to this node id'),
+      parentId: z.string().optional(),
+      position: point.optional(),
+      width: z.number().positive().optional().describe('Node width in px (height follows the picture)'),
+    },
+    annotations: { ...write, openWorldHint: true },
+  }, (args) => run(() => ops.addImage(args)));
+
   server.registerTool('create_group', {
     title: 'Group nodes',
     description: 'Wrap existing nodes (same parent) in a titled group sized to fit them with padding.',

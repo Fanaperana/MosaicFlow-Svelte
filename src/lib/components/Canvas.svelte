@@ -28,6 +28,10 @@
   import NetLabelPicker from '$lib/components/NetLabelPicker.svelte';
   import { netHover, netMembers } from '$lib/stores/net-hover.svelte';
   import { settings } from '$lib/stores/settings.svelte';
+  import { vaultStore } from '$lib/stores/vault.svelte';
+  import { importImageBytes, importImageFile, isImageFileName } from '$lib/services/attachments';
+  import { tauriFs } from '$lib/services/tauriFs';
+  import { toast } from 'svelte-sonner';
   import { ui } from '$lib/stores/ui.svelte';
   import { keybindings } from '$lib/kernel/keybindings.svelte';
 
@@ -239,6 +243,118 @@
     if (!target.closest('.svelte-flow__pane') || target.closest('.svelte-flow__node, .svelte-flow__edge')) return;
     openInsertMenu({ x: e.clientX, y: e.clientY });
   }
+
+  // ---------------------------------------------------------------------------
+  // Pictures from outside the app (file drops, paste): copied into the vault, shown in image nodes.
+  // ---------------------------------------------------------------------------
+
+  type IncomingImage = { name: string; load: () => Promise<{ path?: string; url?: string; size: { width: number; height: number } | null }> };
+  const IMAGE_URL = /^https?:\/\/\S+\.(png|jpe?g|gif|webp|svg|avif|bmp)(\?\S*)?$/i;
+  let imageDropActive = $state(false);
+
+  function pointerOrCenter(): { x: number; y: number } {
+    const bounds = flowContainer?.getBoundingClientRect();
+    const inside = lastPointer && bounds &&
+      lastPointer.x >= bounds.left && lastPointer.x <= bounds.right && lastPointer.y >= bounds.top && lastPointer.y <= bounds.bottom;
+    if (inside) return lastPointer!;
+    return bounds ? { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 } : { x: 0, y: 0 };
+  }
+
+  /** Adds pictures at a screen point; dropping one onto an empty image node fills that node instead. */
+  async function placeImages(items: IncomingImage[], at: { x: number; y: number }) {
+    if (workspace.locked || !items.length) return;
+    const target = document.elementFromPoint(at.x, at.y)?.closest<HTMLElement>('.svelte-flow__node[data-id]');
+    const targetNode = target ? workspace.getNode(target.dataset.id!) : undefined;
+    let flow = screenToFlowPosition(at);
+    const created: string[] = [];
+    for (const [i, item] of items.entries()) {
+      try {
+        const { path, url, size } = await item.load();
+        const image = path ? { imagePath: path, imageUrl: '' } : { imageUrl: url ?? '', imagePath: '' };
+        if (i === 0 && targetNode?.type === 'image' && !targetNode.data.imagePath && !targetNode.data.imageUrl) {
+          workspace.saveToHistory();
+          workspace.updateNodeData(targetNode.id, image);
+          continue;
+        }
+        const width = Math.round(Math.min(Math.max(size?.width ?? 360, 160), 480));
+        const height = Math.round(width * (size ? size.height / size.width : 0.75)) + 44;
+        const position = findNonOverlappingPosition({ x: flow.x - width / 2, y: flow.y - height / 2 }, { width, height }, nodes, 20);
+        const node = workspace.createNode('image', position, { title: item.name.replace(/\.[^.]+$/, ''), caption: '', ...image }, { size: { width, height } });
+        created.push(node.id);
+        flow = { x: position.x + width * 1.5 + 30, y: flow.y };
+      } catch (error) {
+        toast.error(`Could not add ${item.name}`, { description: error instanceof Error ? error.message : String(error) });
+      }
+    }
+    if (created.length) workspace.setSelectedNodes(created);
+  }
+
+  function handlePaste(e: ClipboardEvent) {
+    if (vaultStore.appView !== 'canvas' || workspace.locked) return;
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('input, textarea, select, [contenteditable="true"], .cm-editor')) return;
+    const files = [...(e.clipboardData?.items ?? [])]
+      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+      .map((item) => item.getAsFile())
+      .filter((f): f is File => !!f);
+    const text = e.clipboardData?.getData('text/plain').trim() ?? '';
+    if (files.length) {
+      e.preventDefault();
+      void placeImages(files.map((file) => ({
+        name: file.name && file.name !== 'image.png' ? file.name : `pasted-${new Date().toISOString().slice(0, 10)}.png`,
+        load: async () => importImageBytes(new Uint8Array(await file.arrayBuffer()), file.name || 'pasted'),
+      })), pointerOrCenter());
+    } else if (IMAGE_URL.test(text)) {
+      e.preventDefault();
+      const name = decodeURIComponent(text.split(/[?#]/)[0].split('/').pop() ?? 'image');
+      void placeImages([{
+        name,
+        // Stored when the webview may download it; otherwise the node links to the URL.
+        load: async () => {
+          try {
+            const { bytes } = await tauriFs.fetchBinary!(text);
+            return await importImageBytes(bytes, name);
+          } catch {
+            return { url: text, size: null };
+          }
+        },
+      }], pointerOrCenter());
+    }
+  }
+
+  // OS file drops arrive as Tauri events (with paths), not as HTML drop events.
+  $effect(() => {
+    let unlisten: (() => void) | undefined;
+    let disposed = false;
+    import('@tauri-apps/api/webview').then(async ({ getCurrentWebview }) => {
+      const off = await getCurrentWebview().onDragDropEvent((event) => {
+        const p = event.payload;
+        if (p.type === 'leave') {
+          imageDropActive = false;
+          return;
+        }
+        if (p.type === 'enter') imageDropActive = !workspace.locked && p.paths.some(isImageFileName);
+        if (p.type !== 'drop') return;
+        imageDropActive = false;
+        const images = p.paths.filter(isImageFileName);
+        if (!images.length) {
+          if (p.paths.length) toast.info('Only pictures can be dropped on a page', { description: 'Import pages from the page list.' });
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        void placeImages(
+          images.map((path) => ({ name: path.split(/[\\/]/).pop() ?? 'image', load: () => importImageFile(path) })),
+          { x: p.position.x / scale, y: p.position.y / scale },
+        );
+      });
+      if (disposed) off();
+      else unlisten = off;
+    }).catch(() => {});
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  });
 
   $effect(() => {
     const onRequest = (e: Event) => {
@@ -963,7 +1079,7 @@
   const selectionOnDrag = $derived(workspace.canvasMode === 'select' && !touchPan);
 </script>
 
-<svelte:window onkeydown={handleKeyDown} onmouseup={handleMouseUp} />
+<svelte:window onkeydown={handleKeyDown} onmouseup={handleMouseUp} onpaste={handlePaste} />
 
 <ContextMenu.Root>
   <ContextMenu.Trigger class="canvas-context-trigger">
@@ -972,6 +1088,7 @@
       class:drag-mode={workspace.canvasMode === 'drag'}
       class:page-locked={workspace.locked}
       class:scroll-fade={settings.current.canvas.scrollFade}
+      class:image-drop={imageDropActive}
       bind:this={flowContainer}
       ondragover={handleDragOver}
       ondrop={handleDrop}
@@ -1186,6 +1303,25 @@
     height: 100%;
     width: 100%;
     background: var(--mf-canvas);
+  }
+
+  .canvas-container.image-drop {
+    position: relative;
+  }
+
+  .canvas-container.image-drop::after {
+    content: 'Drop pictures to add them to this page';
+    position: absolute;
+    inset: 8px;
+    z-index: 50;
+    display: grid;
+    place-items: center;
+    border: 2px dashed var(--mf-accent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--mf-accent) 8%, transparent);
+    color: var(--mf-text);
+    font-size: 14px;
+    pointer-events: none;
   }
 
   .canvas-container.page-locked :global(.svelte-flow__resize-control) {

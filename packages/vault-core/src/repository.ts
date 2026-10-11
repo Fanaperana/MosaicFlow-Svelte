@@ -11,6 +11,10 @@ export interface FsAdapter {
   /** Recursive remove. */
   remove(path: string): Promise<void>;
   list(path: string): Promise<{ name: string; isDirectory: boolean }[]>;
+  /** Optional: binary files (images in attachments/). */
+  writeBinary?(path: string, bytes: Uint8Array): Promise<void>;
+  /** Optional: downloads a URL; hosts that cannot (e.g. CORS in a webview) leave it out or throw. */
+  fetchBinary?(url: string): Promise<{ bytes: Uint8Array; contentType: string | null }>;
   /**
    * Optional: every node and edge file of a canvas in one round-trip (ids are file/folder names).
    * Files whose stamp matches `known["nodes/<id>" | "edges/<id>"]` come back with content null.

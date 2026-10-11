@@ -19,6 +19,14 @@ export function setWikilinkLabelResolver(fn: WikilinkLabelResolver | null) {
   resolveLabel = fn;
 }
 
+/** Turns a relative image path (e.g. "attachments/x.png") into a URL the webview can load; null leaves it. */
+export type ImageSrcResolver = (src: string) => string | null;
+let resolveImage: ImageSrcResolver | null = null;
+
+export function setImageSrcResolver(fn: ImageSrcResolver | null) {
+  resolveImage = fn;
+}
+
 const wikilink: TokenizerAndRendererExtension = {
   name: 'wikilink',
   level: 'inline',
@@ -98,6 +106,12 @@ function purifier() {
       if (node.tagName === 'A' && node.getAttribute('href') && !node.classList.contains('wikilink')) {
         node.setAttribute('rel', 'noopener noreferrer');
         node.setAttribute('target', '_blank');
+      }
+      // Relative sources point into the vault; the resolver only accepts paths inside attachments/.
+      const src = node.tagName === 'IMG' ? node.getAttribute('src') : null;
+      if (src && !/^[a-z][a-z0-9+.-]*:|^\/|^#/i.test(src)) {
+        const url = resolveImage?.(decodeURI(src));
+        if (url) node.setAttribute('src', url);
       }
     });
     hooked = true;

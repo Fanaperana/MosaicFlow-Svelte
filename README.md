@@ -318,6 +318,7 @@ VS Code uses `"servers"` with `"type": "stdio"` instead of `"mcpServers"`. The v
 | `connect`, `update_edge`, `delete_edge` | Edit edges |
 | `style_edges` | Restyle many edges at once (shape, stroke, colour, arrows, animation) |
 | `label_nodes` | Net labels: tag nodes with a shared name so they read as connected without a line (many-to-many), or remove/restyle a net |
+| `add_image` | Store a picture (URL or data URL) in the vault's `attachments/` and place an image node, or get markdown to show it inside a note |
 | `create_group`, `set_story_order`, `auto_layout`, `import_mermaid` | Structure and tidy a page |
 | `arrange_nodes` | Place and size many nodes in one step for a hand-designed layout |
 | `check_layout` | Reports overlapping nodes, nodes outside their group and edges with a poor route; `fix: true` repairs them |
