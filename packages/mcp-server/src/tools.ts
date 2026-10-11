@@ -227,6 +227,16 @@ export function registerTools(server: McpServer, ops: MosaicOps) {
     annotations: write,
   }, (args) => run(() => ops.autoLayout(args)));
 
+  server.registerTool('arrange_nodes', {
+    title: 'Arrange nodes',
+    description: 'Place and size many nodes in one step for a hand-designed layout (x/y relative to the node\'s group, absolute for top-level nodes). Nothing is pushed around mid-way; afterwards groups grow to fit, edges get the best sides and shapes, and the result includes a check_layout report.',
+    inputSchema: {
+      canvas,
+      nodes: z.array(z.object({ id: z.string(), x: z.number(), y: z.number(), width: z.number().positive().optional(), height: z.number().positive().optional() })).min(1),
+    },
+    annotations: write,
+  }, (args) => run(() => ops.arrangeNodes(args)));
+
   server.registerTool('check_layout', {
     title: 'Check layout',
     description: 'Review how a canvas looks: overlapping nodes, nodes sticking out of their group, and edges whose handle sides give a long or blocked route (with the suggested sides). Call it after building or editing a canvas; fix: true repairs everything it reports.',

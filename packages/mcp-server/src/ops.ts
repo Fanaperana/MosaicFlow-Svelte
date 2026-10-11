@@ -858,6 +858,43 @@ export class MosaicOps {
     return { id, x: groupAbs.x, y: groupAbs.y, width: group.width, height: group.height };
   }
 
+  /**
+   * Moves and resizes many nodes in one step (positions relative to their parent), so intermediate states don't
+   * push neighbours around. Groups then grow to fit, edges get new sides and shapes, and the layout is checked.
+   */
+  async arrangeNodes(input: { canvas: string; nodes: { id: string; x: number; y: number; width?: number; height?: number }[] }) {
+    const { entry, repo, nodes } = await this.open(input.canvas);
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    const moved = new Set<string>();
+    for (const item of input.nodes) {
+      const node = byId.get(item.id);
+      if (!node) throw new Error(`Node "${item.id}" not found`);
+      node.position = { x: item.x, y: item.y };
+      if (item.width) node.width = item.width;
+      if (item.height) node.height = item.height;
+      moved.add(node.id);
+    }
+    const depthOf = (n: StoredNode) => {
+      let depth = 0;
+      for (let p = n.parentId; p && depth < 50; p = byId.get(p)?.parentId) depth++;
+      return depth;
+    };
+    const parents = [...new Set(nodes.filter((n) => moved.has(n.id) && n.parentId).map((n) => n.parentId!))]
+      .map((id) => byId.get(id)!)
+      .sort((a, b) => depthOf(b) - depthOf(a));
+    for (const n of nodes) if (moved.has(n.id)) await repo.writeNode(n);
+    for (const p of parents) await this.growToFit(repo, nodes, p.id);
+
+    const edges = await repo.readAllEdges();
+    const touches = (id: string) => {
+      for (let n = byId.get(id), i = 0; n && i < 50; n = n.parentId ? byId.get(n.parentId) : undefined, i++) if (moved.has(n.id)) return true;
+      return false;
+    };
+    for (const e of rerouteEdges(nodes, edges, (e) => touches(e.source) || touches(e.target))) await repo.writeEdge(e);
+    await this.vault.touchCanvas(entry);
+    return { arranged: moved.size, layout: await this.checkLayout(input.canvas) };
+  }
+
   async setStoryOrder(canvas: string, nodeIds: string[]) {
     const { entry, repo, nodes } = await this.open(canvas);
     const missing = nodeIds.filter((id) => !nodes.some((n) => n.id === id));
