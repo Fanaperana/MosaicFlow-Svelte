@@ -66,6 +66,7 @@ export interface EdgeStyleInput {
   /** 'label' shows a named tag at each end instead of a line (KiCad-style net label). */
   display?: 'line' | 'label';
   labelEnd?: 'sharp' | 'rounded' | 'none';
+  labelEndSide?: 'outer' | 'inner' | 'both';
 }
 
 export interface CreateNodeInput {
@@ -362,6 +363,7 @@ function applyEdgeStyle(e: StoredEdge, s: EdgeStyleInput, nodes: StoredNode[], e
   if (s.animated !== undefined) data.animated = s.animated;
   if (s.display) data.display = s.display;
   if (s.labelEnd) data.labelEnd = s.labelEnd;
+  if (s.labelEndSide) data.labelEndSide = s.labelEndSide;
   e.data = data;
   e.animated = !!data.animated;
   if (s.path === 'auto') setEdgePath(e, autoPath(nodes, edges, e), false);
@@ -875,6 +877,7 @@ export class MosaicOps {
     if (input.sourceSide || input.targetSide) edge.data = { ...edge.data, fixedSides: true };
     if (input.style?.display) edge.data = { ...edge.data, display: input.style.display };
     if (input.style?.labelEnd) edge.data = { ...edge.data, labelEnd: input.style.labelEnd };
+    if (input.style?.labelEndSide) edge.data = { ...edge.data, labelEndSide: input.style.labelEndSide };
     const chosen = { source: handleSide(edge.sourceHandle)!, target: handleSide(edge.targetHandle)! };
     const rects = absoluteRects(nodes, FALLBACK_SIZE);
     const explicit = input.style?.path && input.style.path !== 'auto' ? input.style.path : undefined;
