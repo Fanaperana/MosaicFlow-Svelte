@@ -317,6 +317,7 @@ VS Code uses `"servers"` with `"type": "stdio"` instead of `"mcpServers"`. The v
 | `create_node`, `update_node`, `delete_node` | Edit nodes (rename with `update_node`; ids never change) |
 | `connect`, `update_edge`, `delete_edge` | Edit edges |
 | `style_edges` | Restyle many edges at once (shape, stroke, colour, arrows, animation) |
+| `label_nodes` | Net labels: tag nodes with a shared name so they read as connected without a line (many-to-many), or remove/restyle a net |
 | `create_group`, `set_story_order`, `auto_layout`, `import_mermaid` | Structure and tidy a page |
 | `arrange_nodes` | Place and size many nodes in one step for a hand-designed layout |
 | `check_layout` | Reports overlapping nodes, nodes outside their group and edges with a poor route; `fix: true` repairs them |

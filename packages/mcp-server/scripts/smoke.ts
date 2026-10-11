@@ -166,6 +166,26 @@ async function main() {
     const again = await call('build_knowledge', { canvas: 'Built Map', nodes: [{ key: 'x', type: 'note', title: 'Extra' }], layout: 'none', story: false });
     assert(again.created === 'added to existing canvas', 'build_knowledge adds to an existing canvas');
 
+    const tagged = await call('label_nodes', { canvas: 'Built Map', name: 'pioneers', nodes: [map.ids.ada, map.ids.charles, again.ids.x], style: { palette: 'amber', end: 'rounded' } });
+    assert(tagged.members.length === 3 && tagged.members.every((m: { side?: string }) => m.side), 'label_nodes tags nodes with a side each');
+    const withNets = await call('read_canvas', { canvas: 'Built Map' });
+    assert(withNets.nets?.pioneers?.length === 3 && withNets.nodes.find((n: { id: string }) => n.id === map.ids.ada).labels[0].name === 'pioneers', 'read_canvas reports nets and node labels');
+    const ada = (await call('read_canvas', { canvas: 'Built Map', detail: 'full' })).nodes.find((n: { id: string }) => n.id === map.ids.ada);
+    assert(ada.data.netLabels[0].end === 'rounded' && ada.data.netLabels[0].color, 'label style is shared by the net');
+    const untagged = await call('label_nodes', { canvas: 'Built Map', name: 'pioneers', nodes: [again.ids.x], remove: true });
+    assert(untagged.members.length === 2, 'label_nodes removes a label from one node');
+    const labelled = await call('build_knowledge', {
+      canvas: 'Labelled Map',
+      nodes: [
+        { key: 'a', type: 'note', title: 'Left', labels: ['shared'] },
+        { key: 'b', type: 'note', title: 'Middle' },
+        { key: 'c', type: 'note', title: 'Right', labels: ['shared'] },
+      ],
+      edges: [{ from: 'a', to: 'b' }],
+    });
+    const labelledCanvas = await call('read_canvas', { canvas: 'Labelled Map' });
+    assert(labelledCanvas.nets?.shared?.length === 2 && labelled.ids.c, 'build_knowledge nodes take labels');
+
     const renamed = await call('update_canvas', { canvas: 'Flow', name: 'PDCA Loop', description: 'Plan, do, check', tags: ['#process', 'quality', 'quality'], locked: true });
     assert(renamed.name === 'PDCA Loop' && renamed.locked && renamed.tags.join() === 'process,quality', 'update_canvas renames, retags and locks');
     const relisted = await call('read_canvas', { canvas: 'PDCA Loop' });

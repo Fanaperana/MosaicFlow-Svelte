@@ -46,6 +46,7 @@ export const DESIGN_GUIDE: DesignGuide = {
     'Edges that would cross a card are routed around it automatically; still leave 120-180px between columns and rows so lines and labels have a visible lane.',
     'Edge shapes are picked from the geometry when style.path is omitted (straight when aligned, step for a drop into a row, bezier for a short hop, smoothstep for longer routes). Force one with style.path, or restyle many edges at once with style_edges (path "auto" hands the choice back).',
     'Encode meaning in the stroke: solid = factual relation, dashed = reference/source, dotted + animated = sequence or flow (timeline "then" links), both-end arrows = mutual relation.',
+    'Prefer net labels (label_nodes, or data.netLabels: [{name, side}]) over edges that would cross the board or fan out to many cards: nodes sharing a label name are one net. Keep names short (1-3 words) and reuse the exact same name.',
     'Several edges leaving one node are spread over different handle sides automatically; run check_layout after building to confirm nothing overlaps or takes a detour.',
     'Order nodes so the main flow does not cross itself (e.g. people left-to-right in the same order as their dates on the timeline below).',
     'Add a large transparent simpleText heading above the board and an annotation pointing at the entry node.',

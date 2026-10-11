@@ -85,7 +85,7 @@ export function registerTools(server: McpServer, ops: MosaicOps) {
 
   server.registerTool('read_canvas', {
     title: 'Read canvas',
-    description: 'Nodes (with absolute x/y/width/height, parent, story order) and edges of a canvas. detail "summary" gives a text preview per node; "full" returns every data field.',
+    description: 'Nodes (with absolute x/y/width/height, parent, story order, net labels) and edges of a canvas, plus "nets": nodes grouped by shared label name (related like an edge). detail "summary" gives a text preview per node; "full" returns every data field.',
     inputSchema: { canvas, detail: z.enum(['summary', 'full']).optional() },
     annotations: readOnly,
   }, ({ canvas: ref, detail }) => run(() => ops.readCanvas(ref, detail)));
@@ -211,6 +211,32 @@ export function registerTools(server: McpServer, ops: MosaicOps) {
     annotations: destructive,
   }, ({ canvas: ref, id }) => run(() => ops.deleteEdge(ref, id)));
 
+  server.registerTool('label_nodes', {
+    title: 'Net labels',
+    description:
+      'Relate nodes with a shared net label (KiCad-style): every node tagged with the same name is linked, many-to-many, without drawing a line. ' +
+      'Use it for nodes far apart or a topic touching many cards (e.g. "next topic", "uses DSU"). The side defaults to the one facing the rest of the net. ' +
+      'remove: true takes the label off the given nodes (or the whole canvas when nodes is omitted). style restyles every label of the net.',
+    inputSchema: {
+      canvas,
+      name: z.string().min(1).max(64).describe('Label name; same name = same net'),
+      nodes: z.array(z.union([z.string(), z.object({ id: z.string(), side: side.optional() })])).optional().describe('Node ids (or {id, side}) to tag'),
+      remove: z.boolean().optional(),
+      style: z
+        .object({
+          end: z.enum(['sharp', 'rounded', 'none']).optional().describe('Tag end shape (none = square)'),
+          endSide: z.enum(['outer', 'inner', 'both']).optional().describe('Which end gets the shape'),
+          color: z.string().optional(),
+          palette: palette.optional(),
+          textColor: z.string().optional(),
+          bgColor: z.string().optional(),
+          fontSize: z.number().min(8).max(24).optional(),
+        })
+        .optional(),
+    },
+    annotations: write,
+  }, (args) => run(() => ops.labelNodes(args)));
+
   server.registerTool('create_group', {
     title: 'Group nodes',
     description: 'Wrap existing nodes (same parent) in a titled group sized to fit them with padding.',
@@ -279,6 +305,7 @@ export function registerTools(server: McpServer, ops: MosaicOps) {
             palette: palette.optional(),
             group: z.string().optional().describe('Key of the group this node belongs to'),
             size: size.optional(),
+            labels: z.array(z.string().min(1)).optional().describe('Net label names; nodes sharing a name are related without an edge'),
           })
         )
         .min(1)

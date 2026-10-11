@@ -108,10 +108,110 @@ export interface BuildKnowledgeInput {
   description?: string;
   tags?: string[];
   groups?: { key: string; title: string; palette?: string }[];
-  nodes: { key: string; type: string; title: string; data?: Record<string, unknown>; palette?: string; group?: string; size?: { width: number; height: number } }[];
+  nodes: { key: string; type: string; title: string; data?: Record<string, unknown>; palette?: string; group?: string; size?: { width: number; height: number }; labels?: string[] }[];
   edges?: { from: string; to: string; label?: string; style?: EdgeStyleInput }[];
   layout?: 'LR' | 'TB' | 'none';
   story?: boolean;
+}
+
+export interface NetStyleInput {
+  end?: 'sharp' | 'rounded' | 'none';
+  endSide?: 'outer' | 'inner' | 'both';
+  color?: string;
+  palette?: string;
+  textColor?: string;
+  bgColor?: string;
+  fontSize?: number;
+}
+
+/** A named tag on a node side; every label with the same name on a canvas is one net (many-to-many). */
+interface NetLabel {
+  id: string;
+  name: string;
+  side?: Side;
+  end?: 'sharp' | 'rounded' | 'none';
+  endSide?: 'outer' | 'inner' | 'both';
+  color?: string;
+  textColor?: string;
+  bgColor?: string;
+  fontSize?: number;
+}
+
+const SIDES: Side[] = ['left', 'right', 'top', 'bottom'];
+const STYLE_KEYS = ['end', 'endSide', 'color', 'textColor', 'bgColor', 'fontSize'] as const;
+
+function netLabelsOf(n: StoredNode): NetLabel[] {
+  return Array.isArray(n.data.netLabels) ? (n.data.netLabels as NetLabel[]) : [];
+}
+
+/** Accepts labels as names or {name, side?, ...style}; drops blanks and duplicates on one side. */
+function normalizeNetLabels(value: unknown): NetLabel[] {
+  if (!Array.isArray(value)) return [];
+  const out: NetLabel[] = [];
+  for (const raw of value) {
+    const item = (typeof raw === 'string' ? { name: raw } : raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+    const name = typeof item.name === 'string' ? item.name.trim().slice(0, 64) : '';
+    if (!name) continue;
+    const label: NetLabel = { id: typeof item.id === 'string' && item.id ? item.id : globalThis.crypto.randomUUID(), name };
+    if (SIDES.includes(item.side as Side)) label.side = item.side as Side;
+    if (item.end === 'sharp' || item.end === 'rounded' || item.end === 'none') label.end = item.end;
+    if (item.endSide === 'outer' || item.endSide === 'inner' || item.endSide === 'both') label.endSide = item.endSide;
+    for (const key of ['color', 'textColor', 'bgColor'] as const) if (typeof item[key] === 'string') label[key] = item[key] as string;
+    if (typeof item.fontSize === 'number' && item.fontSize >= 8 && item.fontSize <= 24) label.fontSize = item.fontSize;
+    if (!out.some((l) => l.name === name && l.side === label.side)) out.push(label);
+  }
+  return out;
+}
+
+/** Members of every net on a canvas: node labels plus both ends of edges shown as labels. */
+function netsOf(nodes: StoredNode[], edges: StoredEdge[]): Map<string, string[]> {
+  const nets = new Map<string, string[]>();
+  const add = (name: string, id: string) => {
+    const list = nets.get(name) ?? [];
+    if (!list.includes(id)) list.push(id);
+    nets.set(name, list);
+  };
+  for (const n of nodes) for (const l of netLabelsOf(n)) add(l.name, n.id);
+  for (const e of edges) {
+    if ((e.data as Record<string, unknown> | undefined)?.display !== 'label') continue;
+    const name = (typeof e.label === 'string' && e.label.trim()) || 'NET';
+    add(name, e.source);
+    add(name, e.target);
+  }
+  return nets;
+}
+
+/** Nets as implicit links for layout: members of a net are chained so they end up near each other. */
+function netLinks(nodes: StoredNode[]): { source: string; target: string }[] {
+  const links: { source: string; target: string }[] = [];
+  for (const ids of netsOf(nodes, []).values()) for (let i = 1; i < ids.length; i++) links.push({ source: ids[i - 1], target: ids[i] });
+  return links;
+}
+
+/** The side of `id` facing the other members of its net (right when it is alone). */
+function facingSide(nodes: StoredNode[], id: string, others: string[]): Side {
+  const rects = absoluteRects(nodes, FALLBACK_SIZE);
+  const me = rects.get(id);
+  const peers = others.filter((o) => o !== id).map((o) => rects.get(o)).filter((r): r is Rect => !!r);
+  if (!me || !peers.length) return 'right';
+  const cx = peers.reduce((s, r) => s + r.x + r.width / 2, 0) / peers.length - (me.x + me.width / 2);
+  const cy = peers.reduce((s, r) => s + r.y + r.height / 2, 0) / peers.length - (me.y + me.height / 2);
+  return Math.abs(cx) >= Math.abs(cy) ? (cx >= 0 ? 'right' : 'left') : cy >= 0 ? 'bottom' : 'top';
+}
+
+/** Gives labels without a side the side facing their net, and shares the net's style with new members. */
+function settleNetLabels(nodes: StoredNode[], node: StoredNode) {
+  const labels = normalizeNetLabels(node.data.netLabels);
+  if (!labels.length) {
+    delete node.data.netLabels;
+    return;
+  }
+  const nets = netsOf(nodes.filter((n) => n.id !== node.id), []);
+  node.data.netLabels = labels.map((l) => {
+    const peer = nodes.flatMap((n) => (n.id === node.id ? [] : netLabelsOf(n))).find((p) => p.name === l.name);
+    const shared = peer ? Object.fromEntries(STYLE_KEYS.filter((k) => peer[k] !== undefined && l[k] === undefined).map((k) => [k, peer[k]])) : {};
+    return { end: 'sharp', ...shared, ...l, side: l.side ?? facingSide(nodes, node.id, nets.get(l.name) ?? []) };
+  });
 }
 
 function slugify(text: string): string {
@@ -289,6 +389,7 @@ export class MosaicOps {
         'Size nodes so content is never clipped (see design.rules); start from the type defaultSize.',
         'Group related nodes with create_group and give each category one palette name.',
         'Connect with connect and leave the sides out: the server routes around other nodes and picks the best handle sides (read_canvas shows them as from/to).',
+        'Relate nodes that sit far apart, or many-to-many, with net labels instead of long edges: label_nodes tags each node with the same name (like KiCad net labels); read_canvas lists them under "nets", layouts keep their members close, and the app links them on hover. build_knowledge nodes take labels: ["name"] too.',
         'Finish with set_story_order so the Story view walks the canvas in a sensible order, then check_layout (fix: true) so nothing overlaps and every edge takes a clean route; auto_layout if the canvas got messy.',
         'Link related notes with [[Node title]] in text and tag them with #tag; get_links shows outgoing links and backlinks.',
         'Rename a node with update_node (title); its id never changes, so links and edges keep working. Rename, retag, describe or lock a canvas with update_canvas.',
@@ -346,11 +447,14 @@ export class MosaicOps {
     const edges = await repo.readAllEdges();
     const rects = absoluteRects(nodes, FALLBACK_SIZE);
     const file = await this.vault.readCanvasFile(entry);
+    const nets = netsOf(nodes, edges);
     return {
       canvas: { id: entry.id, name: entry.name, description: entry.description, tags: entry.tags, locked: !!file?.settings?.locked },
       coordinates: 'x/y/width/height are absolute canvas coordinates; "position" is relative to "parent" when set. Edges leave the source from "from" side and enter the target on the "to" side.',
+      ...(nets.size ? { nets: Object.fromEntries(nets), netsNote: 'Nodes sharing a net label name are related, like an edge without a line.' } : {}),
       nodes: nodes.map((n) => {
         const r = rects.get(n.id)!;
+        const labels = netLabelsOf(n);
         const base = {
           id: n.id,
           type: n.type,
@@ -358,6 +462,7 @@ export class MosaicOps {
           ...(n.parentId ? { parent: n.parentId, position: n.position } : {}),
           x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height),
           ...(typeof n.data.order === 'number' ? { order: n.data.order } : {}),
+          ...(labels.length ? { labels: labels.map((l) => ({ name: l.name, side: l.side })) } : {}),
         };
         if (detail === 'full') return { ...base, data: n.data };
         const text = nodeText(n.data).replace(String(n.data.title ?? ''), '').replace(/\s+/g, ' ').trim();
@@ -633,6 +738,7 @@ export class MosaicOps {
       ...(input.parentId ? { parentId: input.parentId } : {}),
       data,
     };
+    if (data.netLabels !== undefined) settleNetLabels([...nodes, node], node);
     await repo.writeNode(node);
     nodes.push(node);
     await this.growToFit(repo, nodes, input.parentId);
@@ -679,6 +785,7 @@ export class MosaicOps {
       }
     }
     if (input.position) node.position = input.position;
+    if (input.data && 'netLabels' in input.data) settleNetLabels(nodes, node);
 
     await repo.writeNode(node);
     if (input.size || input.position || input.parentId !== undefined) {
@@ -812,6 +919,90 @@ export class MosaicOps {
     const paths: Record<string, number> = {};
     for (const e of matches) paths[String(e.data?.pathType)] = (paths[String(e.data?.pathType)] ?? 0) + 1;
     return { styled: matches.length, paths };
+  }
+
+  private async faceNetLabels(canvas: string, targets: Map<string, Set<string>>) {
+    const { entry, repo, nodes } = await this.open(canvas);
+    const nets = netsOf(nodes, []);
+    for (const [id, names] of targets) {
+      const n = nodes.find((x) => x.id === id);
+      if (!n) continue;
+      n.data.netLabels = netLabelsOf(n).map((l) => (names.has(l.name) ? { ...l, side: facingSide(nodes, id, nets.get(l.name) ?? []) } : l));
+      await repo.writeNode(n);
+    }
+    await this.vault.touchCanvas(entry);
+  }
+
+  /**
+   * Net labels: tag nodes with a shared name so they read as connected without drawing a line (many-to-many).
+   * Adds the label to `nodes` (side facing the rest of the net unless given), or removes it with remove: true
+   * (from `nodes`, or from the whole canvas when nodes is omitted). `style` restyles every label of the net.
+   */
+  async labelNodes(input: { canvas: string; name: string; nodes?: (string | { id: string; side?: Side })[]; remove?: boolean; style?: NetStyleInput }) {
+    const { entry, repo, nodes } = await this.open(input.canvas);
+    const edges = await repo.readAllEdges();
+    const name = input.name.trim().slice(0, 64);
+    if (!name) throw new Error('Label name is empty');
+    const targets = (input.nodes ?? []).map((t) => (typeof t === 'string' ? { id: t } : t));
+    for (const t of targets) if (!nodes.some((n) => n.id === t.id)) throw new Error(`Node "${t.id}" not found`);
+    const changed = new Set<StoredNode>();
+
+    if (input.remove) {
+      const only = targets.length ? new Set(targets.map((t) => t.id)) : null;
+      for (const n of nodes) {
+        const before = netLabelsOf(n);
+        const after = before.filter((l) => l.name !== name || (only && !only.has(n.id)));
+        if (after.length === before.length) continue;
+        if (after.length) n.data.netLabels = after;
+        else delete n.data.netLabels;
+        changed.add(n);
+      }
+    } else {
+      if (!targets.length) throw new Error('Give the nodes to label');
+      const members = [...new Set([...(netsOf(nodes, edges).get(name) ?? []), ...targets.map((t) => t.id)])];
+      for (const t of targets) {
+        const n = nodes.find((x) => x.id === t.id)!;
+        const labels = netLabelsOf(n);
+        const side = t.side ?? facingSide(nodes, n.id, members);
+        if (labels.some((l) => l.name === name && l.side === side)) continue;
+        n.data.netLabels = [...labels, { id: globalThis.crypto.randomUUID(), name, side }];
+        settleNetLabels(nodes, n);
+        changed.add(n);
+      }
+    }
+
+    if (input.style && !input.remove) {
+      const { palette, ...rest } = input.style;
+      if (palette && !isPaletteName(palette)) throw new Error(`Unknown palette "${palette}"`);
+      const style: Omit<NetStyleInput, 'palette'> = { ...rest, ...(palette && isPaletteName(palette) && !rest.color ? { color: paletteColor(palette) } : {}) };
+      for (const n of nodes) {
+        if (!netLabelsOf(n).some((l) => l.name === name)) continue;
+        n.data.netLabels = netLabelsOf(n).map((l) => (l.name === name ? { ...l, ...style } : l));
+        changed.add(n);
+      }
+      for (const e of edges) {
+        const data = (e.data ?? {}) as Record<string, unknown>;
+        if (data.display !== 'label' || ((typeof e.label === 'string' && e.label.trim()) || 'NET') !== name) continue;
+        e.data = {
+          ...data,
+          ...(style.end ? { labelEnd: style.end } : {}),
+          ...(style.endSide ? { labelEndSide: style.endSide } : {}),
+          ...(style.color ? { color: style.color } : {}),
+          ...(style.textColor ? { labelColor: style.textColor } : {}),
+          ...(style.bgColor ? { labelBgColor: style.bgColor } : {}),
+          ...(style.fontSize ? { labelFontSize: style.fontSize } : {}),
+        };
+        await repo.writeEdge(e);
+      }
+    }
+
+    for (const n of changed) await repo.writeNode(n);
+    if (changed.size) await this.vault.touchCanvas(entry);
+    return {
+      net: name,
+      members: nodes.flatMap((n) => netLabelsOf(n).filter((l) => l.name === name).map((l) => ({ id: n.id, side: l.side }))),
+      changedNodes: changed.size,
+    };
   }
 
   async deleteEdge(canvas: string, id: string) {
@@ -958,11 +1149,12 @@ export class MosaicOps {
       ids.set(g.key, created.id);
     }
     for (const n of input.nodes) {
+      const labels = n.labels?.length ? { netLabels: [...normalizeNetLabels(n.data?.netLabels), ...n.labels] } : {};
       const created = await this.createNode({
         canvas,
         type: n.type,
         title: n.title,
-        data: n.data,
+        data: { ...n.data, ...labels },
         palette: n.palette,
         size: n.size,
         ...(n.group ? { parentId: ids.get(n.group) } : {}),
@@ -999,6 +1191,9 @@ export class MosaicOps {
         }
       }
     }
+    // Labels given by name face the rest of their net once everything is placed.
+    const faced = new Map(input.nodes.filter((n) => n.labels?.length).map((n) => [ids.get(n.key)!, new Set(n.labels!.map((l) => l.trim()))]));
+    if (faced.size) await this.faceNetLabels(canvas, faced);
     if (input.story !== false && input.nodes.length > 0) {
       await this.setStoryOrder(canvas, input.nodes.map((n) => ids.get(n.key)!));
     }
@@ -1022,6 +1217,8 @@ export class MosaicOps {
   private async arrangePage(canvas: string, order: string[], direction: 'LR' | 'TB') {
     const { entry, repo, nodes } = await this.open(canvas);
     const edges = await repo.readAllEdges();
+    // Net labels relate nodes like edges do, so they are placed near each other.
+    const related = [...edges.map((e) => ({ source: e.source, target: e.target })), ...netLinks(nodes)];
     const byId = new Map(nodes.map((n) => [n.id, n]));
     const dims = (n: StoredNode) => ({ width: n.width ?? FALLBACK_SIZE.width, height: n.height ?? FALLBACK_SIZE.height });
     const topOf = (id: string): string | undefined => {
@@ -1033,7 +1230,7 @@ export class MosaicOps {
     const containers = order.filter((id) => kidsOf(id).length > 0);
     const innerEdges = (kids: StoredNode[]) => {
       const set = new Set(kids.map((k) => k.id));
-      return edges.filter((e) => set.has(e.source) && set.has(e.target));
+      return related.filter((e) => set.has(e.source) && set.has(e.target));
     };
 
     const layoutGroup = (gid: string, kids: StoredNode[]) => {
@@ -1051,7 +1248,7 @@ export class MosaicOps {
     };
 
     const placeBlocks = () => {
-      const links = edges
+      const links = related
         .map((e) => ({ source: topOf(e.source)!, target: topOf(e.target)! }))
         .filter((e) => e.source && e.target && e.source !== e.target && order.includes(e.source) && order.includes(e.target));
       const linked = order.filter((id) => links.some((l) => l.source === id || l.target === id));
@@ -1084,7 +1281,7 @@ export class MosaicOps {
         const kids = kidsOf(gid);
         if (innerEdges(kids).length) continue;
         const key = (k: StoredNode) => {
-          const partners = edges
+          const partners = related
             .flatMap((e) => (e.source === k.id ? [e.target] : e.target === k.id ? [e.source] : []))
             .filter((o) => topOf(o) !== gid && rects.has(o));
           return partners.length ? partners.reduce((s, o) => s + centre(o), 0) / partners.length : Infinity;
@@ -1140,7 +1337,7 @@ export class MosaicOps {
       }
       return undefined;
     };
-    const layoutEdges = edges
+    const layoutEdges = [...edges, ...netLinks(nodes)]
       .map((e) => ({ source: owner(e.source), target: owner(e.target) }))
       .filter((e): e is { source: string; target: string } => !!e.source && !!e.target && e.source !== e.target);
 
