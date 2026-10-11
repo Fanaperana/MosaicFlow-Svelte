@@ -373,6 +373,34 @@ function applyEdgeStyle(e: StoredEdge, s: EdgeStyleInput, nodes: StoredNode[], e
 export class MosaicOps {
   constructor(private readonly vault: VaultRepository) {}
 
+  /**
+   * An edge with display "label" is stored as what it shows: a local label on each of its two nodes,
+   * named after the edge (or a fresh "NET n"), and the edge is deleted. Returns the label name.
+   */
+  private async edgeToLabels(repo: CanvasRepository, nodes: StoredNode[], edge: StoredEdge): Promise<string> {
+    const taken = new Set(nodes.flatMap((n) => netLabelsOf(n).map((l) => l.name)));
+    let name = typeof edge.label === 'string' ? edge.label.trim() : '';
+    if (!name) for (let i = 1; !name || taken.has(name); i++) name = i === 1 ? 'NET' : `NET ${i}`;
+    const d = (edge.data ?? {}) as Record<string, unknown>;
+    const style: Partial<NetLabel> = {
+      ...(d.labelEnd ? { end: d.labelEnd as NetLabel['end'] } : {}),
+      ...(d.labelEndSide ? { endSide: d.labelEndSide as NetLabel['endSide'] } : {}),
+      ...(typeof d.color === 'string' ? { color: d.color } : {}),
+    };
+    for (const [id, handle, fallback] of [[edge.source, edge.sourceHandle, 'right'], [edge.target, edge.targetHandle, 'left']] as const) {
+      const n = nodes.find((x) => x.id === id);
+      if (!n) continue;
+      const side = handleSide(handle) ?? fallback;
+      const labels = netLabelsOf(n);
+      if (labels.some((l) => l.name === name && l.side === side)) continue;
+      n.data.netLabels = [...labels, { id: globalThis.crypto.randomUUID(), name, side, ...style }];
+      settleNetLabels(nodes, n);
+      await repo.writeNode(n);
+    }
+    await repo.deleteEdge(edge.id);
+    return name;
+  }
+
   // ---------------------------------------------------------------------------
   // Discovery
   // ---------------------------------------------------------------------------
@@ -882,6 +910,12 @@ export class MosaicOps {
     const rects = absoluteRects(nodes, FALLBACK_SIZE);
     const explicit = input.style?.path && input.style.path !== 'auto' ? input.style.path : undefined;
     setEdgePath(edge, explicit ?? pathFor(rects.get(source.id)!, rects.get(target.id)!, { ...sides, ...chosen }), !!explicit);
+    if (input.style?.display === 'label') {
+      await repo.writeEdge(edge);
+      const label = await this.edgeToLabels(repo, nodes, edge);
+      await this.vault.touchCanvas(entry);
+      return { label, sourceSide: chosen.source, targetSide: chosen.target, note: 'Stored as a local label on each node (no edge).' };
+    }
     await repo.writeEdge(edge);
     await this.vault.touchCanvas(entry);
     return { id, sourceSide: chosen.source, targetSide: chosen.target, path: edge.data!.pathType, routeLength: sides.length, bends: sides.bends };
@@ -899,6 +933,11 @@ export class MosaicOps {
     applyEdgeStyle(edge, input.style ?? {}, nodes, edges);
     // New sides change the best automatic shape too.
     if ((input.sourceSide || input.targetSide) && !edge.data?.fixedPath) setEdgePath(edge, autoPath(nodes, edges, edge), false);
+    if (edge.data?.display === 'label') {
+      const label = await this.edgeToLabels(repo, nodes, edge);
+      await this.vault.touchCanvas(entry);
+      return { id: edge.id, label, note: 'Converted to a local label on each node; the edge was removed.' };
+    }
     await repo.writeEdge(edge);
     await this.vault.touchCanvas(entry);
     return { id: edge.id, path: edge.data?.pathType, from: handleSide(edge.sourceHandle), to: handleSide(edge.targetHandle) };
@@ -914,14 +953,16 @@ export class MosaicOps {
       (!input.node || e.source === input.node || e.target === input.node) &&
       (!label || String(e.label ?? '').trim().toLowerCase() === label)
     );
+    const converted: string[] = [];
     for (const e of matches) {
       applyEdgeStyle(e, input.style, nodes, edges);
-      await repo.writeEdge(e);
+      if (e.data?.display === 'label') converted.push(await this.edgeToLabels(repo, nodes, e));
+      else await repo.writeEdge(e);
     }
     await this.vault.touchCanvas(entry);
     const paths: Record<string, number> = {};
     for (const e of matches) paths[String(e.data?.pathType)] = (paths[String(e.data?.pathType)] ?? 0) + 1;
-    return { styled: matches.length, paths };
+    return { styled: matches.length - converted.length, paths, ...(converted.length ? { convertedToLabels: converted } : {}) };
   }
 
   private async faceNetLabels(canvas: string, targets: Map<string, Set<string>>) {
@@ -1170,7 +1211,7 @@ export class MosaicOps {
     for (const e of edges) {
       try {
         const created = await this.connect({ canvas, source: ids.get(e.from)!, target: ids.get(e.to)!, label: e.label, style: e.style });
-        edgeIds.push(created.id);
+        if (created.id) edgeIds.push(created.id);
       } catch (error) {
         warnings.push(`${e.from} -> ${e.to}: ${error instanceof Error ? error.message : String(error)}`);
       }

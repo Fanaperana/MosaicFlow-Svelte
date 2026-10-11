@@ -98,6 +98,7 @@ export async function loadWorkspace(path: string): Promise<boolean> {
       }
       workspace.nodes = await loadAllNodes(nodesManifest, files?.nodes);
       workspace.edges = await loadAllEdges(files?.edges);
+      workspace.migrateLabelEdges();
     } else {
       // V1 format: Load from full workspace.json (backward compatibility)
       console.log('Loading workspace v1 format (legacy)...');

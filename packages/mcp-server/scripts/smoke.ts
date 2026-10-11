@@ -174,6 +174,10 @@ async function main() {
     assert(ada.data.netLabels[0].end === 'rounded' && ada.data.netLabels[0].color, 'label style is shared by the net');
     const untagged = await call('label_nodes', { canvas: 'Built Map', name: 'pioneers', nodes: [again.ids.x], remove: true });
     assert(untagged.members.length === 2, 'label_nodes removes a label from one node');
+    const asLabel = await call('connect', { canvas: 'Built Map', source: map.ids.intro, target: again.ids.x, label: 'see also', style: { display: 'label' } });
+    const afterConvert = await call('read_canvas', { canvas: 'Built Map' });
+    assert(asLabel.label === 'see also' && afterConvert.nets?.['see also']?.length === 2 && !afterConvert.edges.some((e: { label?: string }) => e.label === 'see also'),
+      'an edge shown as labels is stored as a local label on both nodes');
     const labelled = await call('build_knowledge', {
       canvas: 'Labelled Map',
       nodes: [

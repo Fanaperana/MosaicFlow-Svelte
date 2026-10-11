@@ -419,6 +419,69 @@ class WorkspaceStore {
     this.updateNodeData(nodeId, { netLabels: labels.length ? labels : undefined });
   }
 
+  /**
+   * An edge shown as labels becomes what it looks like: a local label on each of its two nodes
+   * (same name, same sides, same look), and the edge itself goes. Returns the source end's label.
+   */
+  edgeToNetLabels(edgeId: string, options: { recordHistory?: boolean } = {}): { nodeId: string; labelId: string } | null {
+    const edge = this.edges.find(e => e.id === edgeId);
+    if (!edge || this.settings.locked) return null;
+    const taken = new Set(this.nodes.flatMap(n => ((n.data.netLabels as NodeNetLabel[] | undefined) ?? []).map(l => l.name)));
+    let name = typeof edge.label === 'string' ? edge.label.trim() : '';
+    // An unnamed edge gets a name of its own, so it stays a pair rather than joining every other unnamed one.
+    if (!name) for (let i = 1; !name || taken.has(name); i++) name = i === 1 ? 'NET' : `NET ${i}`;
+    const d = edge.data ?? {};
+    const style = Object.keys(this.netStyle(name)).length
+      ? this.netStyle(name)
+      : pickNetStyle({ end: d.labelEnd, endSide: d.labelEndSide, color: d.color, textColor: d.labelColor, bgColor: d.labelBgColor, fontSize: d.labelFontSize });
+    const sideOf = (handle: string | null | undefined, fallback: NodeSide): NodeSide => {
+      const s = handle?.split('-')[0];
+      return s === 'left' || s === 'right' || s === 'top' || s === 'bottom' ? s : fallback;
+    };
+    if (options.recordHistory !== false) this.saveToHistory();
+    let first: { nodeId: string; labelId: string } | null = null;
+    for (const [nodeId, side] of [[edge.source, sideOf(edge.sourceHandle, 'right')], [edge.target, sideOf(edge.targetHandle, 'left')]] as const) {
+      const node = this.getNode(nodeId);
+      if (!node) continue;
+      const labels = (node.data.netLabels as NodeNetLabel[] | undefined) ?? [];
+      const existing = labels.find(l => l.name === name && l.side === side);
+      const label: NodeNetLabel = existing ?? { end: 'sharp', ...style, id: uuidv4(), name, side };
+      if (!existing) this.setNetLabels(nodeId, [...labels, label]);
+      first ??= { nodeId, labelId: label.id };
+    }
+    this.edges = this.edges.filter(e => e.id !== edgeId);
+    this.selectedEdgeIds = this.selectedEdgeIds.filter(id => id !== edgeId);
+    if (this.workspacePath) deleteEdgeFolder(edgeId);
+    return first;
+  }
+
+  /** Converts edges saved in the old "shown as labels" mode into local labels (on load). */
+  migrateLabelEdges() {
+    if (this.settings.locked) return;
+    for (const e of this.edges.filter(x => x.data?.display === 'label')) this.edgeToNetLabels(e.id, { recordHistory: false });
+  }
+
+  /**
+   * A label shared by exactly two nodes can be drawn as a line instead: an edge between them, named
+   * after the label and using its sides and colour; both labels go. Returns the new edge id.
+   */
+  netLabelToEdge(nodeId: string, labelId: string): string | null {
+    const own = ((this.getNode(nodeId)?.data.netLabels as NodeNetLabel[] | undefined) ?? []).find(l => l.id === labelId);
+    if (!own || this.settings.locked) return null;
+    const others = this.nodes.filter(n => n.id !== nodeId && ((n.data.netLabels as NodeNetLabel[] | undefined) ?? []).some(l => l.name === own.name));
+    if (others.length !== 1) return null;
+    const other = others[0];
+    const otherLabel = ((other.data.netLabels as NodeNetLabel[]) ?? []).find(l => l.name === own.name)!;
+    this.saveToHistory();
+    for (const n of [this.getNode(nodeId)!, other]) {
+      this.setNetLabels(n.id, ((n.data.netLabels as NodeNetLabel[]) ?? []).filter(l => l.name !== own.name));
+    }
+    const edge = this.createEdge(nodeId, other.id, own.name, `${own.side}-source`, `${otherLabel.side}-target`, { recordHistory: false });
+    if (own.color) this.updateEdge(edge.id, { data: { ...edge.data, color: own.color } });
+    if (this.selectedNetLabel?.labelId === labelId) this.selectedNetLabel = null;
+    return edge.id;
+  }
+
   /** The look of a net, taken from its first labelled node (or edge shown as labels). */
   netStyle(name: string): NetStyle {
     for (const n of this.nodes) {
@@ -993,6 +1056,7 @@ class WorkspaceStore {
     const incoming = { ...edge, selected: existing?.selected ?? false };
     this.edges = existing ? this.edges.map(e => (e.id === edge.id ? incoming : e)) : [...this.edges, incoming];
     this.edgeVersion++;
+    if (incoming.data?.display === 'label') this.edgeToNetLabels(incoming.id, { recordHistory: false });
   }
 
   removeExternalEdge(id: string) {

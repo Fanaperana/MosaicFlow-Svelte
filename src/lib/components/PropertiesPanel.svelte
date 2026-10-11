@@ -196,6 +196,10 @@
     workspace.selectedNetLabel ? netLabels.find((l) => l.id === workspace.selectedNetLabel!.labelId) ?? null : null
   );
   let selectedNetCount = $derived(selectedNetLabel ? netMembers(selectedNetLabel.name).length : 0);
+  // Only a pair can be drawn as one line.
+  let selectedNetIsPair = $derived(
+    !!selectedNetLabel && new Set(netMembers(selectedNetLabel.name).map((m) => m.nodeId)).size === 2
+  );
   let selectedNetOrphan = $derived(
     !!selectedNetLabel && !netMembers(selectedNetLabel.name).some((m) => m.nodeId !== workspace.selectedNetLabel?.nodeId)
   );
@@ -654,37 +658,14 @@
         <div class="prop">
           <span class="prop-label"><Tags size={14} />Show as</span>
           <div class="seg">
-            <button type="button" class="seg-btn wide" class:active={selectedEdge.data?.display !== 'label'}
-              onclick={() => updateEdgeData('display', 'line')} title="Draw a line between the nodes">Line</button>
-            <button type="button" class="seg-btn wide" class:active={selectedEdge.data?.display === 'label'}
-              onclick={() => updateEdgeData('display', 'label')} title="Net labels: a named tag at each end instead of a long line">Labels</button>
+            <button type="button" class="seg-btn wide active" title="Draw a line between the nodes">Line</button>
+            <button type="button" class="seg-btn wide"
+              onclick={() => {
+                const label = workspace.edgeToNetLabels(selectedEdge.id);
+                if (label) workspace.selectNetLabel(label.nodeId, label.labelId);
+              }} title="Replace the line with a local label on each node">Labels</button>
           </div>
         </div>
-
-        {#if selectedEdge.data?.display === 'label'}
-          <div class="prop">
-            <span class="prop-label"><Tags size={14} />Label end</span>
-            <div class="seg">
-              {#each NET_ENDS as [value, title] (value)}
-                <button type="button" class="seg-btn" class:active={(selectedEdge.data?.labelEnd ?? 'sharp') === value}
-                  onclick={() => updateEdgeLabelStyle('labelEnd', value)} title={title} aria-label={title}>{@render endGlyph(value)}</button>
-              {/each}
-            </div>
-          </div>
-          <div class="prop">
-            <span class="prop-label"><MoveHorizontal size={14} />Shape on</span>
-            <div class="seg" class:disabled={selectedEdge.data?.labelEnd === 'none'}>
-              {#each NET_END_SIDES as [value, title] (value)}
-                <button type="button" class="seg-btn" class:active={(selectedEdge.data?.labelEndSide ?? 'outer') === value}
-                  disabled={selectedEdge.data?.labelEnd === 'none'}
-                  onclick={() => updateEdgeLabelStyle('labelEndSide', value)} title={title} aria-label={title}>{@render endSideGlyph(value)}</button>
-              {/each}
-            </div>
-          </div>
-          {#if !selectedEdge.label}
-            <p class="hint">The edge label names the net; without one the tags read "NET".</p>
-          {/if}
-        {:else}
 
         <div class="prop">
           <span class="prop-label"><MoveHorizontal size={14} />Start</span>
@@ -715,7 +696,6 @@
             {/each}
           </div>
         </div>
-        {/if}
 
         <label class="prop">
           <span class="prop-label"><Sparkles size={14} />Animated</span>
@@ -806,6 +786,25 @@
     {@const label = selectedNetLabel}
     <div class="panel-content">
       <PropertyGroup title="Label" bind:open={generalOpen}>
+        <div class="prop">
+          <span class="prop-label"><Tags size={14} />Show as</span>
+          <div class="seg">
+            <button
+              type="button"
+              class="seg-btn wide"
+              disabled={!selectedNetIsPair}
+              onclick={() => {
+                const edgeId = labelOwner && workspace.netLabelToEdge(labelOwner.id, label.id);
+                if (edgeId) {
+                  workspace.edges = workspace.edges.map((e) => (!!e.selected === (e.id === edgeId) ? e : { ...e, selected: e.id === edgeId }));
+                  workspace.setSelectedEdges([edgeId]);
+                }
+              }}
+              title={selectedNetIsPair ? 'Replace both labels with a line between the two nodes' : 'Only a label shared by exactly two nodes can become a line'}
+            >Line</button>
+            <button type="button" class="seg-btn wide active" title="A local label on each node">Labels</button>
+          </div>
+        </div>
         <div class="prop">
           <span class="prop-label"><MoveHorizontal size={14} />Side</span>
           <div class="seg">
