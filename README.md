@@ -2,37 +2,76 @@
   <img src="static/MosaicFlow-Word.png" alt="MosaicFlow" width="400">
 </p>
 
+<h3 align="center">See how your knowledge connects. Let your AI build on it.</h3>
+
 <p align="center">
-  <strong>A visual knowledge base for anyone who thinks in connections: notes, research, cases and ideas on an infinite canvas, stored as plain files you own.</strong>
+  An infinite canvas for notes, research and ideas, stored as plain Markdown files you own,<br>
+  with a <strong>built-in MCP server</strong>: flip one switch and Claude, Copilot or Cursor can read, search and build your maps.
 </p>
 
 <p align="center">
-  <em>Built for students, researchers, clinicians, OSINT investigators, writers, analysts, product teams and anyone who wants their knowledge to stay local, searchable and portable.</em>
-</p>
-
-<p align="center">
-  <a href="#who-its-for">Who it's for</a> •
+  <a href="#-connect-your-ai-in-60-seconds"><strong>Connect your AI</strong></a> •
+  <a href="#why-mosaicflow">Why MosaicFlow</a> •
   <a href="#features">Features</a> •
-  <a href="#getting-started">Getting started</a> •
-  <a href="#blocks">Blocks</a> •
-  <a href="#keyboard-shortcuts">Shortcuts</a> •
+  <a href="#getting-started">Get started</a> •
   <a href="#plugins">Plugins</a> •
-  <a href="#ai-assistants-mcp">AI / MCP</a> •
-  <a href="docs/README.md">Docs</a> •
-  <a href="#development">Development</a>
+  <a href="docs/README.md">Docs</a>
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/MCP-built--in-8b5cf6?style=flat-square" alt="Built-in MCP server">
+  <img src="https://img.shields.io/badge/local--first-plain%20Markdown-10b981?style=flat-square" alt="Local-first, plain Markdown">
   <img src="https://img.shields.io/badge/Tauri-2.0-blue?style=flat-square&logo=tauri" alt="Tauri 2">
   <img src="https://img.shields.io/badge/Svelte-5-orange?style=flat-square&logo=svelte" alt="Svelte 5">
-  <img src="https://img.shields.io/badge/TypeScript-5-blue?style=flat-square&logo=typescript" alt="TypeScript">
-  <img src="https://img.shields.io/badge/Rust-backend-black?style=flat-square&logo=rust" alt="Rust">
   <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="MIT License">
 </p>
 
 <p align="center">
   <img src="docs/images/canvas.png" alt="MosaicFlow canvas with the pages sidebar and the properties panel" width="100%">
 </p>
+
+> **"Build me a study map of competitive programming in Rust, with code snippets, a 4-week plan and links between topics."**
+> Your assistant calls MosaicFlow, and the page appears on your canvas, laid out, colour-coded and connected, while you watch.
+
+---
+
+## Why MosaicFlow
+
+**🧠 Think in maps, not folders.** Ideas are rarely linear. Put notes, people, sources, code, maps, timelines and checklists on one infinite canvas, connect them with labelled edges or `[[wikilinks]]`, and see the structure your notes have been hiding.
+
+**🤖 AI-native, without the cloud.** A Model Context Protocol server runs *inside* the app on `127.0.0.1`, protected by a key. Nothing to install or host, no account: paste one generated snippet into your assistant. It gets 26 purpose-built tools to search your vault, answer from your notes with citations, and build whole knowledge maps in a single call.
+
+**📁 Plain files you own, forever.** A vault is a folder. Every node is a Markdown file with frontmatter. Use Git, Dropbox or any editor; nothing is locked in a database or behind a login. It works offline, and it still works if MosaicFlow disappears.
+
+**🧩 Yours to extend.** Add blocks, panels, commands, templates, layouts and themes with a few lines of JavaScript, no rebuild needed. Plugins travel with the pages that use them.
+
+---
+
+## 🔌 Connect your AI in 60 seconds
+
+1. **Settings → AI / MCP → Enable.** MosaicFlow starts a local server at `http://127.0.0.1:4317/mcp`. It is reachable only from your machine and only while the app runs.
+2. **Copy the snippet** for your client: VS Code, Claude Code, Claude Desktop, Cursor and more are generated for you, key included.
+3. **Ask.** Changes appear live on the canvas.
+
+```text
+"Build a knowledge map of the Space Race: people, missions, a timeline, grouped by country."
+"What do my notes say about shortest paths? Cite the pages."
+"Tidy this page: fix overlaps, route the edges cleanly, and tag related cards with net labels."
+"Add this diagram to the Segment tree note: https://…/segment-tree.png"
+```
+
+What the AI can do on your behalf:
+
+| | |
+|-|-|
+| **Build** | Whole maps in one call (`build_knowledge`): page, groups, cards, labelled edges, layout and a reading order |
+| **Answer** | Search the vault (`search`, `read_nodes`, `get_links`) and answer from *your* notes, with sources |
+| **Lay out** | Auto layout, hand-placed arrangements, obstacle-aware edge routing, and a `check_layout` pass that finds and fixes overlaps |
+| **Relate** | Edges, `[[wikilinks]]`, `#tags`, and **net labels**: one name on many cards links them all, KiCad-style, without a tangle of lines |
+| **Illustrate** | Store pictures in the vault (`add_image`) as image nodes or inline in notes |
+| **Style** | Palettes, edge shapes, strokes, arrows and animation, for one edge or many |
+
+Prefer it headless? The same server ships as a standalone stdio command that works on the vault files even when the app is closed. Full setup, all client snippets and the complete tool list are in [AI assistants (MCP)](#ai-assistants-mcp).
 
 ---
 
@@ -43,7 +82,7 @@ Anyone whose knowledge is made of **things and how they relate**, and who wants 
 | You are | MosaicFlow helps you |
 |---------|----------------------|
 | **Student** | Turn courses into connected study maps: notes with formulas (LaTeX) and diagrams (Mermaid), a Story view to revise step by step, timers for focus sessions and a calendar for exams. |
-| **Researcher / academic** | Map literature, authors, institutions and findings; link sources across projects with `[[wikilinks]]` and backlinks; tag, search and let an AI assistant build or query maps through MCP. |
+| **Researcher / academic** | Map literature, authors, institutions and findings; link sources across projects with `[[wikilinks]]` and backlinks; let an AI assistant build or query maps through MCP. |
 | **Doctor / clinician / health professional** | Organise clinical knowledge, protocols, differentials and study notes as linked pages. Everything stays in local files on your machine, with no account or cloud sync. |
 | **OSINT / security investigator** | Build investigation boards with Person, Organization, Domain, Hash, Credential, Social post, Router, Snapshot and Map blocks, timelines, labelled relations and view-only (locked) pages for sharing findings. |
 | **Journalist / analyst** | Connect people, organisations, events and sources; keep evidence and reasoning on one canvas and export it as an image or a shareable `.mosaic` package. |
@@ -89,6 +128,26 @@ Press <kbd>/</kbd> or double-click empty canvas space to open the block menu: ty
 - Vault-wide **search** across every page and node, plus a canvas filter that fades out non-matching nodes.
 - **View-only pages** (`Ctrl + Shift + K` or the lock in the page header): read and follow links without accidentally moving or editing anything.
 
+### 🏷️ Net labels: connections without the spaghetti
+Borrowed from circuit design (KiCad local labels): drag from any connection point, choose **Local label**, and give it a name. Every card with the same name is linked, many-to-many, with no line crossing the page.
+- Hover a label to light up every card in its net (on the canvas and the minimap) and get a list to jump between them.
+- Labels stack neatly, can be reordered and moved to another side or card, and share one style per name.
+- An unpaired label shows a red badge, so nothing dangles. Switch any edge to labels, or a two-card label back to a line, in one click.
+
+### 🪄 Layouts that stay readable
+- **Smart edge routing** steers lines around cards and picks the best connection sides.
+- Notes and checklists **grow to fit their content**; groups wrap their children; nothing overlaps.
+- Edge labels slide out of the way of net labels.
+
+### 🎨 Fast styling
+One-click **colour presets** (text over fill) for any card, from the properties panel or the command palette, plus your own saved presets. Edges come in bezier, straight, step and smooth step, solid, dashed or dotted, animated, with arrows.
+
+### 🖼️ Pictures in, the easy way
+Drag images from your file manager onto a page, or paste a screenshot with <kbd>Ctrl</kbd> + <kbd>V</kbd>. They are copied into your vault's `attachments/` folder (once, de-duplicated) and placed as image nodes sized to the picture.
+
+### 💻 Comfortable on any screen
+Compact mode for small windows, a focus mode (`Ctrl + .`), floating properties, Alt-peek previews, keyboard navigation between nodes, and scrolling inside long notes instead of zooming the page. Drag pages in the sidebar to put them in your order.
+
 ### 🎛️ Compact, Notion-style properties
 Select a node or edge to edit it in a dense side panel: page-style title, typed properties, tags, links and backlinks, colors, borders, layout and locks.
 
@@ -111,6 +170,8 @@ Select a node or edge to edit it in a dense side panel: page-style title, typed 
 - [Rust](https://www.rust-lang.org/tools/install) and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS
 
 ### Run
+
+Download an installer for Windows, macOS or Linux from [Releases](https://github.com/Fanaperana/MosaicFlow-Svelte/releases), or build from source:
 
 ```bash
 git clone https://github.com/Fanaperana/MosaicFlow-Svelte.git
@@ -165,6 +226,7 @@ Every shortcut can be changed in **Settings → Keyboard shortcuts** (<kbd>Ctrl<
 | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>G</kbd> | Graph view |
 | <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>K</kbd> | Lock / unlock page (view only) |
 | <kbd>[[</kbd> in a note | Link to a node or page |
+| <kbd>Ctrl</kbd> + <kbd>V</kbd> on the canvas | Paste a picture (or an image link) as an image node |
 | <kbd>Shift</kbd> + <kbd>1</kbd> | Fit view |
 | <kbd>Ctrl</kbd> + <kbd>=</kbd> / <kbd>Ctrl</kbd> + <kbd>-</kbd> | Zoom in / out |
 | <kbd>Ctrl</kbd> + scroll / <kbd>Alt</kbd> + scroll or horizontal wheel | Pan up/down / left/right |
@@ -242,7 +304,7 @@ is asked before they're installed. Read the [plugin guide](docs/PLUGIN_DEVELOPME
 
 ## AI assistants (MCP)
 
-MosaicFlow includes a [Model Context Protocol](https://modelcontextprotocol.io/) server that lets any MCP-capable assistant (VS Code Copilot, Claude Code, Cursor, Claude Desktop, Windsurf, LM Studio, …) read, search and build pages directly in a vault. Changes appear live in the open app.
+MosaicFlow ships with a built-in [Model Context Protocol](https://modelcontextprotocol.io/) server, so any MCP-capable assistant (VS Code Copilot, Claude Code, Cursor, Claude Desktop, Windsurf, LM Studio, …) can read, search and build pages directly in your vault. Nothing to install: it runs inside the app, and changes appear live on the canvas.
 
 **1. Turn it on** in **Settings → AI / MCP**. The app serves MCP over Streamable HTTP at `http://127.0.0.1:4317/mcp` (port configurable), reachable only from your computer and only while MosaicFlow runs. Clients send a key (`mosaic_…`) as `Authorization: Bearer …`; it stays the same until you regenerate it.
 
