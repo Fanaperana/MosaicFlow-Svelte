@@ -310,28 +310,33 @@ class WorkspaceStore {
     
     const nodesToDuplicate = this.nodes.filter(n => nodeIds.includes(n.id));
     const newNodes: MosaicNode[] = [];
+    const newIds = new Map(nodesToDuplicate.map(n => [n.id, uuidv4()]));
+    // Children copied with their group stay inside the copy; only the outermost copies shift.
+    const roots = nodesToDuplicate.filter(n => !n.parentId || !newIds.has(n.parentId));
 
     // Place the copies just to the right of the originals so they never stack on top.
-    const left = Math.min(...nodesToDuplicate.map(n => n.position.x));
-    const right = Math.max(...nodesToDuplicate.map(n => n.position.x + (n.measured?.width ?? n.width ?? 200)));
+    const left = Math.min(...roots.map(n => n.position.x));
+    const right = Math.max(...roots.map(n => n.position.x + (n.measured?.width ?? n.width ?? 200)));
     const offsetX = right - left + 40;
     
     for (const node of nodesToDuplicate) {
-      const id = uuidv4();
-      const newPosition = {
-        x: node.position.x + offsetX,
-        y: node.position.y,
-      };
+      const isRoot = !node.parentId || !newIds.has(node.parentId);
+      const data = JSON.parse(JSON.stringify(node.data)) as MosaicNodeData;
+      // Net labels keep their names (the copy joins the same nets) but need their own ids.
+      if (Array.isArray(data.netLabels)) {
+        data.netLabels = (data.netLabels as NodeNetLabel[]).map((l) => ({ ...l, id: uuidv4() }));
+      }
       
       const newNode: MosaicNode = {
-        id,
+        id: newIds.get(node.id)!,
         type: node.type,
-        position: newPosition,
-        data: JSON.parse(JSON.stringify(node.data)), // Deep clone data
+        position: isRoot ? { x: node.position.x + offsetX, y: node.position.y } : { ...node.position },
+        data,
         width: node.width,
         height: node.height,
         zIndex: node.zIndex,
-        parentId: node.parentId,
+        parentId: node.parentId ? (newIds.get(node.parentId) ?? node.parentId) : undefined,
+        ...(node.extent ? { extent: node.extent } : {}),
       };
       const newNodeWithLock = this.applyLockState(newNode);
       

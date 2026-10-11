@@ -1,9 +1,10 @@
 <!--
   Node colour presets (Notion-style): the trigger shows the current preset; the popover is a compact
   grid of diagonal swatches (text colour over fill) with the name on hover. "+" saves the node's
-  current colours as a preset of your own; hover one of yours to delete it.
+  current colours as a named preset of your own; double-click one of yours to rename it, hover to delete.
 -->
 <script lang="ts">
+  import { tick } from 'svelte';
   import { Check, ChevronDown, Plus, X } from 'lucide-svelte';
   import * as Popover from '$lib/components/ui/popover';
   import * as Tooltip from '$lib/components/ui/tooltip';
@@ -14,12 +15,33 @@
     data: Record<string, unknown>;
     disabled?: boolean;
     onApply: (preset: NodePreset) => void;
-    onSave: () => void;
+    onSave: (name: string) => void;
   }
 
   let { data, disabled = false, onApply, onSave }: Props = $props();
 
   let open = $state(false);
+  /** Naming a new preset (id null) or renaming one of yours. */
+  let naming = $state<{ id: string | null; name: string } | null>(null);
+  let nameInput = $state<HTMLInputElement>();
+
+  $effect(() => {
+    if (!open) naming = null;
+  });
+
+  async function startNaming(id: string | null, name: string) {
+    naming = { id, name };
+    await tick();
+    nameInput?.select();
+  }
+
+  function commitName() {
+    if (!naming) return;
+    const name = naming.name.trim() || nodePresets.nextName();
+    if (naming.id) nodePresets.rename(naming.id, name);
+    else onSave(name);
+    naming = null;
+  }
 
   const current = $derived(nodePresets.all.find((p) => nodePresets.matches(p, data)) ?? null);
   const builtIn = $derived(nodePresets.all.filter((p) => !p.custom));
@@ -52,12 +74,30 @@
         {@render tile(preset)}
       {/each}
       <Tooltip.Root>
-        <Tooltip.Trigger class="tile add" onclick={onSave} aria-label="Save current colours as a preset">
+        <Tooltip.Trigger class="tile add" onclick={() => startNaming(null, nodePresets.nextName())} aria-label="Save current colours as a preset">
           <Plus size={13} />
         </Tooltip.Trigger>
         <Tooltip.Content>Save current colours</Tooltip.Content>
       </Tooltip.Root>
     </div>
+
+    {#if naming}
+      <form class="naming" onsubmit={(e) => { e.preventDefault(); commitName(); }}>
+        {#if !naming.id}<NodePresetSwatch {...own} size={18} />{/if}
+        <input
+          bind:this={nameInput}
+          bind:value={naming.name}
+          maxlength="32"
+          placeholder="Preset name"
+          aria-label="Preset name"
+          onkeydown={(e) => {
+            e.stopPropagation();
+            if (e.key === 'Escape') { e.preventDefault(); naming = null; }
+          }}
+        />
+        <button type="submit" class="save">{naming.id ? 'Rename' : 'Save'}</button>
+      </form>
+    {/if}
   </Popover.Content>
 </Popover.Root>
 
@@ -67,6 +107,7 @@
       <Tooltip.Trigger
         class="tile {current?.id === preset.id ? 'active' : ''}"
         onclick={() => onApply(preset)}
+        ondblclick={() => preset.custom && startNaming(preset.id, preset.name)}
         aria-label="{preset.name} preset"
         aria-pressed={current?.id === preset.id}
       >
@@ -75,7 +116,7 @@
           <span class="tick" style:color={preset.text}><Check size={11} strokeWidth={3} /></span>
         {/if}
       </Tooltip.Trigger>
-      <Tooltip.Content>{preset.name}</Tooltip.Content>
+      <Tooltip.Content>{preset.name}{preset.custom ? ' · double-click to rename' : ''}</Tooltip.Content>
     </Tooltip.Root>
     {#if preset.custom}
       <button type="button" class="remove" onclick={() => nodePresets.remove(preset.id)} aria-label="Delete {preset.name}"><X size={8} strokeWidth={3} /></button>
@@ -203,5 +244,45 @@
 
   .tile-wrap:hover .remove {
     display: grid;
+  }
+
+  .naming {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--mf-border);
+  }
+
+  .naming input {
+    flex: 1;
+    min-width: 0;
+    height: 24px;
+    padding: 0 6px;
+    border: 1px solid var(--mf-border-strong);
+    border-radius: 5px;
+    background: var(--mf-surface);
+    color: var(--mf-text);
+    font: inherit;
+    font-size: 12px;
+    outline: none;
+  }
+
+  .naming input:focus {
+    border-color: var(--mf-accent);
+  }
+
+  .save {
+    height: 24px;
+    padding: 0 9px;
+    border: none;
+    border-radius: 5px;
+    background: var(--mf-accent);
+    color: #fff;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
   }
 </style>

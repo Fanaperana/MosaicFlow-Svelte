@@ -1034,7 +1034,7 @@
             {data}
             disabled={workspace.locked}
             onApply={(preset) => nodePresets.apply(preset, [selectedNode.id])}
-            onSave={() => nodePresets.save({ fill: data.color || '#1e1e1e', border: data.borderColor || '#333333', text: data.textColor || '#e0e0e0' })}
+            onSave={(name) => nodePresets.save({ fill: data.color || '#1e1e1e', border: data.borderColor || '#333333', text: data.textColor || '#e0e0e0' }, name)}
           />
         </div>
         <div class="prop">

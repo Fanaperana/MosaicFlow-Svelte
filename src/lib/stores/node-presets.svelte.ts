@@ -86,6 +86,16 @@ class NodePresets {
     this.persist();
   }
 
+  rename(id: string, name: string) {
+    if (!name.trim()) return;
+    this.custom = this.custom.map((p) => (p.id === id ? { ...p, name: name.trim() } : p));
+    this.persist();
+  }
+
+  nextName(): string {
+    return `Custom ${this.custom.length + 1}`;
+  }
+
   private persist() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(this.custom.map(({ custom: _custom, ...p }) => p)));
     this.registerCommands();
