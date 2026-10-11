@@ -169,6 +169,14 @@
     workspace.setNetLabels(labelOwner.id, next);
   }
 
+  // Write first: the owner is derived from the selection, which is cleared afterwards.
+  function detachSelectedLabel() {
+    if (!selectedNetLabel) return;
+    const id = selectedNetLabel.id;
+    writeNetLabels(netLabels.filter((l) => l.id !== id));
+    workspace.clearNetLabelSelection();
+  }
+
   function patchNetLabel(id: string, patch: Partial<NodeNetLabel>) {
     if (patch.name !== undefined && !patch.name.trim()) return;
     const current = netLabels.find((l) => l.id === id);
@@ -546,7 +554,7 @@
       <div class="pp-bar-actions">
         {#if selectedNetLabel && !workspace.locked}
           <FixedTooltip text="Detach from {labelOwner?.data.title || 'this node'}" position="bottom">
-            <button class="icon-btn danger detach-btn" onclick={() => { const id = selectedNetLabel!.id; workspace.selectedNetLabel = null; writeNetLabels(netLabels.filter((l) => l.id !== id)); }} aria-label="Detach from {labelOwner?.data.title || 'this node'}">
+            <button class="icon-btn danger detach-btn" onclick={detachSelectedLabel} aria-label="Detach from {labelOwner?.data.title || 'this node'}">
               <Trash2 size={14} class="at-rest" /><Unlink size={14} class="on-hover" />
             </button>
           </FixedTooltip>

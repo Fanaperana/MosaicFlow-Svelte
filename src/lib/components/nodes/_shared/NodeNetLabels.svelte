@@ -40,6 +40,13 @@
     return { left: { x: 0, y: size.h / 2 }, right: { x: size.w, y: size.h / 2 }, top: { x: size.w / 2, y: 0 }, bottom: { x: size.w / 2, y: size.h } }[side];
   }
 
+  // The grab dot sits a little way out along the wire, like an edge's, so the node's handle stays free.
+  function alongWire(side: NodeSide) {
+    const p = sidePoint(side);
+    const [nx, ny] = NORMAL[side];
+    return { x: p.x + nx * 12, y: p.y + ny * 12 };
+  }
+
   function wire(from: { x: number; y: number }, side: NodeSide, to: { x: number; y: number }) {
     const [nx, ny] = NORMAL[side];
     const d = Math.max(14, Math.hypot(to.x - from.x, to.y - from.y) * 0.45);
@@ -242,7 +249,7 @@
     {#if selectedId && size.w && !workspace.locked}
       {@const label = labels.find((l) => l.id === selectedId)}
       {#if label}
-        {@const p = rewire?.id === label.id ? { x: rewire.x, y: rewire.y } : sidePoint(label.side)}
+        {@const p = rewire?.id === label.id ? { x: rewire.x, y: rewire.y } : alongWire(label.side)}
         <button
           type="button"
           class="rewire-dot nodrag nopan"
@@ -348,8 +355,8 @@
   .rewire-dot {
     position: absolute;
     z-index: 2;
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     padding: 0;
     border: 2px solid var(--mf-accent, #5b8def);
     border-radius: 50%;
