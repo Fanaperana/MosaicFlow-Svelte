@@ -12,7 +12,7 @@
   } from 'lucide-svelte';
   import { ColorInput } from '$lib/components/ui/color-picker';
   import { PropertyGroup } from '$lib/components/ui/property-group';
-  import FixedTooltip from '$lib/components/ui/FixedTooltip.svelte';
+  import FixedTooltip from '$lib/components/ui/AppTooltip.svelte';
   import { openExternal } from '$lib/utils';
   import { knowledge } from '$lib/stores/knowledge.svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
@@ -1034,7 +1034,7 @@
             {data}
             disabled={workspace.locked}
             onApply={(preset) => nodePresets.apply(preset, [selectedNode.id])}
-            onSave={(name) => nodePresets.save({ fill: data.color || '#1e1e1e', border: data.borderColor || '#333333', text: data.textColor || '#e0e0e0' }, name)}
+            onSave={() => nodePresets.save({ fill: data.color || '#1e1e1e', border: data.borderColor || '#333333', text: data.textColor || '#e0e0e0' })}
           />
         </div>
         <div class="prop">
