@@ -110,6 +110,26 @@ function uniqueId(base: string, taken: Set<string>): string {
   for (let i = 2; ; i++) if (!taken.has(`${root}-${i}`)) return `${root}-${i}`;
 }
 
+/** Moves siblings that `id` now overlaps (and those they then overlap) below it; returns the moved nodes. */
+function pushOverlappedSiblings(nodes: StoredNode[], id: string, gap = 40): StoredNode[] {
+  const size = (n: StoredNode) => ({ w: n.width ?? FALLBACK_SIZE.width, h: n.height ?? FALLBACK_SIZE.height });
+  const moved = new Set<StoredNode>();
+  const queue = [nodes.find((n) => n.id === id)].filter((n): n is StoredNode => !!n);
+  for (let guard = 0; queue.length && guard < 1000; guard++) {
+    const a = queue.shift()!;
+    const bottom = a.position.y + size(a).h;
+    for (const b of nodes) {
+      if (b === a || b.parentId !== a.parentId || b.position.y < a.position.y) continue;
+      const sideBySide = a.position.x < b.position.x + size(b).w && b.position.x < a.position.x + size(a).w;
+      if (!sideBySide || b.position.y >= bottom) continue;
+      b.position = { x: b.position.x, y: bottom + gap };
+      moved.add(b);
+      queue.push(b);
+    }
+  }
+  return [...moved];
+}
+
 function edgeLook(style: EdgeStyleInput = {}, fallbackColor = '#94a3b8'): EdgeLook {
   const color = style.color ?? (style.palette && isPaletteName(style.palette) ? paletteColor(style.palette) : fallbackColor);
   return { color, path: style.path, stroke: style.stroke, animated: style.animated, start: style.start, end: style.end, width: style.width };
@@ -308,20 +328,35 @@ export class MosaicOps {
     return type === 'group' || !!(await this.nodeTypes()).find((t) => t.type === type)?.capabilities?.container;
   }
 
-  /** Enlarges a container so all its children fit with padding (never shrinks). */
+  /**
+   * Enlarges a container (and its ancestors) so all children fit with padding; never shrinks.
+   * Children above or left of the padding are shifted in and the container moves the other way, so nothing moves on screen.
+   */
   private async growToFit(repo: CanvasRepository, nodes: StoredNode[], parentId: string | undefined) {
-    if (!parentId) return;
-    const parent = nodes.find((n) => n.id === parentId);
-    if (!parent) return;
-    const children = nodes.filter((n) => n.parentId === parentId);
-    const bounds = boundsOf(children.map((c) => ({ ...c.position, width: c.width ?? FALLBACK_SIZE.width, height: c.height ?? FALLBACK_SIZE.height })));
-    if (!bounds) return;
-    const width = Math.max(parent.width ?? 0, bounds.x + bounds.width + GROUP_PAD.side);
-    const height = Math.max(parent.height ?? 0, bounds.y + bounds.height + GROUP_PAD.bottom);
-    if (width !== parent.width || height !== parent.height) {
-      parent.width = width;
-      parent.height = height;
-      await repo.writeNode(parent);
+    for (let id = parentId, depth = 0; id && depth < 20; depth++) {
+      const parent = nodes.find((n) => n.id === id);
+      if (!parent) return;
+      const children = nodes.filter((n) => n.parentId === id);
+      const bounds = boundsOf(children.map((c) => ({ ...c.position, width: c.width ?? FALLBACK_SIZE.width, height: c.height ?? FALLBACK_SIZE.height })));
+      if (!bounds) return;
+      const dx = Math.max(0, GROUP_PAD.side - bounds.x);
+      const dy = Math.max(0, GROUP_PAD.top - bounds.y);
+      if (dx || dy) {
+        for (const c of children) {
+          c.position = { x: c.position.x + dx, y: c.position.y + dy };
+          await repo.writeNode(c);
+        }
+        parent.position = { x: parent.position.x - dx, y: parent.position.y - dy };
+      }
+      const width = Math.max((parent.width ?? 0) + dx, bounds.x + dx + bounds.width + GROUP_PAD.side);
+      const height = Math.max((parent.height ?? 0) + dy, bounds.y + dy + bounds.height + GROUP_PAD.bottom);
+      if (dx || dy || width !== parent.width || height !== parent.height) {
+        parent.width = width;
+        parent.height = height;
+        await repo.writeNode(parent);
+        for (const moved of pushOverlappedSiblings(nodes, parent.id)) await repo.writeNode(moved);
+      }
+      id = parent.parentId;
     }
   }
 
@@ -439,6 +474,9 @@ export class MosaicOps {
     if (input.position) node.position = input.position;
 
     await repo.writeNode(node);
+    if (input.size || input.position || input.parentId !== undefined) {
+      for (const moved of pushOverlappedSiblings(nodes, node.id)) await repo.writeNode(moved);
+    }
     await this.growToFit(repo, nodes, node.parentId);
     if (oldParent !== node.parentId) await this.growToFit(repo, nodes, oldParent);
     await this.vault.touchCanvas(entry);
@@ -819,6 +857,7 @@ export class MosaicOps {
 
     for (const n of nodes) await repo.writeNode(n);
     for (const e of edges) await repo.writeEdge(e);
+    for (const gid of containers) await this.growToFit(repo, nodes, gid);
     await this.vault.touchCanvas(entry);
   }
 

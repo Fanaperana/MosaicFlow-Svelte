@@ -20,7 +20,7 @@ const relayFs: FsAdapter = {
   },
   async writeText(path, content) {
     const { writeTextFile, rename, remove } = await import('@tauri-apps/plugin-fs');
-    const tmp = `${path}.tmp-mcp-${Date.now()}`;
+    const tmp = `${path}.tmp-mcp-${crypto.randomUUID()}`;
     await writeTextFile(tmp, content);
     try {
       await rename(tmp, path);

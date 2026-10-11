@@ -427,6 +427,52 @@ class WorkspaceStore {
     }
   }
 
+  /**
+   * Grows every group (deepest first, never shrinking) so its children fit with padding, using their
+   * rendered sizes. Children left of or above the group are shifted in and the group moves the other way.
+   * Returns true when something changed.
+   */
+  fitGroupsToChildren(): boolean {
+    if (this.settings.locked) return false;
+    const PAD = 20;
+    const sizeOf = (n: MosaicNode) => ({
+      w: Math.max(n.width ?? 0, n.measured?.width ?? 0),
+      h: Math.max(n.height ?? 0, n.measured?.height ?? 0),
+    });
+    const depthOf = (n: MosaicNode) => {
+      let depth = 0;
+      for (let p = n.parentId; p && depth < 20; p = this.getNode(p)?.parentId) depth++;
+      return depth;
+    };
+    const parents = new Set(this.nodes.flatMap((n) => (n.parentId ? [n.parentId] : [])));
+    const groups = this.nodes.filter((n) => parents.has(n.id)).sort((a, b) => depthOf(b) - depthOf(a));
+
+    let changed = false;
+    for (const { id } of groups) {
+      const group = this.getNode(id);
+      if (!group) continue;
+      let kids = this.nodes.filter((k) => k.parentId === id);
+      const dx = Math.max(0, PAD - Math.min(...kids.map((k) => k.position.x)));
+      const dy = Math.max(0, PAD - Math.min(...kids.map((k) => k.position.y)));
+      if (dx || dy) {
+        for (const k of kids) this.updateNode(k.id, { position: { x: k.position.x + dx, y: k.position.y + dy } });
+        kids = this.nodes.filter((k) => k.parentId === id);
+      }
+      const size = sizeOf(group);
+      const width = Math.max(size.w + dx, ...kids.map((k) => k.position.x + sizeOf(k).w + PAD));
+      const height = Math.max(size.h + dy, ...kids.map((k) => k.position.y + sizeOf(k).h + PAD));
+      if (!dx && !dy && width <= size.w + 0.5 && height <= size.h + 0.5) continue;
+      this.updateNode(id, {
+        position: { x: group.position.x - dx, y: group.position.y - dy },
+        width: Math.ceil(width),
+        height: Math.ceil(height),
+      });
+      this.pushOverlappedSiblings(id, PAD);
+      changed = true;
+    }
+    return changed;
+  }
+
   // Update node data
   updateNodeData(id: string, dataUpdates: Partial<MosaicNodeData>) {
     if (this.settings.locked) return;

@@ -307,8 +307,10 @@
   let resizingId: string | null = null;
   let resizeEdges: ResizeEdges = { left: false, right: false, top: false, bottom: false };
   let shiftHeld = false;
+  let pointerHeld = false;
   $effect(() => {
     const onPointerDown = (e: PointerEvent) => {
+      pointerHeld = true;
       shiftHeld = e.shiftKey;
       const control = (e.target as Element | null)?.closest?.('.svelte-flow__resize-control');
       resizingId = control?.closest('.svelte-flow__node')?.getAttribute('data-id') ?? null;
@@ -318,6 +320,7 @@
       }
     };
     const onPointerUp = () => {
+      pointerHeld = false;
       if (resizingId) snapGuides = [];
       resizingId = null;
     };
@@ -334,6 +337,17 @@
       window.removeEventListener('keydown', onModifier, true);
       window.removeEventListener('keyup', onModifier, true);
     };
+  });
+
+  // Groups always wrap their children (rendered sizes included). Runs once changes settle (long enough for
+  // a batch of external edits, e.g. from MCP, to land); a drag or resize in progress is skipped because
+  // releasing it changes the nodes and schedules another run.
+  $effect(() => {
+    void workspace.nodes;
+    const timer = setTimeout(() => {
+      if (!pointerHeld) untrack(() => workspace.fitGroupsToChildren());
+    }, 500);
+    return () => clearTimeout(timer);
   });
 
   function snapResize(list: Node[]): Node[] {
