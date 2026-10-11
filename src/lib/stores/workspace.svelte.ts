@@ -15,6 +15,7 @@ import type {
   CanvasMode,
   NodeNetLabel,
   NodeSide,
+  NetStyle,
 } from '$lib/types';
 import { DEFAULT_VIEWPORT } from '$lib/types';
 import { CANVAS_FILE, CANVAS_FORMAT_VERSION, type CanvasFile } from '@mosaicflow/vault-core';
@@ -43,6 +44,16 @@ import { clearKnownContent } from '$lib/services/diskEcho';
 // otherwise the next Delete removes nodes the user can't see are selected.
 function deselect<T extends { selected?: boolean }>(item: T): T {
   return item.selected ? { ...item, selected: false } : item;
+}
+
+function pickNetStyle(s: NetStyle): NetStyle {
+  const out: NetStyle = {};
+  if (s.end) out.end = s.end;
+  if (s.color) out.color = s.color;
+  if (s.textColor) out.textColor = s.textColor;
+  if (s.bgColor) out.bgColor = s.bgColor;
+  if (s.fontSize) out.fontSize = s.fontSize;
+  return out;
 }
 
 class WorkspaceStore {
@@ -83,6 +94,8 @@ class WorkspaceStore {
   
   // Properties panel state
   propertiesPanelOpen = $state(false);
+  /** A net label on the selected node, edited in the properties panel instead of the node. */
+  selectedNetLabel = $state<{ nodeId: string; labelId: string } | null>(null);
   selectedNodeForProperties = $state<MosaicNode | null>(null);
   suppressPropertiesPanel = $state(false);
   /** Whether a new selection may open the properties panel; set by the page from settings and window size. */
@@ -393,11 +406,45 @@ class WorkspaceStore {
     const labels = (node.data.netLabels as NodeNetLabel[] | undefined) ?? [];
     if (labels.some((l) => l.side === side && l.name === trimmed)) return;
     this.saveToHistory();
-    this.setNetLabels(nodeId, [...labels, { id: uuidv4(), name: trimmed, side, end: 'sharp' }]);
+    this.setNetLabels(nodeId, [...labels, { end: 'sharp', ...this.netStyle(trimmed), id: uuidv4(), name: trimmed, side }]);
   }
 
   setNetLabels(nodeId: string, labels: NodeNetLabel[]) {
     this.updateNodeData(nodeId, { netLabels: labels.length ? labels : undefined });
+  }
+
+  /** The look of a net, taken from its first labelled node (or edge shown as labels). */
+  netStyle(name: string): NetStyle {
+    for (const n of this.nodes) {
+      const l = ((n.data.netLabels as NodeNetLabel[] | undefined) ?? []).find((x) => x.name === name);
+      if (l) return pickNetStyle(l);
+    }
+    const e = this.edges.find((x) => x.data?.display === 'label' && ((typeof x.label === 'string' && x.label.trim()) || 'NET') === name);
+    if (!e?.data) return {};
+    return pickNetStyle({ end: e.data.labelEnd, color: e.data.color, textColor: e.data.labelColor, bgColor: e.data.labelBgColor, fontSize: e.data.labelFontSize });
+  }
+
+  /** Restyles every label of a net: node labels and edges shown as labels with that name. */
+  setNetStyle(name: string, patch: NetStyle) {
+    if (this.settings.locked) return;
+    for (const n of this.nodes) {
+      const labels = (n.data.netLabels as NodeNetLabel[] | undefined) ?? [];
+      if (labels.some((l) => l.name === name)) {
+        this.setNetLabels(n.id, labels.map((l) => (l.name === name ? { ...l, ...patch } : l)));
+      }
+    }
+    const edgePatch = {
+      ...(patch.end !== undefined ? { labelEnd: patch.end } : {}),
+      ...(patch.color !== undefined ? { color: patch.color } : {}),
+      ...(patch.textColor !== undefined ? { labelColor: patch.textColor } : {}),
+      ...(patch.bgColor !== undefined ? { labelBgColor: patch.bgColor } : {}),
+      ...(patch.fontSize !== undefined ? { labelFontSize: patch.fontSize } : {}),
+    };
+    for (const e of this.edges) {
+      if (e.data?.display !== 'label' || ((typeof e.label === 'string' && e.label.trim()) || 'NET') !== name) continue;
+      this.updateEdge(e.id, { data: { ...e.data, ...edgePatch } });
+    }
+    this.edgeVersion++;
   }
 
   /**
@@ -837,8 +884,9 @@ class WorkspaceStore {
 
   // Open/close the properties panel to match the current node selection
   syncPropertiesPanel() {
-    if (this.suppressPropertiesPanel) return;
     const ids = this.selectedNodeIds;
+    if (this.selectedNetLabel && (ids.length !== 1 || ids[0] !== this.selectedNetLabel.nodeId)) this.selectedNetLabel = null;
+    if (this.suppressPropertiesPanel) return;
     if (ids.length === 1) {
       const node = this.nodes.find(n => n.id === ids[0]);
       if (node) {
@@ -855,9 +903,17 @@ class WorkspaceStore {
 
   setSelectedEdges(ids: string[]) {
     this.selectedEdgeIds = ids;
+    if (ids.length > 0) this.selectedNetLabel = null;
     if (ids.length === 1 && this.autoOpenProperties) {
       this.propertiesPanelOpen = true;
     }
+  }
+
+  /** Selects a node's net label and opens its properties. */
+  selectNetLabel(nodeId: string, labelId: string) {
+    this.setSelectedNodes([nodeId]);
+    this.selectedNetLabel = { nodeId, labelId };
+    this.propertiesPanelOpen = true;
   }
 
   // Toggle properties panel

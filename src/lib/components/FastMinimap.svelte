@@ -6,10 +6,12 @@
 -->
 <script lang="ts">
   import { useStore, useSvelteFlow } from '@xyflow/svelte';
+  import { netHover, netMembers } from '$lib/stores/net-hover.svelte';
 
   const WIDTH = 200;
   const HEIGHT = 150;
   const PAD = 6;
+  const NET_GLOW = '#fbbf24';
 
   const store = useStore();
   const { setViewport, getViewport } = useSvelteFlow();
@@ -37,13 +39,16 @@
     const view = { x: -vx / zoom, y: -vy / zoom, w: store.width / zoom, h: store.height / zoom };
 
     let minX = view.x, minY = view.y, maxX = view.x + view.w, maxY = view.y + view.h;
+    const lit = netHover.name ? new Set(netMembers(netHover.name).map((m) => m.nodeId)) : null;
     const rects: [number, number, number, number, boolean, boolean][] = [];
+    const litRects: [number, number, number, number][] = [];
     for (const node of store.nodeLookup.values()) {
       if (node.hidden) continue;
       const { x, y } = node.internals.positionAbsolute;
       const w = node.measured.width ?? node.width ?? 0;
       const h = node.measured.height ?? node.height ?? 0;
       rects.push([x, y, w, h, node.type === 'group', !!node.selected]);
+      if (lit?.has(node.id)) litRects.push([x, y, w, h]);
       if (x < minX) minX = x;
       if (y < minY) minY = y;
       if (x + w > maxX) maxX = x + w;
@@ -77,6 +82,16 @@
     ctx.fill('evenodd');
     ctx.strokeStyle = 'rgba(232, 232, 234, 0.6)';
     ctx.strokeRect(rx, ry, rw, rh);
+
+    // Nodes on the hovered net glow above the dimming, so off-screen members stand out too.
+    if (litRects.length) {
+      ctx.save();
+      ctx.shadowColor = NET_GLOW;
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = NET_GLOW;
+      for (const [x, y, w, h] of litRects) ctx.fillRect(tx(x), ty(y), Math.max(3, w * scale), Math.max(3, h * scale));
+      ctx.restore();
+    }
   }
 
   $effect(() => {
@@ -85,6 +100,7 @@
     void store.viewport;
     void store.width;
     void store.height;
+    void netHover.name;
     if (!frame) frame = requestAnimationFrame(draw);
   });
 

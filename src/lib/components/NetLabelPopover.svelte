@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { ArrowRight } from 'lucide-svelte';
+  import { ArrowRight, Unlink } from 'lucide-svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { nodeRegistry } from '$lib/kernel/registries/node-registry';
-  import { netHover, netMembers } from '$lib/stores/net-hover.svelte';
+  import { netHover, netMembers, nodeNetLabels } from '$lib/stores/net-hover.svelte';
 
   const WIDTH = 260;
 
@@ -41,14 +41,34 @@
     const r = netHover.anchor?.rect;
     if (!r) return null;
     const left = Math.max(8, Math.min(r.left, window.innerWidth - WIDTH - 8));
-    const below = r.bottom + 6;
-    const top = below + 220 > window.innerHeight ? Math.max(8, r.top - 6 - Math.min(220, 40 + entries.length * 40)) : below;
-    return { left, top };
+    const spaceBelow = window.innerHeight - r.bottom - 14;
+    const spaceAbove = r.top - 14;
+    const needed = 44 + entries.length * 42;
+    // Anchored by its bottom edge when above, so it never grows over the tag.
+    return spaceBelow >= needed || spaceBelow >= spaceAbove
+      ? `left: ${left}px; top: ${r.bottom + 6}px; max-height: ${spaceBelow}px;`
+      : `left: ${left}px; bottom: ${window.innerHeight - r.top + 6}px; max-height: ${spaceAbove}px;`;
   });
 
   function go(nodeId: string) {
     netHover.close();
     window.dispatchEvent(new CustomEvent('mosaicflow:focusNode', { detail: { id: nodeId } }));
+  }
+
+  // Node labels only: `node:<nodeId>:<labelId>`.
+  const ownLabel = $derived.by(() => {
+    const [kind, nodeId, labelId] = netHover.anchor?.key.split(':') ?? [];
+    const node = kind === 'node' ? workspace.getNode(nodeId) : undefined;
+    return node ? { nodeId, labelId, title: nodeRegistry.getDisplayName(node) } : null;
+  });
+
+  function detach() {
+    if (!ownLabel) return;
+    const { nodeId, labelId } = ownLabel;
+    netHover.close();
+    if (workspace.selectedNetLabel?.labelId === labelId) workspace.selectedNetLabel = null;
+    workspace.saveToHistory();
+    workspace.setNetLabels(nodeId, nodeNetLabels(workspace.getNode(nodeId)?.data).filter((l) => l.id !== labelId));
   }
 </script>
 
@@ -56,7 +76,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class="net-popover"
-    style="left: {position.left}px; top: {position.top}px; width: {WIDTH}px"
+    style="{position} width: {WIDTH}px"
     onmouseenter={() => netHover.hold()}
     onmouseleave={() => netHover.leave()}
   >
@@ -78,6 +98,12 @@
     {:else}
       <p class="empty">No other node carries this label yet.</p>
     {/if}
+    {#if ownLabel && !workspace.locked}
+      <button class="detach" onclick={detach} title="Remove this label from {ownLabel.title}">
+        <Unlink size={13} />
+        <span class="title">Detach from {ownLabel.title}</span>
+      </button>
+    {/if}
   </div>
 {/if}
 
@@ -85,6 +111,9 @@
   .net-popover {
     position: fixed;
     z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
     padding: 6px;
     background: var(--mf-surface-2);
     border: 1px solid var(--mf-border-strong);
@@ -117,6 +146,7 @@
     padding: 0;
     list-style: none;
     max-height: 220px;
+    min-height: 0;
     overflow-y: auto;
   }
 
@@ -136,6 +166,19 @@
 
   button:hover {
     background: var(--mf-hover);
+  }
+
+  .detach {
+    flex-shrink: 0;
+    margin-top: 4px;
+    border-top: 1px solid var(--mf-border);
+    border-radius: 0 0 5px 5px;
+    color: var(--mf-text-2);
+  }
+
+  .detach:hover {
+    background: var(--mf-danger-soft);
+    color: var(--mf-danger);
   }
 
   .text {

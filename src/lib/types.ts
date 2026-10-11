@@ -97,12 +97,20 @@ export type EdgeDisplay = 'line' | 'label';
 export type NetLabelEnd = 'sharp' | 'rounded' | 'none';
 export type NodeSide = 'left' | 'right' | 'top' | 'bottom';
 
+/** Look shared by every label of a net: changing one label restyles all of them. */
+export interface NetStyle {
+  end?: NetLabelEnd;
+  color?: string;
+  textColor?: string;
+  bgColor?: string;
+  fontSize?: number;
+}
+
 /** A named tag on one side of a node; every label with the same name on a page is one net (many-to-many). */
-export interface NodeNetLabel {
+export interface NodeNetLabel extends NetStyle {
   id: string;
   name: string;
   side: NodeSide;
-  end?: NetLabelEnd;
 }
 
 export interface MosaicEdge extends Edge {

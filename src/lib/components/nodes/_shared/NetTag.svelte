@@ -49,7 +49,7 @@
     box-sizing: border-box;
     display: flex;
     align-items: center;
-    height: 22px;
+    height: calc(1em + 10px);
     padding: 0 9px;
     border: 1.5px solid var(--c);
     border-radius: 3px;
@@ -73,7 +73,7 @@
     position: absolute;
     top: -1.5px;
     width: 10px;
-    height: 22px;
+    height: calc(100% + 3px);
     overflow: visible;
   }
 
@@ -107,11 +107,11 @@
   }
 
   .net-tag.end-rounded:not(.side-left) {
-    border-radius: 3px 11px 11px 3px;
+    border-radius: 3px 999px 999px 3px;
   }
 
   .net-tag.end-rounded.side-left {
-    border-radius: 11px 3px 3px 11px;
+    border-radius: 999px 3px 3px 999px;
   }
 
   .net-tag.lit,

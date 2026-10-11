@@ -26,6 +26,7 @@
   import CanvasFilterBar from '$lib/components/CanvasFilterBar.svelte';
   import NodeInsertMenu, { type InsertExtra } from '$lib/components/NodeInsertMenu.svelte';
   import NetLabelPicker from '$lib/components/NetLabelPicker.svelte';
+  import { netHover, netMembers } from '$lib/stores/net-hover.svelte';
   import { settings } from '$lib/stores/settings.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import { keybindings } from '$lib/kernel/keybindings.svelte';
@@ -510,6 +511,7 @@
     { id: 'net-label', label: 'Local label', description: 'Tag this side; same names are linked', icon: Tag },
   ];
   let labelPicker = $state<{ nodeId: string; side: NodeSide } | null>(null);
+  const netLitIds = $derived(netHover.name ? new Set(netMembers(netHover.name).map((m) => m.nodeId)) : null);
 
   function handleEdgeDropExtra(id: string) {
     if (id !== 'net-label' || !pendingConnectionSource) return;
@@ -1044,6 +1046,7 @@
         position="bottom-left"
         pannable
         zoomable
+        nodeClass={(n) => (netLitIds?.has(n.id) ? 'mf-net-lit' : '')}
         style="background: #1a1d21; border: 1px solid #333;"
       />
     {/if}
@@ -1416,6 +1419,14 @@
   :global(.svelte-flow__minimap-node) {
     fill: #333 !important;
     stroke: #555 !important;
+  }
+
+  :global(.svelte-flow__minimap-node.mf-net-lit) {
+    fill: #fbbf24 !important;
+    stroke: #fbbf24 !important;
+    stroke-width: 3px;
+    vector-effect: non-scaling-stroke;
+    filter: drop-shadow(0 0 40px #fbbf24);
   }
 
   /* Make NodeResizer more subtle so it doesn't interfere with style previews */

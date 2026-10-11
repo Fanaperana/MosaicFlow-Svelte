@@ -1,13 +1,14 @@
 <script lang="ts">
   import { workspace } from '$lib/stores/workspace.svelte';
-  import type { MosaicEdge, MarkerShape, EdgeStrokeStyle, EdgeType, EdgePathType, BaseNodeData, NodeNetLabel, NodeSide, NetLabelEnd } from '$lib/types';
+  import type { MosaicEdge, MarkerShape, EdgeStrokeStyle, EdgeType, EdgePathType, BaseNodeData, NodeNetLabel, NodeSide, NetLabelEnd, NetStyle } from '$lib/types';
   import { nodeRegistry, getIconByName } from '$lib/kernel/registries/node-registry';
   import { MarkerType } from '@xyflow/svelte';
   import {
     X, Copy, Check, Trash2, StickyNote, Link2, ExternalLink, Lock, Unlock, Eye, Pencil,
     AlignLeft, AlignCenter, AlignRight, Bold, Italic, Type, Baseline, Square, SquareRoundCorner,
     PaintBucket, Spline, Sparkles, MoveHorizontal, ArrowUpRight, CornerDownLeft, Tags, Text, Hash,
-    List, Calendar, FileText, SquareCheck, RotateCw, FlipHorizontal2, FlipVertical2, Clock, Scan, Ungroup, Tag, ChevronUp
+    List, Calendar, FileText, SquareCheck, RotateCw, FlipHorizontal2, FlipVertical2, Clock, Scan, Ungroup, Tag, ChevronUp, ArrowLeft,
+    ArrowLeftToLine, ArrowRightToLine, ArrowUpToLine, ArrowDownToLine
   } from 'lucide-svelte';
   import { ColorInput } from '$lib/components/ui/color-picker';
   import { PropertyGroup } from '$lib/components/ui/property-group';
@@ -17,7 +18,7 @@
   import { vaultStore } from '$lib/stores/vault.svelte';
   import { openNode, openWikilink } from '$lib/services/navigation';
   import { extractTags } from '@mosaicflow/vault-core';
-  import { nodeNetLabels, netMembers } from '$lib/stores/net-hover.svelte';
+  import { nodeNetLabels, netMembers, netNameOf } from '$lib/stores/net-hover.svelte';
 
   // Helper: Convert hex + opacity to RGBA string
   function hexToRgba(hex: string, opacity: number): string {
@@ -124,6 +125,29 @@
   let netLabels = $derived(selectedNode ? nodeNetLabels(selectedNode.data) : []);
   const NET_SIDES: NodeSide[] = ['left', 'right', 'top', 'bottom'];
   const NET_ENDS: [NetLabelEnd, string][] = [['sharp', 'Sharp'], ['rounded', 'Rounded'], ['none', 'None']];
+  const SIDE_ICONS = { left: ArrowLeftToLine, right: ArrowRightToLine, top: ArrowUpToLine, bottom: ArrowDownToLine };
+
+  const WIDTH_KEY = 'mosaicflow:properties-width';
+  const MIN_WIDTH = 240;
+  const MAX_WIDTH = 560;
+  let panelWidth = $state(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Number(localStorage.getItem(WIDTH_KEY)) || 272)));
+
+  function startResize(e: PointerEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = panelWidth;
+    const move = (ev: PointerEvent) => {
+      panelWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth + startX - ev.clientX));
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      localStorage.setItem(WIDTH_KEY, String(panelWidth));
+      document.body.style.cursor = '';
+    };
+    document.body.style.cursor = 'col-resize';
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up, { once: true });
+  }
 
   function writeNetLabels(next: NodeNetLabel[]) {
     if (!selectedNode) return;
@@ -133,7 +157,32 @@
 
   function patchNetLabel(id: string, patch: Partial<NodeNetLabel>) {
     if (patch.name !== undefined && !patch.name.trim()) return;
-    writeNetLabels(netLabels.map((l) => (l.id === id ? { ...l, ...patch, name: (patch.name ?? l.name).trim() } : l)));
+    const current = netLabels.find((l) => l.id === id);
+    if (!current) return;
+    const { end, color, textColor, bgColor, fontSize, ...own } = patch;
+    const style: NetStyle = Object.fromEntries(Object.entries({ end, color, textColor, bgColor, fontSize }).filter(([, v]) => v !== undefined));
+    if (Object.keys(own).length) {
+      const name = (own.name ?? current.name).trim();
+      // Joining another net takes on its look.
+      const joined = name !== current.name ? workspace.netStyle(name) : {};
+      writeNetLabels(netLabels.map((l) => (l.id === id ? { ...l, ...own, ...joined, name } : l)));
+    }
+    if (Object.keys(style).length) workspace.setNetStyle(own.name?.trim() || current.name, style);
+  }
+
+  let selectedNetLabel = $derived(
+    selectedNode && workspace.selectedNetLabel?.nodeId === selectedNode.id
+      ? netLabels.find((l) => l.id === workspace.selectedNetLabel!.labelId) ?? null
+      : null
+  );
+  let selectedNetCount = $derived(selectedNetLabel ? netMembers(selectedNetLabel.name).length : 0);
+
+  const EDGE_NET_KEYS = { labelEnd: 'end', labelColor: 'textColor', labelBgColor: 'bgColor', labelFontSize: 'fontSize' } as const;
+
+  /** Edge label styling; for edges shown as labels it restyles the whole net. */
+  function updateEdgeLabelStyle(key: keyof typeof EDGE_NET_KEYS, value: string | number) {
+    updateEdgeData(key, value);
+    if (selectedEdge?.data?.display === 'label') workspace.setNetStyle(netNameOf(selectedEdge.label), { [EDGE_NET_KEYS[key]]: value });
   }
 
   /** Moves a label one place up within its own side's stack. */
@@ -426,6 +475,18 @@
   </svg>
 {/snippet}
 
+{#snippet endGlyph(kind: NetLabelEnd)}
+  <svg width="22" height="12" viewBox="0 0 22 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true">
+    {#if kind === 'sharp'}
+      <path d="M2 1.5 H15 L20 6 L15 10.5 H2 Z" />
+    {:else if kind === 'rounded'}
+      <path d="M2 1.5 H15 A4.5 4.5 0 0 1 15 10.5 H2 Z" />
+    {:else}
+      <rect x="2" y="1.5" width="18" height="9" rx="1" />
+    {/if}
+  </svg>
+{/snippet}
+
 {#snippet markerGlyph(kind: MarkerShape, start: boolean)}
   <svg
     class={start ? 'flip' : ''}
@@ -447,15 +508,21 @@
   class="properties-panel"
   class:popover={variant === 'popover'}
   class:readonly={workspace.locked}
+  style:width={variant === 'panel' ? `${panelWidth}px` : undefined}
   onclick={handlePanelEvent}
   onkeydown={handlePanelEvent}
   onmousedown={handlePanelEvent}
   onpointerdown={handlePanelEvent}
 >
+  {#if variant === 'panel'}
+    <div class="pp-resize" role="separator" aria-orientation="vertical" aria-label="Resize properties" title="Drag to resize" onpointerdown={startResize}></div>
+  {/if}
   <header class="pp-header">
     <div class="pp-bar">
       {#if selectedEdge}
         <span class="pp-kind edge"><span class="pp-kind-icon"><Spline size={12} /></span>Edge</span>
+      {:else if selectedNetLabel}
+        <span class="pp-kind"><span class="pp-kind-icon"><Tag size={12} /></span>Local label</span>
       {:else if selectedNode}
         {@const info = getNodeTypeInfo(selectedNode.type)}
         {@const KindIcon = info ? getIconComponent(info.iconName) : StickyNote}
@@ -465,7 +532,11 @@
       {/if}
 
       <div class="pp-bar-actions">
-        {#if selectedNode && !workspace.locked}
+        {#if selectedNetLabel && !workspace.locked}
+          <FixedTooltip text="Remove label" position="bottom">
+            <button class="icon-btn danger" onclick={() => { const id = selectedNetLabel!.id; workspace.selectedNetLabel = null; writeNetLabels(netLabels.filter((l) => l.id !== id)); }} aria-label="Remove label"><Trash2 size={14} /></button>
+          </FixedTooltip>
+        {:else if selectedNode && !workspace.locked}
           <FixedTooltip text="Duplicate" position="bottom">
             <button class="icon-btn" onclick={duplicateNode} aria-label="Duplicate node"><Copy size={14} /></button>
           </FixedTooltip>
@@ -494,6 +565,21 @@
           updateEdge({ label: label || undefined });
         }}
       />
+    {:else if selectedNetLabel}
+      <input
+        class="pp-title"
+        type="text"
+        maxlength="64"
+        value={selectedNetLabel.name}
+        placeholder="Label name"
+        onchange={(e) => patchNetLabel(selectedNetLabel!.id, { name: (e.target as HTMLInputElement).value })}
+      />
+      <div class="pp-id-row">
+        <button class="pp-id" onclick={() => (workspace.selectedNetLabel = null)} title="Back to the node's properties">
+          <ArrowLeft size={11} />
+          <span>{selectedNode?.data.title || 'Node'}</span>
+        </button>
+      </div>
     {:else if selectedNode}
       <input
         class="pp-title"
@@ -557,9 +643,9 @@
           <div class="prop">
             <span class="prop-label"><Tags size={14} />Label end</span>
             <div class="seg">
-              {#each [['sharp', 'Sharp'], ['rounded', 'Rounded'], ['none', 'None']] as [value, title] (value)}
-                <button type="button" class="seg-btn wide" class:active={(selectedEdge.data?.labelEnd ?? 'sharp') === value}
-                  onclick={() => updateEdgeData('labelEnd', value)}>{title}</button>
+              {#each NET_ENDS as [value, title] (value)}
+                <button type="button" class="seg-btn" class:active={(selectedEdge.data?.labelEnd ?? 'sharp') === value}
+                  onclick={() => updateEdgeLabelStyle('labelEnd', value)} title={title} aria-label={title}>{@render endGlyph(value)}</button>
               {/each}
             </div>
           </div>
@@ -615,7 +701,10 @@
         <div class="prop">
           <span class="prop-label"><PaintBucket size={14} />Color</span>
           <span class="prop-value">
-            <ColorInput value={selectedEdge.data?.color || '#555555'} onchange={(color) => updateEdgeAppearance({ color })} size="sm" />
+            <ColorInput value={selectedEdge.data?.color || '#555555'} onchange={(color) => {
+              updateEdgeAppearance({ color });
+              if (selectedEdge?.data?.display === 'label') workspace.setNetStyle(netNameOf(selectedEdge.label), { color });
+            }} size="sm" />
           </span>
         </div>
         <div class="prop">
@@ -653,13 +742,13 @@
         <div class="prop">
           <span class="prop-label"><Baseline size={14} />Text</span>
           <span class="prop-value">
-            <ColorInput value={selectedEdge.data?.labelColor || '#ffffff'} onchange={(color) => updateEdgeData('labelColor', color)} size="sm" />
+            <ColorInput value={selectedEdge.data?.labelColor || '#ffffff'} onchange={(color) => updateEdgeLabelStyle('labelColor', color)} size="sm" />
           </span>
         </div>
         <div class="prop">
           <span class="prop-label"><PaintBucket size={14} />Background</span>
           <span class="prop-value">
-            <ColorInput value={selectedEdge.data?.labelBgColor || '#1a1d21'} onchange={(color) => updateEdgeData('labelBgColor', color)} size="sm" />
+            <ColorInput value={selectedEdge.data?.labelBgColor || '#1a1d21'} onchange={(color) => updateEdgeLabelStyle('labelBgColor', color)} size="sm" />
           </span>
         </div>
         <div class="prop">
@@ -671,12 +760,77 @@
                 min="8"
                 max="24"
                 value={selectedEdge.data?.labelFontSize || 12}
-                oninput={(e) => updateEdgeData('labelFontSize', parseInt((e.target as HTMLInputElement).value))}
+                oninput={(e) => updateEdgeLabelStyle('labelFontSize', parseInt((e.target as HTMLInputElement).value) || 12)}
               />
               <span class="unit">px</span>
             </label>
           </span>
         </div>
+      </PropertyGroup>
+    </div>
+
+  {:else if selectedNetLabel}
+    {@const label = selectedNetLabel}
+    <div class="panel-content">
+      <PropertyGroup title="Label" bind:open={generalOpen}>
+        <div class="prop">
+          <span class="prop-label"><MoveHorizontal size={14} />Side</span>
+          <div class="seg">
+            {#each NET_SIDES as side (side)}
+              {@const SideIcon = SIDE_ICONS[side]}
+              <button type="button" class="seg-btn" class:active={label.side === side}
+                onclick={() => patchNetLabel(label.id, { side })} title={side[0].toUpperCase() + side.slice(1)} aria-label={side}><SideIcon size={13} /></button>
+            {/each}
+          </div>
+        </div>
+        <div class="prop">
+          <span class="prop-label"><Tags size={14} />End</span>
+          <div class="seg">
+            {#each NET_ENDS as [value, title] (value)}
+              <button type="button" class="seg-btn" class:active={(label.end ?? 'sharp') === value}
+                onclick={() => patchNetLabel(label.id, { end: value })} title={title} aria-label={title}>{@render endGlyph(value)}</button>
+            {/each}
+          </div>
+        </div>
+      </PropertyGroup>
+
+      <PropertyGroup title="Style" bind:open={appearanceOpen}>
+        <div class="prop">
+          <span class="prop-label"><PaintBucket size={14} />Color</span>
+          <span class="prop-value">
+            <ColorInput value={label.color || (selectedNode?.data.borderColor as string | undefined) || '#5b8def'} onchange={(color) => patchNetLabel(label.id, { color })} size="sm" />
+          </span>
+        </div>
+        <div class="prop">
+          <span class="prop-label"><Baseline size={14} />Text</span>
+          <span class="prop-value">
+            <ColorInput value={label.textColor || '#e0e0e0'} onchange={(textColor) => patchNetLabel(label.id, { textColor })} size="sm" />
+          </span>
+        </div>
+        <div class="prop">
+          <span class="prop-label"><PaintBucket size={14} />Background</span>
+          <span class="prop-value">
+            <ColorInput value={label.bgColor || '#1a1d21'} onchange={(bgColor) => patchNetLabel(label.id, { bgColor })} size="sm" />
+          </span>
+        </div>
+        <div class="prop">
+          <span class="prop-label"><Type size={14} />Size</span>
+          <span class="prop-value">
+            <label class="num">
+              <input
+                type="number"
+                min="8"
+                max="24"
+                value={label.fontSize || 12}
+                oninput={(e) => patchNetLabel(label.id, { fontSize: parseInt((e.target as HTMLInputElement).value) || 12 })}
+              />
+              <span class="unit">px</span>
+            </label>
+          </span>
+        </div>
+        <p class="hint">
+          {selectedNetCount > 1 ? `Shared by ${selectedNetCount} labels named "${label.name}": style changes apply to all of them.` : 'Labels with the same name share this style.'}
+        </p>
       </PropertyGroup>
     </div>
 
@@ -1328,6 +1482,7 @@
 <style>
   .properties-panel {
     --label-w: 96px;
+    position: relative;
     width: 272px;
     height: 100vh;
     background: var(--mf-surface);
@@ -1338,6 +1493,21 @@
     color: var(--mf-text);
     font-family: var(--mf-font-ui);
     font-size: 12.5px;
+  }
+
+  .pp-resize {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -3px;
+    z-index: 2;
+    width: 6px;
+    cursor: col-resize;
+  }
+
+  .pp-resize:hover,
+  .pp-resize:active {
+    background: color-mix(in srgb, var(--mf-accent) 45%, transparent);
   }
 
   .properties-panel.popover {
