@@ -34,3 +34,27 @@ class NetLabelRects {
 }
 
 export const netLabelRects = new NetLabelRects();
+
+/**
+ * Tags of edges shown as labels, in canvas coordinates. An edge only avoids edges whose id sorts
+ * before its own, so placements settle in one pass instead of pushing each other back and forth.
+ */
+class EdgeTagRects {
+  byEdge = $state<Record<string, Rect[]>>({});
+
+  before(edgeId: string): Rect[] {
+    return Object.entries(this.byEdge).flatMap(([id, rects]) => (id < edgeId ? rects : []));
+  }
+
+  set(edgeId: string, rects: Rect[]) {
+    const prev = this.byEdge[edgeId];
+    if (!rects.length && !prev) return;
+    if (prev && JSON.stringify(prev) === JSON.stringify(rects)) return;
+    const next = { ...this.byEdge };
+    if (rects.length) next[edgeId] = rects;
+    else delete next[edgeId];
+    this.byEdge = next;
+  }
+}
+
+export const edgeTagRects = new EdgeTagRects();

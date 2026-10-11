@@ -11,7 +11,8 @@
   import { settings } from '$lib/stores/settings.svelte';
   import { edgeObstacles } from '$lib/stores/edge-obstacles.svelte';
   import { netHover, netNameOf } from '$lib/stores/net-hover.svelte';
-  import { netLabelRects } from '$lib/stores/net-label-rects.svelte';
+  import { netLabelRects, edgeTagRects } from '$lib/stores/net-label-rects.svelte';
+  import { untrack } from 'svelte';
   import NetTag from '$lib/components/nodes/_shared/NetTag.svelte';
   import type { NetLabelEnd, NetLabelEndSide, NodeSide } from '$lib/types';
   import { hitsObstacle, roundedPath, routeOrthogonal, sampleBezier, sampleLine, type Point, type Side } from '@mosaicflow/vault-core';
@@ -152,25 +153,72 @@
     return base;
   });
 
-  function stubEnd(x: number, y: number, side: string) {
+  function stubEnd(x: number, y: number, side: string, distance = NET_STUB) {
     const [dx, dy] = DIRECTIONS[side] ?? [0, 0];
-    return { x: x + dx * NET_STUB, y: y + dy * NET_STUB };
+    return { x: x + dx * distance, y: y + dy * distance };
   }
+
+  // Where the near edge of a net tag sits. Node net labels win: when one is in the way the tag joins
+  // their column (same distance as node label stacks) and stacks past them, wired back with a curve.
+  const STACK_DISTANCE = 36;
+  const STACK_GAP = 2;
+  const tagSize = $derived({ w: netName.length * labelFontSize * 0.62 + 28, h: labelFontSize + 10 });
+
+  function tagBox(p: Point, side: string) {
+    const { w, h } = tagSize;
+    return side === 'right' ? { x: p.x, y: p.y - h / 2, width: w, height: h } :
+      side === 'left' ? { x: p.x - w, y: p.y - h / 2, width: w, height: h } :
+      side === 'top' ? { x: p.x - w / 2, y: p.y - h, width: w, height: h } :
+      { x: p.x - w / 2, y: p.y, width: w, height: h };
+  }
+
+  function placeTag(x: number, y: number, side: string, obstacles: { x: number; y: number; width: number; height: number }[]) {
+    const { w, h } = tagSize;
+    const horizontal = side === 'left' || side === 'right';
+    const blocking = (p: Point) => {
+      const b = tagBox(p, side);
+      return obstacles.filter((r) => b.x < r.x + r.width && r.x < b.x + w && b.y < r.y + r.height && r.y < b.y + h);
+    };
+    let p = stubEnd(x, y, side);
+    if (!blocking(p).length) return { ...p, bent: false };
+    p = stubEnd(x, y, side, STACK_DISTANCE);
+    for (let i = 0; i < 12; i++) {
+      const hits = blocking(p);
+      if (!hits.length) break;
+      p = horizontal
+        ? { x: p.x, y: Math.max(...hits.map((r) => r.y + r.height)) + STACK_GAP + h / 2 }
+        : { x: Math.max(...hits.map((r) => r.x + r.width)) + STACK_GAP + w / 2, y: p.y };
+    }
+    return { ...p, bent: true };
+  }
+
+  const netTags = $derived.by(() => {
+    if (!asLabels) return [];
+    const obstacles = [...netLabelRects.absolute, ...edgeTagRects.before(id)];
+    const source = { key: 'source', side: sourcePosition as string, from: { x: sourceX, y: sourceY }, ...placeTag(sourceX, sourceY, sourcePosition, obstacles) };
+    const target = {
+      key: 'target', side: targetPosition as string, from: { x: targetX, y: targetY },
+      ...placeTag(targetX, targetY, targetPosition, [...obstacles, tagBox(source, source.side)]),
+    };
+    return [source, target];
+  });
+
+  $effect(() => {
+    const boxes = netTags.map((t) => tagBox(t, t.side));
+    untrack(() => edgeTagRects.set(id, boxes));
+  });
+  $effect(() => () => edgeTagRects.set(id, []));
 
   function stubPath() {
-    const s = stubEnd(sourceX, sourceY, sourcePosition);
-    const t = stubEnd(targetX, targetY, targetPosition);
-    return `M ${sourceX} ${sourceY} L ${s.x} ${s.y} M ${targetX} ${targetY} L ${t.x} ${t.y}`;
+    return netTags
+      .map((t) => {
+        if (!t.bent) return `M ${t.from.x} ${t.from.y} L ${t.x} ${t.y}`;
+        const [dx, dy] = DIRECTIONS[t.side] ?? [0, 0];
+        const d = Math.max(14, Math.hypot(t.x - t.from.x, t.y - t.from.y) * 0.45);
+        return `M ${t.from.x} ${t.from.y} C ${t.from.x + dx * d} ${t.from.y + dy * d} ${t.x - dx * d} ${t.y - dy * d} ${t.x} ${t.y}`;
+      })
+      .join(' ');
   }
-
-  const netTags = $derived(
-    asLabels
-      ? [
-          { key: 'source', side: sourcePosition as string, ...stubEnd(sourceX, sourceY, sourcePosition) },
-          { key: 'target', side: targetPosition as string, ...stubEnd(targetX, targetY, targetPosition) },
-        ]
-      : []
-  );
   const netLit = $derived(asLabels && netHover.name === netName);
   
   // Get edge properties from data
