@@ -7,6 +7,8 @@
   import PropertiesPanel from '$lib/components/PropertiesPanel.svelte';
   import PropertiesPopover from '$lib/components/PropertiesPopover.svelte';
   import NodePeek from '$lib/components/NodePeek.svelte';
+  import NetLabelPopover from '$lib/components/NetLabelPopover.svelte';
+  import { netHover } from '$lib/stores/net-hover.svelte';
   import VaultPicker from '$lib/components/VaultPicker.svelte';
   import CanvasList from '$lib/components/CanvasList.svelte';
   import CanvasHeader from '$lib/components/CanvasHeader.svelte';
@@ -67,6 +69,12 @@
   });
 
   onMount(() => ui.watchViewport());
+
+  // The net label popover is anchored to screen coordinates, so it closes when the canvas moves.
+  $effect(() => {
+    void workspace.viewport;
+    untrack(() => netHover.close());
+  });
 
   $effect(() => {
     void settings.current.mcp;
@@ -348,6 +356,7 @@
       <PropertiesPopover onClose={() => (workspace.propertiesPanelOpen = false)} />
     {/if}
     <NodePeek />
+    <NetLabelPopover />
   </div>
 {:else}
   <VaultPicker />

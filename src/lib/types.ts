@@ -92,6 +92,9 @@ export type CanvasMode = 'select' | 'drag';
 // Edge stroke style types
 export type EdgeStrokeStyle = 'solid' | 'dashed' | 'dotted';
 export type EdgePathType = 'bezier' | 'straight' | 'step' | 'smoothstep';
+/** 'label' draws a named tag at each end instead of a line (a KiCad-style net label). */
+export type EdgeDisplay = 'line' | 'label';
+export type NetLabelEnd = 'sharp' | 'rounded' | 'none';
 
 export interface MosaicEdge extends Edge {
   label?: string;
@@ -111,6 +114,8 @@ export interface MosaicEdge extends Edge {
     markerEnd?: MarkerShape;
     pathType?: EdgePathType;
     animated?: boolean;
+    display?: EdgeDisplay;
+    labelEnd?: NetLabelEnd;
   };
 }
 

@@ -10,6 +10,7 @@
   import { workspace } from '$lib/stores/workspace.svelte';
   import { settings } from '$lib/stores/settings.svelte';
   import { edgeObstacles } from '$lib/stores/edge-obstacles.svelte';
+  import { netHover, netNameOf } from '$lib/stores/net-hover.svelte';
   import { hitsObstacle, roundedPath, routeOrthogonal, sampleBezier, sampleLine, type Point, type Side } from '@mosaicflow/vault-core';
 
   let {
@@ -40,6 +41,12 @@
 
   // data.pathType wins; otherwise the edge type itself ('default' means bezier)
   const pathType = $derived((data?.pathType as string) || (type && type !== 'default' ? type : 'bezier'));
+
+  // Net-label mode: no line, just a short stub and a named tag at each end (KiCad-style local label).
+  const asLabels = $derived(data?.display === 'label');
+  const netName = $derived(netNameOf(label));
+  const labelEnd = $derived((data?.labelEnd as string) || 'sharp');
+  const NET_STUB = 14;
 
   // Calculate the path and label position based on type
   const commonParams = $derived({
@@ -95,7 +102,7 @@
   $effect(() => {
     const key = [sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, pathType].join();
     void edgeObstacles.rects;
-    if (settings.current.canvas.edgeRouting !== 'smart') {
+    if (settings.current.canvas.edgeRouting !== 'smart' || asLabels) {
       routed = null;
       return;
     }
@@ -108,9 +115,30 @@
     return () => clearTimeout(timer);
   });
 
-  const edgePath = $derived(routed?.path ?? pathResult[0]);
+  const edgePath = $derived(asLabels ? stubPath() : (routed?.path ?? pathResult[0]));
   const labelX = $derived(routed?.mid.x ?? pathResult[1]);
   const labelY = $derived(routed?.mid.y ?? pathResult[2]);
+
+  function stubEnd(x: number, y: number, side: string) {
+    const [dx, dy] = DIRECTIONS[side] ?? [0, 0];
+    return { x: x + dx * NET_STUB, y: y + dy * NET_STUB };
+  }
+
+  function stubPath() {
+    const s = stubEnd(sourceX, sourceY, sourcePosition);
+    const t = stubEnd(targetX, targetY, targetPosition);
+    return `M ${sourceX} ${sourceY} L ${s.x} ${s.y} M ${targetX} ${targetY} L ${t.x} ${t.y}`;
+  }
+
+  const netTags = $derived(
+    asLabels
+      ? [
+          { key: 'source', side: sourcePosition as string, ...stubEnd(sourceX, sourceY, sourcePosition) },
+          { key: 'target', side: targetPosition as string, ...stubEnd(targetX, targetY, targetPosition) },
+        ]
+      : []
+  );
+  const netLit = $derived(asLabels && netHover.name === netName);
   
   // Get edge properties from data
   const strokeWidth = $derived((data?.strokeWidth as number) || 2);
@@ -126,8 +154,8 @@
   const startShape = $derived(shapeOf(data?.markerStart, markerStart));
   const endShape = $derived(shapeOf(data?.markerEnd, markerEnd));
   const markerBase = $derived(`mf-arrow-${id.replace(/[^A-Za-z0-9_-]/g, '_')}`);
-  const markerStartUrl = $derived(startShape === 'none' ? undefined : `url(#${markerBase}-start)`);
-  const markerEndUrl = $derived(endShape === 'none' ? undefined : `url(#${markerBase}-end)`);
+  const markerStartUrl = $derived(startShape === 'none' || asLabels ? undefined : `url(#${markerBase}-start)`);
+  const markerEndUrl = $derived(endShape === 'none' || asLabels ? undefined : `url(#${markerBase}-end)`);
 
   // Either end of a selected edge can be dragged onto another handle.
   let reconnecting = $state(false);
@@ -155,7 +183,7 @@
   const targetAnchor = $derived(anchorPoint(targetX, targetY, targetPosition, sourceX, sourceY));
 </script>
 
-<g class="glow-edge" class:selected class:reconnecting>
+<g class="glow-edge" class:selected class:reconnecting class:net-lit={netLit}>
   {#if markerStartUrl || markerEndUrl}
     <defs>
       {#each [['start', startShape, '5,-4 0,0 5,4'], ['end', endShape, '-5,-4 0,0 -5,4']] as [end, shape, points] (end)}
@@ -199,7 +227,7 @@
 </g>
 
 <!-- Edge label using EdgeLabel for proper positioning -->
-{#if label && !reconnecting}
+{#if label && !reconnecting && !asLabels}
   <EdgeLabel x={labelX} y={labelY} style={labelStyle} class="mf-edge-label" selectEdgeOnClick>
     <div 
       class="edge-label-content"
@@ -208,6 +236,29 @@
       {label}
     </div>
   </EdgeLabel>
+{/if}
+
+{#if !reconnecting}
+  {#each netTags as tag (tag.key)}
+    <EdgeLabel x={tag.x} y={tag.y} class="mf-net-label" selectEdgeOnClick>
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div
+        class="net-tag side-{tag.side} end-{labelEnd}"
+        class:lit={netLit}
+        class:selected
+        style="--c: {markerColor}; font-size: {labelFontSize}px;"
+        onmouseenter={(e) => netHover.enter(netName, id, tag.key as 'source' | 'target', e.currentTarget)}
+        onmouseleave={() => netHover.leave()}
+      >
+        {netName}
+        {#if labelEnd === 'sharp'}
+          <svg class="tip" viewBox="0 0 10 22" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M 0 0.75 L 9.25 11 L 0 21.25" />
+          </svg>
+        {/if}
+      </div>
+    </EdgeLabel>
+  {/each}
 {/if}
 
 {#if canReconnect}
@@ -263,5 +314,93 @@
     padding: 2px 6px;
     border-radius: 4px;
     border: 1px solid #1e1e1e;
+  }
+
+  .glow-edge.net-lit :global(.svelte-flow__edge-path) {
+    filter: drop-shadow(0 0 4px var(--mf-accent, #5b8def));
+  }
+
+  /* Net label: the tag starts at the stub end and points away from its node. */
+  .net-tag {
+    --bg: color-mix(in srgb, var(--c) 16%, #0d1117);
+    position: relative;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 9px;
+    border: 1.5px solid var(--c);
+    border-radius: 3px;
+    background: var(--bg);
+    color: color-mix(in srgb, var(--c) 70%, #ffffff);
+    font-family: var(--mf-font-mono);
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: box-shadow 0.15s, background 0.15s;
+  }
+
+  .net-tag.side-right { transform: translateX(50%); }
+  .net-tag.side-left { transform: translateX(-50%); }
+  .net-tag.side-top { transform: translateY(-50%); }
+  .net-tag.side-bottom { transform: translateY(50%); }
+
+  /* Sharp end: a triangle continues the outline into a tip on the side away from the node. */
+  .net-tag .tip {
+    position: absolute;
+    top: -1.5px;
+    width: 10px;
+    height: 22px;
+    overflow: visible;
+  }
+
+  .net-tag .tip path {
+    fill: var(--bg);
+    stroke: var(--c);
+    stroke-width: 1.5px;
+    vector-effect: non-scaling-stroke;
+    stroke-linejoin: round;
+  }
+
+  .net-tag.end-sharp:not(.side-left) {
+    margin-right: 10px;
+    border-right: none;
+    border-radius: 3px 0 0 3px;
+  }
+
+  .net-tag.end-sharp:not(.side-left) .tip {
+    right: -10px;
+  }
+
+  .net-tag.end-sharp.side-left {
+    margin-left: 10px;
+    border-left: none;
+    border-radius: 0 3px 3px 0;
+  }
+
+  .net-tag.end-sharp.side-left .tip {
+    left: -10px;
+    transform: scaleX(-1);
+  }
+
+  .net-tag.end-rounded:not(.side-left) {
+    border-radius: 3px 11px 11px 3px;
+  }
+
+  .net-tag.end-rounded.side-left {
+    border-radius: 11px 3px 3px 11px;
+  }
+
+  .net-tag.lit,
+  .net-tag.selected {
+    --bg: color-mix(in srgb, var(--c) 35%, #0d1117);
+    box-shadow: 0 0 14px var(--c);
+  }
+
+  :global(.svelte-flow__edge-label.mf-net-label) {
+    z-index: 2000 !important;
+    padding: 0 !important;
+    background: transparent !important;
   }
 </style>

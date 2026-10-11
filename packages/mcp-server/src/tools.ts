@@ -20,6 +20,11 @@ const edgeStyle = z
     start: z.enum(['none', 'arrow', 'arrowclosed']).optional(),
     end: z.enum(['none', 'arrow', 'arrowclosed']).optional(),
     width: z.number().positive().optional(),
+    display: z
+      .enum(['line', 'label'])
+      .optional()
+      .describe('"label" draws a named tag (the edge label) at each end instead of a line, like KiCad net labels: use it for long edges between distant parts of a canvas.'),
+    labelEnd: z.enum(['sharp', 'rounded', 'none']).optional().describe('End shape of the net-label tags'),
   })
   .optional();
 

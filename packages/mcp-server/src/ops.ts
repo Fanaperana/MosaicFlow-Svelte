@@ -38,6 +38,8 @@ import {
 
 const GROUP_PAD = { side: 30, top: 60, bottom: 30 };
 const FALLBACK_SIZE = { width: 300, height: 200 };
+/** Routes longer than this (px) are suggested as net labels by check_layout. */
+const LONG_EDGE = 2400;
 const SAFE_ID = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
 
 // What markdown fields (note.content, callout.content, notes, ...) render in the app.
@@ -61,6 +63,9 @@ export interface EdgeStyleInput {
   start?: EdgeLook['start'];
   end?: EdgeLook['end'];
   width?: number;
+  /** 'label' shows a named tag at each end instead of a line (KiCad-style net label). */
+  display?: 'line' | 'label';
+  labelEnd?: 'sharp' | 'rounded' | 'none';
 }
 
 export interface CreateNodeInput {
@@ -255,6 +260,8 @@ function applyEdgeStyle(e: StoredEdge, s: EdgeStyleInput, nodes: StoredNode[], e
   if (s.start) data.markerStart = s.start;
   if (s.end) data.markerEnd = s.end;
   if (s.animated !== undefined) data.animated = s.animated;
+  if (s.display) data.display = s.display;
+  if (s.labelEnd) data.labelEnd = s.labelEnd;
   e.data = data;
   e.animated = !!data.animated;
   if (s.path === 'auto') setEdgePath(e, autoPath(nodes, edges, e), false);
@@ -395,11 +402,13 @@ export class MosaicOps {
       .map((n) => ({ node: n.id, group: n.parentId! }));
 
     const edgeIssues: { edge: string; from?: Side; to?: Side; suggested: { from: Side; to: Side }; reason: string }[] = [];
+    const longEdges: { edge: string; length: number }[] = [];
     for (const e of edges) {
       if (e.data?.fixedSides || !rects.has(e.source) || !rects.has(e.target)) continue;
       const from = handleSide(e.sourceHandle);
       const to = handleSide(e.targetHandle);
       const best = pick(e.source, e.target, e.id);
+      if (e.data?.display !== 'label' && best.length > LONG_EDGE) longEdges.push({ edge: e.id, length: best.length });
       const suggested = { from: best.source, to: best.target };
       if (!from || !to) {
         edgeIssues.push({ edge: e.id, suggested, reason: 'missing handle sides' });
@@ -440,6 +449,9 @@ export class MosaicOps {
       overlaps: cap(overlaps),
       outsideGroup: cap(outside),
       edges: cap(edgeIssues),
+      ...(longEdges.length
+        ? { longEdges: cap(longEdges), longEdgeHint: 'These cross much of the canvas; consider style_edges with display "label" (net labels) for them.' }
+        : {}),
       ...(fix ? { fixed } : overlaps.length + outside.length + edgeIssues.length ? { hint: 'Call check_layout with fix: true to repair these.' } : {}),
     };
   }
@@ -754,6 +766,8 @@ export class MosaicOps {
     );
     // Sides the caller chose stay put when nodes move or the page is re-laid out; so does a chosen shape.
     if (input.sourceSide || input.targetSide) edge.data = { ...edge.data, fixedSides: true };
+    if (input.style?.display) edge.data = { ...edge.data, display: input.style.display };
+    if (input.style?.labelEnd) edge.data = { ...edge.data, labelEnd: input.style.labelEnd };
     const chosen = { source: handleSide(edge.sourceHandle)!, target: handleSide(edge.targetHandle)! };
     const rects = absoluteRects(nodes, FALLBACK_SIZE);
     const explicit = input.style?.path && input.style.path !== 'auto' ? input.style.path : undefined;

@@ -511,6 +511,31 @@
         </div>
 
         <div class="prop">
+          <span class="prop-label"><Tags size={14} />Show as</span>
+          <div class="seg">
+            <button type="button" class="seg-btn wide" class:active={selectedEdge.data?.display !== 'label'}
+              onclick={() => updateEdgeData('display', 'line')} title="Draw a line between the nodes">Line</button>
+            <button type="button" class="seg-btn wide" class:active={selectedEdge.data?.display === 'label'}
+              onclick={() => updateEdgeData('display', 'label')} title="Net labels: a named tag at each end instead of a long line">Labels</button>
+          </div>
+        </div>
+
+        {#if selectedEdge.data?.display === 'label'}
+          <div class="prop">
+            <span class="prop-label"><Tags size={14} />Label end</span>
+            <div class="seg">
+              {#each [['sharp', 'Sharp'], ['rounded', 'Rounded'], ['none', 'None']] as [value, title] (value)}
+                <button type="button" class="seg-btn wide" class:active={(selectedEdge.data?.labelEnd ?? 'sharp') === value}
+                  onclick={() => updateEdgeData('labelEnd', value)}>{title}</button>
+              {/each}
+            </div>
+          </div>
+          {#if !selectedEdge.label}
+            <p class="hint">The edge label names the net; without one the tags read "NET".</p>
+          {/if}
+        {/if}
+
+        <div class="prop">
           <span class="prop-label"><MoveHorizontal size={14} />Start</span>
           <div class="seg">
             {#each MARKERS as m (m)}
