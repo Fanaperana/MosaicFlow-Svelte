@@ -2,34 +2,39 @@
   import { ArrowRight } from 'lucide-svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { nodeRegistry } from '$lib/kernel/registries/node-registry';
-  import { netHover, netNameOf } from '$lib/stores/net-hover.svelte';
+  import { netHover, netMembers } from '$lib/stores/net-hover.svelte';
 
   const WIDTH = 260;
 
-  type Entry = { key: string; nodeId: string; title: string; type: string; sameEdge: boolean };
+  type Entry = { key: string; nodeId: string; title: string; type: string; detail: string; sameEdge: boolean };
 
-  // Every label of the hovered net except the hovered one itself, nodes of the same edge first.
+  // Every node on the hovered net except the one the hovered label sits on (no jumping to itself);
+  // one entry per node, the other end of the same edge first.
+  const all = $derived(netHover.anchor ? netMembers(netHover.name) : []);
   const entries = $derived.by((): Entry[] => {
     const anchor = netHover.anchor;
     if (!anchor) return [];
+    const anchorEdge = anchor.key.startsWith('edge:') ? anchor.key.split(':')[1] : undefined;
+    const ownNode = all.find((m) => m.key === anchor.key)?.nodeId;
+    const isSameEdge = (m: (typeof all)[number]) => !!m.edgeId && m.edgeId === anchorEdge;
+    const seen = new Set<string>();
     const out: Entry[] = [];
-    for (const e of workspace.edges) {
-      if (e.data?.display !== 'label' || netNameOf(e.label) !== netHover.name) continue;
-      for (const end of ['source', 'target'] as const) {
-        if (e.id === anchor.edgeId && end === anchor.end) continue;
-        const nodeId = end === 'source' ? e.source : e.target;
-        const node = workspace.getNode(nodeId);
-        if (!node) continue;
-        out.push({
-          key: `${e.id}:${end}`,
-          nodeId,
-          title: nodeRegistry.getDisplayName(node),
-          type: nodeRegistry.getLabel(node.type),
-          sameEdge: e.id === anchor.edgeId,
-        });
-      }
+    for (const m of [...all].sort((a, b) => Number(isSameEdge(b)) - Number(isSameEdge(a)))) {
+      if (m.nodeId === ownNode || seen.has(m.nodeId)) continue;
+      const node = workspace.getNode(m.nodeId);
+      if (!node) continue;
+      seen.add(m.nodeId);
+      const sameEdge = isSameEdge(m);
+      out.push({
+        key: m.key,
+        nodeId: m.nodeId,
+        title: nodeRegistry.getDisplayName(node),
+        type: nodeRegistry.getLabel(node.type),
+        detail: sameEdge ? 'other end' : m.side ? `${m.side} side` : '',
+        sameEdge,
+      });
     }
-    return out.sort((a, b) => Number(b.sameEdge) - Number(a.sameEdge));
+    return out;
   });
 
   const position = $derived.by(() => {
@@ -55,7 +60,7 @@
     onmouseenter={() => netHover.hold()}
     onmouseleave={() => netHover.leave()}
   >
-    <div class="head"><span class="net">{netHover.name}</span><span class="count">{entries.length + 1} labels</span></div>
+    <div class="head"><span class="net">{netHover.name}</span><span class="count">{all.length} label{all.length === 1 ? '' : 's'}</span></div>
     {#if entries.length}
       <ul>
         {#each entries as entry (entry.key)}
@@ -63,7 +68,7 @@
             <button onclick={() => go(entry.nodeId)} title="Go to {entry.title}">
               <span class="text">
                 <span class="title">{entry.title}</span>
-                <span class="meta">{entry.type}{entry.sameEdge ? ' · other end' : ''}</span>
+                <span class="meta">{entry.type}{entry.detail ? ` · ${entry.detail}` : ''}</span>
               </span>
               <ArrowRight size={13} />
             </button>
@@ -71,7 +76,7 @@
         {/each}
       </ul>
     {:else}
-      <p class="empty">No other label with this name.</p>
+      <p class="empty">No other node carries this label yet.</p>
     {/if}
   </div>
 {/if}

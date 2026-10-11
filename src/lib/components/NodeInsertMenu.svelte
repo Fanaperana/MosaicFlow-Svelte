@@ -2,6 +2,18 @@
   Notion-style block picker: type to filter, arrows to move, Enter to insert.
   Opened with "/" or a double-click on the canvas, the toolbar "+", or by dropping a connection.
 -->
+<script lang="ts" module>
+  import type { Tag } from 'lucide-svelte';
+
+  /** A non-block action listed above the blocks (e.g. "Local label"). */
+  export interface InsertExtra {
+    id: string;
+    label: string;
+    description: string;
+    icon: typeof Tag;
+  }
+</script>
+
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { Search } from 'lucide-svelte';
@@ -17,11 +29,16 @@
     y: number;
     heading?: string;
     filter?: (reg: NodeTypeRegistration) => boolean;
+    /** Actions shown first, before any block. */
+    extras?: InsertExtra[];
+    /** Block types listed right after the extras, in this order. */
+    prefer?: string[];
     onPick: (type: string) => void;
+    onExtra?: (id: string) => void;
     onClose: () => void;
   }
 
-  let { x, y, heading = 'Insert block', filter, onPick, onClose }: Props = $props();
+  let { x, y, heading = 'Insert block', filter, extras = [], prefer = [], onPick, onExtra, onClose }: Props = $props();
 
   const RECENT_KEY = 'mosaicflow:recent-node-types';
   const WIDTH = 300;
@@ -34,7 +51,7 @@
     custom: 'Plugins',
   };
 
-  type Entry = { reg: NodeTypeRegistration; section: string };
+  type Entry = { key: string; reg?: NodeTypeRegistration; extra?: InsertExtra; section: string };
 
   let query = $state('');
   let active = $state(0);
@@ -61,17 +78,27 @@
 
   let entries = $derived.by((): Entry[] => {
     const q = query.trim().toLowerCase();
+    const block = (reg: NodeTypeRegistration, section: string): Entry => ({ key: `${section}:${reg.type}`, reg, section });
     if (q) {
-      return available
-        .map((reg) => ({ reg, score: score(reg, q) }))
-        .filter((e) => e.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .map(({ reg }) => ({ reg, section: 'Results' }));
+      const matchingExtras = extras
+        .filter((e) => e.label.toLowerCase().includes(q) || e.description.toLowerCase().includes(q))
+        .map((extra): Entry => ({ key: `extra:${extra.id}`, extra, section: 'Results' }));
+      return [
+        ...matchingExtras,
+        ...available
+          .map((reg) => ({ reg, score: score(reg, q) }))
+          .filter((e) => e.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .map(({ reg }) => block(reg, 'Results')),
+      ];
     }
-    const out: Entry[] = recent.map((reg) => ({ reg, section: 'Recent' }));
+    const out: Entry[] = extras.map((extra) => ({ key: `extra:${extra.id}`, extra, section: 'Suggested' }));
+    const preferred = prefer.map((t) => available.find((r) => r.type === t)).filter((r): r is NodeTypeRegistration => !!r);
+    for (const reg of preferred) out.push(block(reg, 'Suggested'));
+    for (const reg of recent) if (!prefer.includes(reg.type)) out.push(block(reg, 'Recent'));
     const order = NODE_CATEGORIES.map((c) => c.id as string);
     const sorted = [...available].sort((a, b) => order.indexOf(a.category) - order.indexOf(b.category));
-    for (const reg of sorted) out.push({ reg, section: SECTION_LABELS[reg.category] ?? reg.category });
+    for (const reg of sorted) out.push(block(reg, SECTION_LABELS[reg.category] ?? reg.category));
     return out;
   });
 
@@ -104,6 +131,11 @@
     onPick(type);
   }
 
+  function choose(entry: Entry) {
+    if (entry.extra) onExtra?.(entry.extra.id);
+    else if (entry.reg) pick(entry.reg.type);
+  }
+
   async function move(delta: number) {
     if (entries.length === 0) return;
     active = (active + delta + entries.length) % entries.length;
@@ -121,7 +153,7 @@
       move(-1);
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (entries[active]) pick(entries[active].reg.type);
+      if (entries[active]) choose(entries[active]);
     } else if (e.key === 'Escape' || (e.key === 'Backspace' && query === '')) {
       e.preventDefault();
       onClose();
@@ -150,8 +182,9 @@
   </div>
 
   <div class="list" bind:this={listEl} role="listbox">
-    {#each entries as entry, i (entry.section + entry.reg.type)}
-      {@const Icon = ICON_COMPONENTS[entry.reg.iconName]}
+    {#each entries as entry, i (entry.key)}
+      {@const Icon = entry.extra ? entry.extra.icon : ICON_COMPONENTS[entry.reg!.iconName]}
+      {@const description = entry.extra ? entry.extra.description : entry.reg!.description}
       {#if i === 0 || entries[i - 1].section !== entry.section}
         <div class="section">{entry.section}</div>
       {/if}
@@ -161,13 +194,13 @@
         role="option"
         aria-selected={i === active}
         onpointerenter={() => (active = i)}
-        onclick={() => pick(entry.reg.type)}
+        onclick={() => choose(entry)}
       >
         <span class="icon">
-          {#if Icon}<Icon size={15} strokeWidth={1.7} />{:else}{entry.reg.colors.icon}{/if}
+          {#if Icon}<Icon size={15} strokeWidth={1.7} />{:else}{entry.reg?.colors.icon}{/if}
         </span>
-        <span class="label">{entry.reg.label}</span>
-        {#if entry.reg.description}<span class="desc">{entry.reg.description}</span>{/if}
+        <span class="label">{entry.extra ? entry.extra.label : entry.reg!.label}</span>
+        {#if description}<span class="desc">{description}</span>{/if}
       </button>
     {:else}
       <p class="empty">No blocks match "{query}"</p>

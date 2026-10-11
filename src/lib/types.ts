@@ -95,6 +95,15 @@ export type EdgePathType = 'bezier' | 'straight' | 'step' | 'smoothstep';
 /** 'label' draws a named tag at each end instead of a line (a KiCad-style net label). */
 export type EdgeDisplay = 'line' | 'label';
 export type NetLabelEnd = 'sharp' | 'rounded' | 'none';
+export type NodeSide = 'left' | 'right' | 'top' | 'bottom';
+
+/** A named tag on one side of a node; every label with the same name on a page is one net (many-to-many). */
+export interface NodeNetLabel {
+  id: string;
+  name: string;
+  side: NodeSide;
+  end?: NetLabelEnd;
+}
 
 export interface MosaicEdge extends Edge {
   label?: string;

@@ -13,6 +13,8 @@ import type {
   NodeType,
   MosaicNodeData,
   CanvasMode,
+  NodeNetLabel,
+  NodeSide,
 } from '$lib/types';
 import { DEFAULT_VIEWPORT } from '$lib/types';
 import { CANVAS_FILE, CANVAS_FORMAT_VERSION, type CanvasFile } from '@mosaicflow/vault-core';
@@ -381,6 +383,21 @@ class WorkspaceStore {
     if (this.workspacePath && updatedNode) {
       saveNodeProperties(updatedNode);
     }
+  }
+
+  /** Adds a net label to one side of a node (no-op when that side already has the name). */
+  addNetLabel(nodeId: string, side: NodeSide, name: string) {
+    const node = this.getNode(nodeId);
+    const trimmed = name.trim();
+    if (!node || !trimmed) return;
+    const labels = (node.data.netLabels as NodeNetLabel[] | undefined) ?? [];
+    if (labels.some((l) => l.side === side && l.name === trimmed)) return;
+    this.saveToHistory();
+    this.setNetLabels(nodeId, [...labels, { id: uuidv4(), name: trimmed, side, end: 'sharp' }]);
+  }
+
+  setNetLabels(nodeId: string, labels: NodeNetLabel[]) {
+    this.updateNodeData(nodeId, { netLabels: labels.length ? labels : undefined });
   }
 
   /**

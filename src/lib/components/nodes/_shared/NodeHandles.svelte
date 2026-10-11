@@ -9,6 +9,7 @@
 -->
 <script lang="ts">
   import { Handle, Position, useStore } from '@xyflow/svelte';
+  import NodeNetLabels from './NodeNetLabels.svelte';
 
   interface Props {
     /** Node id; enables the lightweight placeholders. Without it the real handles render directly. */
@@ -81,6 +82,10 @@
       ></div>
     {/each}
   {/each}
+{/if}
+
+{#if nodeId}
+  <NodeNetLabels {nodeId} />
 {/if}
 
 <style>

@@ -1,13 +1,13 @@
 <script lang="ts">
   import { workspace } from '$lib/stores/workspace.svelte';
-  import type { MosaicEdge, MarkerShape, EdgeStrokeStyle, EdgeType, EdgePathType, BaseNodeData } from '$lib/types';
+  import type { MosaicEdge, MarkerShape, EdgeStrokeStyle, EdgeType, EdgePathType, BaseNodeData, NodeNetLabel, NodeSide, NetLabelEnd } from '$lib/types';
   import { nodeRegistry, getIconByName } from '$lib/kernel/registries/node-registry';
   import { MarkerType } from '@xyflow/svelte';
   import {
     X, Copy, Check, Trash2, StickyNote, Link2, ExternalLink, Lock, Unlock, Eye, Pencil,
     AlignLeft, AlignCenter, AlignRight, Bold, Italic, Type, Baseline, Square, SquareRoundCorner,
     PaintBucket, Spline, Sparkles, MoveHorizontal, ArrowUpRight, CornerDownLeft, Tags, Text, Hash,
-    List, Calendar, FileText, SquareCheck, RotateCw, FlipHorizontal2, FlipVertical2, Clock, Scan, Ungroup
+    List, Calendar, FileText, SquareCheck, RotateCw, FlipHorizontal2, FlipVertical2, Clock, Scan, Ungroup, Tag, ChevronUp
   } from 'lucide-svelte';
   import { ColorInput } from '$lib/components/ui/color-picker';
   import { PropertyGroup } from '$lib/components/ui/property-group';
@@ -17,6 +17,7 @@
   import { vaultStore } from '$lib/stores/vault.svelte';
   import { openNode, openWikilink } from '$lib/services/navigation';
   import { extractTags } from '@mosaicflow/vault-core';
+  import { nodeNetLabels, netMembers } from '$lib/stores/net-hover.svelte';
 
   // Helper: Convert hex + opacity to RGBA string
   function hexToRgba(hex: string, opacity: number): string {
@@ -84,6 +85,7 @@
   let linksOpen = $state(true);
 
   let tagDraft = $state('');
+  let netDraft = $state('');
   let idCopied = $state(false);
   let linkCopied = $state(false);
 
@@ -119,6 +121,37 @@
 
   let canvasId = $derived(vaultStore.currentCanvas?.id ?? '');
   let nodeTags = $derived(selectedNode ? extractTags(selectedNode.data as Record<string, unknown>) : []);
+  let netLabels = $derived(selectedNode ? nodeNetLabels(selectedNode.data) : []);
+  const NET_SIDES: NodeSide[] = ['left', 'right', 'top', 'bottom'];
+  const NET_ENDS: [NetLabelEnd, string][] = [['sharp', 'Sharp'], ['rounded', 'Rounded'], ['none', 'None']];
+
+  function writeNetLabels(next: NodeNetLabel[]) {
+    if (!selectedNode) return;
+    workspace.saveToHistory();
+    workspace.setNetLabels(selectedNode.id, next);
+  }
+
+  function patchNetLabel(id: string, patch: Partial<NodeNetLabel>) {
+    if (patch.name !== undefined && !patch.name.trim()) return;
+    writeNetLabels(netLabels.map((l) => (l.id === id ? { ...l, ...patch, name: (patch.name ?? l.name).trim() } : l)));
+  }
+
+  /** Moves a label one place up within its own side's stack. */
+  function raiseNetLabel(id: string) {
+    const i = netLabels.findIndex((l) => l.id === id);
+    const side = netLabels[i]?.side;
+    let j = i - 1;
+    while (j >= 0 && netLabels[j].side !== side) j--;
+    if (j < 0) return;
+    const next = [...netLabels];
+    [next[i], next[j]] = [next[j], next[i]];
+    writeNetLabels(next);
+  }
+
+  function addNetLabelFromDraft() {
+    if (selectedNode && netDraft.trim()) workspace.addNetLabel(selectedNode.id, 'right', netDraft);
+    netDraft = '';
+  }
   let outgoing = $derived(selectedNode ? knowledge.index.outgoing(canvasId, selectedNode.id) : []);
   let backlinks = $derived(selectedNode ? knowledge.index.backlinks(canvasId, selectedNode.id) : []);
   let explicitTags = $derived(
@@ -769,6 +802,38 @@
         {:else}
           <p class="hint">No other node links here yet.</p>
         {/each}
+
+        <div class="sub-heading"><span>Local labels</span><span class="count">{netLabels.length}</span></div>
+        {#each netLabels as label, i (label.id)}
+          {@const others = new Set(netMembers(label.name).map((m) => m.nodeId).filter((id) => id !== selectedNode.id)).size}
+          <div class="net-row">
+            <Tag size={13} />
+            <input
+              class="pp-control net-name"
+              type="text"
+              maxlength="64"
+              value={label.name}
+              title="{others} other node{others === 1 ? '' : 's'} share this label"
+              onchange={(e) => patchNetLabel(label.id, { name: (e.target as HTMLInputElement).value })}
+            />
+            <select class="pp-control net-select" value={label.side} onchange={(e) => patchNetLabel(label.id, { side: (e.target as HTMLSelectElement).value as NodeSide })} aria-label="Side">
+              {#each NET_SIDES as side (side)}<option value={side}>{side}</option>{/each}
+            </select>
+            <select class="pp-control net-select" value={label.end ?? 'sharp'} onchange={(e) => patchNetLabel(label.id, { end: (e.target as HTMLSelectElement).value as NetLabelEnd })} aria-label="End">
+              {#each NET_ENDS as [value, title] (value)}<option {value}>{title}</option>{/each}
+            </select>
+            <button type="button" class="icon-btn" disabled={!netLabels.slice(0, i).some((l) => l.side === label.side)} onclick={() => raiseNetLabel(label.id)} title="Move up in its stack" aria-label="Move up"><ChevronUp size={12} /></button>
+            <button type="button" class="icon-btn" onclick={() => writeNetLabels(netLabels.filter((l) => l.id !== label.id))} title="Remove label" aria-label="Remove label"><X size={12} /></button>
+          </div>
+        {/each}
+        <input
+          class="pp-control net-add"
+          type="text"
+          maxlength="64"
+          bind:value={netDraft}
+          placeholder="Add a label… (nodes with the same label are linked)"
+          onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addNetLabelFromDraft(); } }}
+        />
       </PropertyGroup>
 
       <PropertyGroup title="Appearance" bind:open={appearanceOpen}>
@@ -1368,6 +1433,35 @@
 
   .icon-btn.on {
     color: var(--mf-accent);
+  }
+
+  .icon-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .net-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 1px 0 1px 6px;
+    color: var(--mf-text-3);
+  }
+
+  .net-row .net-name {
+    flex: 1;
+    min-width: 0;
+    margin-left: 4px;
+  }
+
+  .net-row .net-select {
+    flex: 0 0 76px;
+    width: 76px;
+    text-transform: capitalize;
+  }
+
+  .net-add {
+    margin-top: 2px;
   }
 
   .pp-title {

@@ -16,7 +16,7 @@
   import { workspace } from '$lib/stores/workspace.svelte';
   import { nodeRegistry } from '$lib/kernel/registries/node-registry';
   import { GlowEdge } from '$lib/components/edges';
-  import type { NodeType, MosaicNode, MosaicEdge } from '$lib/types';
+  import type { NodeType, NodeSide, MosaicNode, MosaicEdge } from '$lib/types';
   import { resolveCollisions, findNonOverlappingPosition } from '$lib/utils/resolve-collisions';
   import { calculateSnapGuides, calculateSelectionSnapGuides, calculateSnapOffset, calculateResizeSnap, type ResizeEdges, type SnapGuide } from '$lib/utils/snap-guides';
   import SnapGuides from '$lib/components/SnapGuides.svelte';
@@ -24,7 +24,8 @@
   import NodeListSidebar from '$lib/components/NodeListSidebar.svelte';
   import FlowHelper from '$lib/components/FlowHelper.svelte';
   import CanvasFilterBar from '$lib/components/CanvasFilterBar.svelte';
-  import NodeInsertMenu from '$lib/components/NodeInsertMenu.svelte';
+  import NodeInsertMenu, { type InsertExtra } from '$lib/components/NodeInsertMenu.svelte';
+  import NetLabelPicker from '$lib/components/NetLabelPicker.svelte';
   import { settings } from '$lib/stores/settings.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import { keybindings } from '$lib/kernel/keybindings.svelte';
@@ -53,6 +54,7 @@
     Link2,
     Lock,
     LockOpen,
+    Tag,
   } from 'lucide-svelte';
 
   // Custom edge types with glow effect on selection
@@ -501,6 +503,29 @@
     } else {
       pendingConnectionSource = null;
     }
+  }
+
+  // Dropping a connection offers a local label first: tag the dragged side with a net name instead of a node.
+  const EDGE_DROP_EXTRAS: InsertExtra[] = [
+    { id: 'net-label', label: 'Local label', description: 'Tag this side; same names are linked', icon: Tag },
+  ];
+  let labelPicker = $state<{ nodeId: string; side: NodeSide } | null>(null);
+
+  function handleEdgeDropExtra(id: string) {
+    if (id !== 'net-label' || !pendingConnectionSource) return;
+    const { nodeId, handleId, handleType } = pendingConnectionSource;
+    const side = handleId?.split('-')[0];
+    labelPicker = {
+      nodeId,
+      side: side === 'left' || side === 'right' || side === 'top' || side === 'bottom' ? side : handleType === 'source' ? 'right' : 'left',
+    };
+    edgeDropMenuOpen = false;
+    pendingConnectionSource = null;
+  }
+
+  function attachNetLabel(name: string) {
+    if (labelPicker) workspace.addNetLabel(labelPicker.nodeId, labelPicker.side, name);
+    labelPicker = null;
   }
 
   // Create node from edge drop and connect it
@@ -1117,8 +1142,20 @@
     y={edgeDropMenuPosition.y}
     heading="Add & connect"
     filter={(reg) => nodeRegistry.isConnectable(reg.type)}
+    extras={EDGE_DROP_EXTRAS}
+    prefer={['note']}
     onPick={createNodeFromEdgeDrop}
+    onExtra={handleEdgeDropExtra}
     onClose={() => { edgeDropMenuOpen = false; pendingConnectionSource = null; }}
+  />
+{/if}
+
+{#if labelPicker}
+  <NetLabelPicker
+    x={edgeDropMenuPosition.x}
+    y={edgeDropMenuPosition.y}
+    onPick={attachNetLabel}
+    onClose={() => (labelPicker = null)}
   />
 {/if}
 
