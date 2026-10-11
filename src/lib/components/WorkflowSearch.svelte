@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Search, X, FileText, StickyNote, Image, Link, Code, Clock, User, Building2, Globe, FileDigit, KeyRound, MessageSquare, Router, Camera, FolderOpen, MapPin, List, ChevronRight } from 'lucide-svelte';
+  import { Search, X, FileText, StickyNote, Image, Link, Code, Clock, User, Building2, Globe, FileDigit, KeyRound, MessageSquare, Router, Camera, FolderOpen, MapPin, List, ChevronRight, Tag } from 'lucide-svelte';
   import { vaultStore } from '$lib/stores/vault.svelte';
   import { knowledge } from '$lib/stores/knowledge.svelte';
   import { pageNav } from '$lib/stores/pages.svelte';
@@ -23,9 +23,11 @@
   let selectedIndex = $state(0);
 
   interface SearchResult {
-    type: 'canvas' | 'node';
+    type: 'canvas' | 'node' | 'label';
     canvas: CanvasInfo;
     node?: IndexedNode;
+    /** For labels: the label name and the nodes that carry it on this page. */
+    label?: { name: string; members: IndexedNode[] };
     matchedText?: string;
     score: number;
   }
@@ -93,6 +95,24 @@
       .map((r): SearchResult => ({ type: 'canvas', canvas: r.item, score: 0 }));
 
     const byId = new Map(vaultStore.canvases.map(c => [c.id, c]));
+    const q = query.trim().toLowerCase();
+    const nets = new Map<string, { name: string; canvasId: string; members: IndexedNode[] }>();
+    for (const n of knowledge.index.nodes) {
+      if (!byId.has(n.canvasId) || !Array.isArray(n.data.netLabels)) continue;
+      for (const l of n.data.netLabels as { name?: unknown }[]) {
+        const name = typeof l?.name === 'string' ? l.name : '';
+        if (!name || !name.toLowerCase().includes(q)) continue;
+        const key = `${n.canvasId}\u0000${name}`;
+        const net = nets.get(key) ?? { name, canvasId: n.canvasId, members: [] };
+        if (!net.members.includes(n)) net.members.push(n);
+        nets.set(key, net);
+      }
+    }
+    const labelHits = [...nets.values()]
+      .sort((a, b) => Number(b.name.toLowerCase() === q) - Number(a.name.toLowerCase() === q) || b.members.length - a.members.length)
+      .slice(0, 8)
+      .map((net): SearchResult => ({ type: 'label', canvas: byId.get(net.canvasId)!, label: { name: net.name, members: net.members }, score: 0 }));
+
     const nodeHits = knowledge.index.search(query, { limit: 40 })
       .filter(h => byId.has(h.node.canvasId))
       .map((h): SearchResult => ({
@@ -103,7 +123,7 @@
         score: h.score,
       }));
 
-    searchResults = [...canvasHits, ...nodeHits].slice(0, 30);
+    searchResults = [...canvasHits, ...labelHits, ...nodeHits].slice(0, 30);
     selectedIndex = 0;
     isSearching = false;
   }
@@ -133,6 +153,8 @@
   function handleResultClick(result: SearchResult) {
     if (result.type === 'canvas') {
       onCanvasSelect(result.canvas);
+    } else if (result.label) {
+      openNode(result.canvas.id, result.label.members[0].id);
     } else if (result.node) {
       openNode(result.node.canvasId, result.node.id);
     }
@@ -171,7 +193,7 @@
         <input
           bind:this={searchInputRef}
           type="text"
-          placeholder="Search canvases and nodes..."
+          placeholder="Search canvases, nodes and labels..."
           bind:value={searchQuery}
           onkeydown={handleKeydown}
           class="search-input"
@@ -207,8 +229,10 @@
         {:else}
           <div class="results-section">
             <div class="section-label">{searchResults.length} result{searchResults.length !== 1 ? 's' : ''}</div>
-            {#each searchResults as result, index (`${result.type}:${result.canvas.id}:${result.node?.id ?? ''}`)}
-              {@const IconComponent = result.type === 'node' && result.node 
+            {#each searchResults as result, index (`${result.type}:${result.canvas.id}:${result.node?.id ?? result.label?.name ?? ''}`)}
+              {@const IconComponent = result.type === 'label'
+                ? Tag
+                : result.type === 'node' && result.node
                 ? getNodeIcon(result.node.type) 
                 : FileText}
               <button
@@ -222,6 +246,13 @@
                   {#if result.type === 'canvas'}
                     <span class="result-title">{@html highlightMatch(result.canvas.name, searchQuery)}</span>
                     <span class="result-type">Canvas</span>
+                  {:else if result.label}
+                    <span class="result-title">{@html highlightMatch(result.label.name, searchQuery)}</span>
+                    <span class="result-snippet">{result.label.members.map((m) => m.title || m.id).join(' · ')}</span>
+                    <span class="result-meta">
+                      <span class="result-type">Local label · {result.label.members.length} node{result.label.members.length === 1 ? '' : 's'}</span>
+                      <span class="result-canvas">in {result.canvas.name}</span>
+                    </span>
                   {:else if result.node}
                     <span class="result-title">{@html highlightMatch(result.node.title || result.node.id, searchQuery)}</span>
                     {#if result.matchedText}

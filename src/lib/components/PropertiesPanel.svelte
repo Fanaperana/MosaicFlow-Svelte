@@ -127,6 +127,16 @@
   // The node whose labels are edited: the selected label's node, else the selected node.
   let labelOwner = $derived(workspace.selectedNetLabel ? workspace.getNode(workspace.selectedNetLabel.nodeId) ?? null : selectedNode);
   let netLabels = $derived(labelOwner ? nodeNetLabels(labelOwner.data) : []);
+  // Edges shown as labels also put a tag on this node.
+  let edgeNetLabels = $derived(
+    selectedNode ? workspace.edges.filter((e) => e.data?.display === 'label' && (e.source === selectedNode!.id || e.target === selectedNode!.id)) : []
+  );
+
+  function selectEdge(id: string) {
+    workspace.setSelectedNodes([]);
+    workspace.edges = workspace.edges.map((e) => (!!e.selected === (e.id === id) ? e : { ...e, selected: e.id === id }));
+    workspace.setSelectedEdges([id]);
+  }
   const NET_SIDES: NodeSide[] = ['left', 'right', 'top', 'bottom'];
   const NET_ENDS: [NetLabelEnd, string][] = [['sharp', 'Sharp'], ['rounded', 'Rounded'], ['none', 'Square']];
   const NET_END_SIDES: [NetLabelEndSide, string][] = [['outer', 'Outer end (away from the node)'], ['inner', 'Inner end (towards the node)'], ['both', 'Both ends']];
@@ -994,7 +1004,7 @@
           <p class="hint">No other node links here yet.</p>
         {/each}
 
-        <div class="sub-heading"><span>Local labels</span><span class="count">{netLabels.length}</span></div>
+        <div class="sub-heading"><span>Local labels</span><span class="count">{netLabels.length + edgeNetLabels.length}</span></div>
         {#each netLabels as label, i (label.id)}
           {@const others = new Set(netMembers(label.name).map((m) => m.nodeId).filter((id) => id !== selectedNode.id)).size}
           <div class="net-row">
@@ -1016,6 +1026,13 @@
             <button type="button" class="icon-btn" disabled={!netLabels.slice(0, i).some((l) => l.side === label.side)} onclick={() => raiseNetLabel(label.id)} title="Move up in its stack" aria-label="Move up"><ChevronUp size={12} /></button>
             <button type="button" class="icon-btn" onclick={() => writeNetLabels(netLabels.filter((l) => l.id !== label.id))} title="Remove label" aria-label="Remove label"><X size={12} /></button>
           </div>
+        {/each}
+        {#each edgeNetLabels as edge (edge.id)}
+          <button type="button" class="link-row" onclick={() => selectEdge(edge.id)} title="Edge shown as labels; click to edit the edge">
+            <Spline size={13} />
+            <span class="link-title">{netNameOf(edge.label)}</span>
+            <span class="link-canvas">edge</span>
+          </button>
         {/each}
         <input
           class="pp-control net-add"
