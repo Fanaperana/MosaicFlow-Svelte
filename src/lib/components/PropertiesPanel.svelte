@@ -7,7 +7,7 @@
     X, Copy, Check, Trash2, StickyNote, Link2, ExternalLink, Lock, Unlock, Eye, Pencil,
     AlignLeft, AlignCenter, AlignRight, Bold, Italic, Type, Baseline, Square, SquareRoundCorner,
     PaintBucket, Spline, Sparkles, MoveHorizontal, ArrowUpRight, CornerDownLeft, Tags, Text, Hash,
-    List, Calendar, FileText, SquareCheck, RotateCw, FlipHorizontal2, FlipVertical2, Clock, Scan, Ungroup, Tag, ChevronUp, ArrowLeft,
+    List, Calendar, FileText, SquareCheck, RotateCw, FlipHorizontal2, FlipVertical2, Clock, Scan, Ungroup, Tag, Unlink, ArrowLeft,
     ArrowLeftToLine, ArrowRightToLine, ArrowUpToLine, ArrowDownToLine, Palette
   } from 'lucide-svelte';
   import { ColorInput } from '$lib/components/ui/color-picker';
@@ -88,7 +88,6 @@
   let linksOpen = $state(true);
 
   let tagDraft = $state('');
-  let netDraft = $state('');
   let idCopied = $state(false);
   let linkCopied = $state(false);
 
@@ -189,6 +188,9 @@
     workspace.selectedNetLabel ? netLabels.find((l) => l.id === workspace.selectedNetLabel!.labelId) ?? null : null
   );
   let selectedNetCount = $derived(selectedNetLabel ? netMembers(selectedNetLabel.name).length : 0);
+  let selectedNetOrphan = $derived(
+    !!selectedNetLabel && !netMembers(selectedNetLabel.name).some((m) => m.nodeId !== workspace.selectedNetLabel?.nodeId)
+  );
 
   const EDGE_NET_KEYS = { labelEnd: 'end', labelEndSide: 'endSide', labelColor: 'textColor', labelBgColor: 'bgColor', labelFontSize: 'fontSize' } as const;
 
@@ -198,22 +200,6 @@
     if (selectedEdge?.data?.display === 'label') workspace.setNetStyle(netNameOf(selectedEdge.label), { [EDGE_NET_KEYS[key]]: value });
   }
 
-  /** Moves a label one place up within its own side's stack. */
-  function raiseNetLabel(id: string) {
-    const i = netLabels.findIndex((l) => l.id === id);
-    const side = netLabels[i]?.side;
-    let j = i - 1;
-    while (j >= 0 && netLabels[j].side !== side) j--;
-    if (j < 0) return;
-    const next = [...netLabels];
-    [next[i], next[j]] = [next[j], next[i]];
-    writeNetLabels(next);
-  }
-
-  function addNetLabelFromDraft() {
-    if (selectedNode && netDraft.trim()) workspace.addNetLabel(selectedNode.id, 'right', netDraft);
-    netDraft = '';
-  }
   let outgoing = $derived(selectedNode ? knowledge.index.outgoing(canvasId, selectedNode.id) : []);
   let backlinks = $derived(selectedNode ? knowledge.index.backlinks(canvasId, selectedNode.id) : []);
   let explicitTags = $derived(
@@ -559,8 +545,10 @@
 
       <div class="pp-bar-actions">
         {#if selectedNetLabel && !workspace.locked}
-          <FixedTooltip text="Remove label" position="bottom">
-            <button class="icon-btn danger" onclick={() => { const id = selectedNetLabel!.id; workspace.selectedNetLabel = null; writeNetLabels(netLabels.filter((l) => l.id !== id)); }} aria-label="Remove label"><Trash2 size={14} /></button>
+          <FixedTooltip text="Detach from {labelOwner?.data.title || 'this node'}" position="bottom">
+            <button class="icon-btn danger detach-btn" onclick={() => { const id = selectedNetLabel!.id; workspace.selectedNetLabel = null; writeNetLabels(netLabels.filter((l) => l.id !== id)); }} aria-label="Detach from {labelOwner?.data.title || 'this node'}">
+              <Trash2 size={14} class="at-rest" /><Unlink size={14} class="on-hover" />
+            </button>
           </FixedTooltip>
         {:else if selectedNode && !workspace.locked}
           <FixedTooltip text="Duplicate" position="bottom">
@@ -875,8 +863,8 @@
             </label>
           </span>
         </div>
-        <p class="hint">
-          {selectedNetCount > 1 ? `Shared by ${selectedNetCount} labels named "${label.name}": style changes apply to all of them.` : 'Labels with the same name share this style.'}
+        <p class="hint" class:warn={selectedNetOrphan}>
+          {selectedNetOrphan ? 'No other node has this label yet. Add it to another node to link them.' : `Shared by ${selectedNetCount} labels named "${label.name}": style changes apply to all of them.`}
         </p>
       </PropertyGroup>
     </div>
@@ -1005,27 +993,19 @@
         {/each}
 
         <div class="sub-heading"><span>Local labels</span><span class="count">{netLabels.length + edgeNetLabels.length}</span></div>
-        {#each netLabels as label, i (label.id)}
+        {#each netLabels as label (label.id)}
           {@const others = new Set(netMembers(label.name).map((m) => m.nodeId).filter((id) => id !== selectedNode.id)).size}
-          <div class="net-row">
-            <Tag size={13} />
-            <input
-              class="pp-control net-name"
-              type="text"
-              maxlength="64"
-              value={label.name}
-              title="{others} other node{others === 1 ? '' : 's'} share this label"
-              onchange={(e) => patchNetLabel(label.id, { name: (e.target as HTMLInputElement).value })}
-            />
-            <select class="pp-control net-select" value={label.side} onchange={(e) => patchNetLabel(label.id, { side: (e.target as HTMLSelectElement).value as NodeSide })} aria-label="Side">
-              {#each NET_SIDES as side (side)}<option value={side}>{side}</option>{/each}
-            </select>
-            <select class="pp-control net-select" value={label.end ?? 'sharp'} onchange={(e) => patchNetLabel(label.id, { end: (e.target as HTMLSelectElement).value as NetLabelEnd })} aria-label="End">
-              {#each NET_ENDS as [value, title] (value)}<option {value}>{title}</option>{/each}
-            </select>
-            <button type="button" class="icon-btn" disabled={!netLabels.slice(0, i).some((l) => l.side === label.side)} onclick={() => raiseNetLabel(label.id)} title="Move up in its stack" aria-label="Move up"><ChevronUp size={12} /></button>
-            <button type="button" class="icon-btn" onclick={() => writeNetLabels(netLabels.filter((l) => l.id !== label.id))} title="Remove label" aria-label="Remove label"><X size={12} /></button>
-          </div>
+          <button
+            type="button"
+            class="link-row net-link"
+            class:orphan={others === 0}
+            onclick={() => workspace.selectNetLabel(selectedNode.id, label.id)}
+            title={others === 0 ? 'No other node has this label yet' : `Linked to ${others} other node${others === 1 ? '' : 's'}; click to edit the label`}
+          >
+            <span class="net-icon"><Tag size={13} /></span>
+            <span class="link-title">{label.name}</span>
+            <span class="link-canvas">{label.side}</span>
+          </button>
         {/each}
         {#each edgeNetLabels as edge (edge.id)}
           <button type="button" class="link-row" onclick={() => selectEdge(edge.id)} title="Edge shown as labels; click to edit the edge">
@@ -1033,15 +1013,11 @@
             <span class="link-title">{netNameOf(edge.label)}</span>
             <span class="link-canvas">edge</span>
           </button>
+        {:else}
+          {#if !netLabels.length}
+            <p class="hint">Drag from a connection point and choose "Local label" to add one.</p>
+          {/if}
         {/each}
-        <input
-          class="pp-control net-add"
-          type="text"
-          maxlength="64"
-          bind:value={netDraft}
-          placeholder="Add a label… (nodes with the same label are linked)"
-          onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addNetLabelFromDraft(); } }}
-        />
       </PropertyGroup>
 
       <PropertyGroup title="Appearance" bind:open={appearanceOpen}>
@@ -1673,29 +1649,46 @@
     cursor: default;
   }
 
-  .net-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 2px;
-    padding: 1px 0 1px 6px;
-    color: var(--mf-text-3);
+  /* Trash at rest, an unlink icon on hover: the label is detached from this node, not deleted everywhere. */
+  .detach-btn :global(.on-hover),
+  .detach-btn:hover :global(.at-rest) {
+    display: none;
   }
 
-  .net-row .net-name {
-    flex: 1 1 calc(100% - 24px);
-    min-width: 0;
-    margin-left: 4px;
+  .detach-btn:hover :global(.on-hover) {
+    display: inline;
   }
 
-  .net-row .net-select {
-    flex: 1 1 0;
-    min-width: 64px;
+  .net-icon {
+    position: relative;
+    display: grid;
+  }
+
+  .net-link {
+    text-transform: none;
+  }
+
+  .net-link .link-canvas {
     text-transform: capitalize;
   }
 
-  .net-add {
-    margin-top: 2px;
+  .net-link.orphan .net-icon {
+    color: var(--mf-danger);
+  }
+
+  .net-link.orphan .net-icon::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--mf-danger);
+  }
+
+  .hint.warn {
+    color: var(--mf-danger);
   }
 
   .pp-title {

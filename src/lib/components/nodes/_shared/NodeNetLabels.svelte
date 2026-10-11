@@ -6,7 +6,7 @@
 -->
 <script lang="ts">
   import { workspace } from '$lib/stores/workspace.svelte';
-  import { netHover, nodeNetLabels } from '$lib/stores/net-hover.svelte';
+  import { netHover, netMembers, nodeNetLabels } from '$lib/stores/net-hover.svelte';
   import NetTag from './NetTag.svelte';
   import type { NodeNetLabel, NodeSide } from '$lib/types';
 
@@ -20,6 +20,8 @@
   const labels = $derived(nodeNetLabels(node?.data));
   const color = $derived((node?.data.borderColor as string | undefined) || 'var(--mf-accent, #5b8def)');
   const selectedId = $derived(workspace.selectedNetLabel?.nodeId === nodeId ? workspace.selectedNetLabel.labelId : null);
+  // Labels whose name no other node carries: a net needs at least a pair.
+  const orphans = $derived(new Set(labels.filter((l) => !netMembers(l.name).some((m) => m.nodeId !== nodeId)).map((l) => l.id)));
 
   let root = $state<HTMLDivElement>();
   let size = $state({ w: 0, h: 0 });
@@ -222,6 +224,7 @@
               fontSize={label.fontSize}
               lit={netHover.name === label.name}
               selected={selectedId === label.id}
+              orphan={orphans.has(label.id)}
               data-label-id={label.id}
               data-side={side}
               class="{dragging?.id === label.id ? 'dragging' : ''} {dragging && dragging.side === side && dragging.over === i ? 'drop-before' : ''} {dragging && dragging.side === side && dragging.over === stack.length && i === stack.length - 1 ? 'drop-after' : ''}"
@@ -229,7 +232,7 @@
               onclick={(e) => e.stopPropagation()}
               onmouseenter={(e) => !dragging && !rewire && netHover.enter(label.name, `node:${nodeId}:${label.id}`, e.currentTarget)}
               onmouseleave={() => netHover.leave()}
-              title="Click to edit, drag to reorder"
+              title={orphans.has(label.id) ? 'No other node has this label yet: add it to another node to link them' : 'Click to edit, drag to reorder'}
             />
           {/each}
         </div>

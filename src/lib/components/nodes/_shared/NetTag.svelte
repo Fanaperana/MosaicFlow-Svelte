@@ -19,9 +19,11 @@
     bgColor?: string;
     /** Shift the tag so its near edge sits on the anchor point (for tags centred on a point, e.g. edge labels). */
     offset?: boolean;
+    /** No other node carries this label yet: flagged with a red badge. */
+    orphan?: boolean;
   }
 
-  let { name, side, end = 'sharp', endSide = 'outer', color, lit = false, selected = false, fontSize = 12, textColor, bgColor, offset = false, class: className = '', ...rest }: Props = $props();
+  let { name, side, end = 'sharp', endSide = 'outer', color, lit = false, selected = false, fontSize = 12, textColor, bgColor, offset = false, orphan = false, class: className = '', ...rest }: Props = $props();
 
   // Left-side tags point left, so their outer end is the physical left one.
   const outerIsLeft = $derived(side === 'left');
@@ -54,6 +56,9 @@
     <svg class="tip right" viewBox="0 0 10 22" preserveAspectRatio="none" aria-hidden="true">
       <path d="M 0 0.75 L 9.25 11 L 0 21.25" />
     </svg>
+  {/if}
+  {#if orphan}
+    <span class="orphan-badge" class:left={outerIsLeft} aria-label="Needs a pair">!</span>
   {/if}
 </div>
 
@@ -138,5 +143,38 @@
   .net-tag.selected {
     --bg: var(--fill, color-mix(in srgb, var(--c) 35%, #0d1117));
     box-shadow: 0 0 14px var(--c);
+  }
+
+  /* On the outer end, clear of the node and its wire. */
+  .orphan-badge {
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 13px;
+    height: 13px;
+    border: 1.5px solid #0d1117;
+    border-radius: 50%;
+    background: var(--mf-danger, #ef6461);
+    color: #fff;
+    font-family: var(--mf-font-ui);
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .orphan-badge.left {
+    right: auto;
+    left: -7px;
+  }
+
+  .net-tag.r-sharp .orphan-badge:not(.left) {
+    right: -14px;
+  }
+
+  .net-tag.l-sharp .orphan-badge.left {
+    left: -14px;
   }
 </style>

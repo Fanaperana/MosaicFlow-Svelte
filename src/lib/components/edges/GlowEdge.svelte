@@ -48,7 +48,7 @@
   const asLabels = $derived(data?.display === 'label');
   const netName = $derived(netNameOf(label));
   const labelEnd = $derived((data?.labelEnd as string) || 'sharp');
-  const NET_STUB = 14;
+  const NET_STUB = 22;
 
   // Calculate the path and label position based on type
   const commonParams = $derived({
@@ -325,5 +325,11 @@
     z-index: 2000 !important;
     padding: 0 !important;
     background: transparent !important;
+    /* The wrapper stays centred on the stub end while the tag is shifted outward; only the tag takes the pointer, so the handle stays draggable. */
+    pointer-events: none !important;
+  }
+
+  :global(.svelte-flow__edge-label.mf-net-label .net-tag) {
+    pointer-events: auto;
   }
 </style>
