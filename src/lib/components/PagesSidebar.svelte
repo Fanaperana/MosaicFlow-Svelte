@@ -12,6 +12,7 @@
   import { settings } from '$lib/stores/settings.svelte';
   import { keybindings } from '$lib/kernel/keybindings.svelte';
   import { confirmDanger } from '$lib/utils/confirm';
+  import { pageOrder } from '$lib/stores/page-order.svelte';
 
   interface Props {
     onSearch: () => void;
@@ -31,8 +32,51 @@
   // The open page's lock changes before canvas.json is re-read, so use the live workspace value for it.
   const isLocked = (canvas: CanvasInfo) => (canvas.id === currentId ? workspace.locked : !!canvas.locked);
 
+  $effect(() => {
+    void pageOrder.load(vaultStore.currentVaultPath);
+  });
+  const pages = $derived(pageOrder.sort(vaultStore.canvases));
+
+  // Drag a page up or down to reorder; a short press still opens it.
+  const DRAG_THRESHOLD = 4;
+  let listEl = $state<HTMLDivElement>();
+  let drag = $state<{ id: string; over: number } | null>(null);
+  let press: { id: string; y: number } | null = null;
+  let suppressClick = false;
+
+  function onRowPointerDown(e: PointerEvent, canvas: CanvasInfo) {
+    if (e.button !== 0 || renamingId === canvas.id || (e.target as HTMLElement).closest('button, input')) return;
+    press = { id: canvas.id, y: e.clientY };
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp, { once: true });
+  }
+
+  function onPointerMove(e: PointerEvent) {
+    if (!press || !listEl) return;
+    if (!drag && Math.abs(e.clientY - press.y) < DRAG_THRESHOLD) return;
+    const rows = [...listEl.querySelectorAll<HTMLElement>('.ps-row.page')];
+    const over = rows.filter((r) => {
+      const b = r.getBoundingClientRect();
+      return b.top + b.height / 2 < e.clientY;
+    }).length;
+    drag = { id: press.id, over };
+  }
+
+  function onPointerUp() {
+    window.removeEventListener('pointermove', onPointerMove);
+    const done = drag;
+    press = null;
+    drag = null;
+    if (!done) return;
+    suppressClick = true;
+    setTimeout(() => (suppressClick = false));
+    const from = pages.findIndex((c) => c.id === done.id);
+    const to = done.over > from ? done.over - 1 : done.over;
+    if (to !== from) void pageOrder.move(pages, done.id, to);
+  }
+
   function open(canvas: CanvasInfo) {
-    if (renamingId === canvas.id || canvas.id === currentId) return;
+    if (suppressClick || renamingId === canvas.id || canvas.id === currentId) return;
     vaultStore.openCanvas(canvas);
   }
 
@@ -95,13 +139,19 @@
         <button class="ps-heading-btn" onclick={onNewCanvas} title="New page" aria-label="New page"><Plus size={13} /></button>
       </div>
 
-      {#each vaultStore.canvases as canvas (canvas.id)}
+      <div class="ps-page-list" bind:this={listEl}>
+      {#each pages as canvas, i (canvas.id)}
         <div
           class="ps-row page"
           class:active={canvas.id === currentId}
+          class:dragging={drag?.id === canvas.id}
+          class:drop-before={drag && drag.over === i}
+          class:drop-after={drag && drag.over === pages.length && i === pages.length - 1}
           role="button"
           tabindex="0"
           aria-current={canvas.id === currentId ? 'page' : undefined}
+          title="Drag to reorder"
+          onpointerdown={(e) => onRowPointerDown(e, canvas)}
           onclick={() => open(canvas)}
           ondblclick={() => startRename(canvas)}
           onkeydown={(e) => {
@@ -136,6 +186,7 @@
           {/if}
         </div>
       {/each}
+      </div>
 
       <button class="ps-row muted" onclick={onNewCanvas}>
         <Plus size={14} /><span class="ps-label">New page</span>
@@ -292,6 +343,18 @@
 
   .ps-row.muted {
     color: var(--mf-text-3);
+  }
+
+  .ps-row.page.dragging {
+    opacity: 0.45;
+  }
+
+  .ps-row.page.drop-before {
+    box-shadow: inset 0 2px 0 0 var(--mf-accent);
+  }
+
+  .ps-row.page.drop-after {
+    box-shadow: inset 0 -2px 0 0 var(--mf-accent);
   }
 
   .ps-page-icon {
