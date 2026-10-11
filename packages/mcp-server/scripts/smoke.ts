@@ -63,6 +63,11 @@ async function main() {
 
     const e = await call('connect', { canvas: 'MCP Test', source: a.id, target: b.id, label: 'enables' });
     assert(e.sourceSide === 'right' && e.targetSide === 'left', 'facing handles picked automatically');
+    assert(['straight', 'bezier', 'smoothstep', 'step'].includes(e.path), 'edge shape picked automatically');
+    const forced = await call('update_edge', { canvas: 'MCP Test', id: e.id, style: { path: 'step', stroke: 'dashed' } });
+    assert(forced.path === 'step', 'update_edge forces a shape');
+    const restyled = await call('style_edges', { canvas: 'MCP Test', style: { path: 'auto' } });
+    assert(restyled.styled === 1 && !restyled.paths.step, 'style_edges hands the shape back to auto');
     assert(await callError('connect', { canvas: 'MCP Test', source: a.id, target: b.id }), 'duplicate edge rejected');
     assert(await callError('connect', { canvas: 'MCP Test', source: a.id, target: a.id }), 'self-loop rejected');
 

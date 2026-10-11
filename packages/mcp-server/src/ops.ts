@@ -54,7 +54,8 @@ const MARKDOWN_GUIDE = {
 export interface EdgeStyleInput {
   color?: string;
   palette?: string;
-  path?: EdgeLook['path'];
+  /** 'auto' (or omitted) picks the shape from the geometry; anything else is kept through re-layouts. */
+  path?: EdgeLook['path'] | 'auto';
   stroke?: EdgeLook['stroke'];
   animated?: boolean;
   start?: EdgeLook['start'];
@@ -140,7 +141,18 @@ function pushOverlappedSiblings(nodes: StoredNode[], id: string, gap = 40): Stor
 
 function edgeLook(style: EdgeStyleInput = {}, fallbackColor = '#94a3b8'): EdgeLook {
   const color = style.color ?? (style.palette && isPaletteName(style.palette) ? paletteColor(style.palette) : fallbackColor);
-  return { color, path: style.path, stroke: style.stroke, animated: style.animated, start: style.start, end: style.end, width: style.width };
+  return { color, path: style.path === 'auto' ? undefined : style.path, stroke: style.stroke, animated: style.animated, start: style.start, end: style.end, width: style.width };
+}
+
+type EdgePath = NonNullable<EdgeLook['path']>;
+
+/** Sets an edge's shape; `fixed` marks a shape the caller chose so re-layouts keep it. */
+function setEdgePath(e: StoredEdge, path: EdgePath, fixed: boolean) {
+  e.type = path === 'bezier' ? 'default' : path;
+  const data: Record<string, unknown> = { ...(e.data ?? {}), pathType: path };
+  if (fixed) data.fixedPath = true;
+  else delete data.fixedPath;
+  e.data = data;
 }
 
 // Default sizes ignore the text, so long notes and code would be clipped and then grow over their neighbours in the app.
@@ -180,18 +192,23 @@ function sidePicker(nodes: StoredNode[], edges: StoredEdge[]) {
   return Object.assign(pick, { rects, obstaclesFor });
 }
 
-/** Straight when the two handles face each other on one line, a rounded step otherwise. */
-function pathFor(a: { x: number; y: number; width: number; height: number }, b: typeof a, sides: { source: Side; target: Side }) {
+/**
+ * Edge shape from the geometry: straight when the handles face each other on one line, a step for a drop
+ * into a row below or above, a bezier for a short hop, and a rounded step for longer routes with turns.
+ */
+function pathFor(a: { x: number; y: number; width: number; height: number }, b: typeof a, sides: SideChoice): EdgePath {
   const p = handlePoint(a, sides.source);
   const q = handlePoint(b, sides.target);
   const horizontal = (sides.source === 'right' && sides.target === 'left') || (sides.source === 'left' && sides.target === 'right');
   const vertical = (sides.source === 'bottom' && sides.target === 'top') || (sides.source === 'top' && sides.target === 'bottom');
-  const aligned = (horizontal && Math.abs(p.y - q.y) < 24) || (vertical && Math.abs(p.x - q.x) < 24);
-  return aligned ? 'straight' : 'smoothstep';
+  if ((horizontal && Math.abs(p.y - q.y) < 24) || (vertical && Math.abs(p.x - q.x) < 24)) return 'straight';
+  if (vertical) return 'step';
+  if (sides.bends <= 2 && sides.length > 0 && sides.length < 360) return 'bezier';
+  return 'smoothstep';
 }
 
-/** Re-picks the sides of edges (except ones whose sides were set explicitly); returns the changed edges. */
-function rerouteEdges(nodes: StoredNode[], edges: StoredEdge[], which: (e: StoredEdge) => boolean, setPath: (e: StoredEdge) => boolean) {
+/** Re-picks sides (unless pinned) and shapes (unless chosen by the caller) of the matching edges; returns the changed ones. */
+function rerouteEdges(nodes: StoredNode[], edges: StoredEdge[], which: (e: StoredEdge) => boolean) {
   const changed: StoredEdge[] = [];
   const rects = absoluteRects(nodes, FALLBACK_SIZE);
   // Usage is read live, so each edge sees the sides already taken by the previous ones.
@@ -204,15 +221,44 @@ function rerouteEdges(nodes: StoredNode[], edges: StoredEdge[], which: (e: Store
     let dirty = e.sourceHandle !== sourceHandle || e.targetHandle !== targetHandle;
     e.sourceHandle = sourceHandle;
     e.targetHandle = targetHandle;
-    if (setPath(e)) {
+    if (!e.data?.fixedPath) {
       const path = pathFor(rects.get(e.source)!, rects.get(e.target)!, sides);
       if (e.data?.pathType !== path) dirty = true;
-      e.type = path;
-      e.data = { ...(e.data ?? {}), pathType: path };
+      setEdgePath(e, path, false);
     }
     if (dirty) changed.push(e);
   }
   return changed;
+}
+
+/** The automatic shape for an edge with its current sides. */
+function autoPath(nodes: StoredNode[], edges: StoredEdge[], e: StoredEdge): EdgePath {
+  const pick = sidePicker(nodes, edges);
+  const a = pick.rects.get(e.source);
+  const b = pick.rects.get(e.target);
+  const source = handleSide(e.sourceHandle);
+  const target = handleSide(e.targetHandle);
+  if (!a || !b || !source || !target) return 'smoothstep';
+  const cost = routeCost(a, source, b, target, pick.obstaclesFor(e.source, e.target)) ?? { length: 0, bends: 99 };
+  return pathFor(a, b, { source, target, ...cost });
+}
+
+function applyEdgeStyle(e: StoredEdge, s: EdgeStyleInput, nodes: StoredNode[], edges: StoredEdge[]) {
+  const data = { ...(e.data ?? {}) };
+  if (s.color || s.palette) {
+    const color = edgeLook(s, String(data.color ?? '#94a3b8')).color;
+    data.color = color;
+    data.labelColor = color;
+  }
+  if (s.stroke) data.strokeStyle = s.stroke;
+  if (s.width) data.strokeWidth = s.width;
+  if (s.start) data.markerStart = s.start;
+  if (s.end) data.markerEnd = s.end;
+  if (s.animated !== undefined) data.animated = s.animated;
+  e.data = data;
+  e.animated = !!data.animated;
+  if (s.path === 'auto') setEdgePath(e, autoPath(nodes, edges, e), false);
+  else if (s.path) setEdgePath(e, s.path, true);
 }
 
 export class MosaicOps {
@@ -381,7 +427,7 @@ export class MosaicOps {
       for (const { group } of outside) await this.growToFit(repo, nodes, group);
       fixed += outside.length;
       const flagged = new Set(edgeIssues.map((i) => i.edge));
-      for (const e of rerouteEdges(nodes, edges, (x) => flagged.has(x.id), () => false)) {
+      for (const e of rerouteEdges(nodes, edges, (x) => flagged.has(x.id))) {
         await repo.writeEdge(e);
         fixed++;
       }
@@ -630,7 +676,7 @@ export class MosaicOps {
     if (oldParent !== node.parentId) await this.growToFit(repo, nodes, oldParent);
     if (input.size || input.position || input.parentId !== undefined) {
       const edges = await repo.readAllEdges();
-      for (const e of rerouteEdges(nodes, edges, (e) => e.source === node.id || e.target === node.id, () => false)) await repo.writeEdge(e);
+      for (const e of rerouteEdges(nodes, edges, (e) => e.source === node.id || e.target === node.id)) await repo.writeEdge(e);
     }
     await this.vault.touchCanvas(entry);
     return { id: node.id, ...absoluteRects(nodes, FALLBACK_SIZE).get(node.id)! };
@@ -706,46 +752,52 @@ export class MosaicOps {
       `${input.targetSide ?? sides.target}-target`,
       edgeLook(input.style, targetBorder)
     );
-    // Sides the caller chose stay put when nodes move or the page is re-laid out.
+    // Sides the caller chose stay put when nodes move or the page is re-laid out; so does a chosen shape.
     if (input.sourceSide || input.targetSide) edge.data = { ...edge.data, fixedSides: true };
+    const chosen = { source: handleSide(edge.sourceHandle)!, target: handleSide(edge.targetHandle)! };
+    const rects = absoluteRects(nodes, FALLBACK_SIZE);
+    const explicit = input.style?.path && input.style.path !== 'auto' ? input.style.path : undefined;
+    setEdgePath(edge, explicit ?? pathFor(rects.get(source.id)!, rects.get(target.id)!, { ...sides, ...chosen }), !!explicit);
     await repo.writeEdge(edge);
     await this.vault.touchCanvas(entry);
-    const chosen = { source: handleSide(edge.sourceHandle)!, target: handleSide(edge.targetHandle)! };
-    return { id, sourceSide: chosen.source, targetSide: chosen.target, routeLength: sides.length, bends: sides.bends };
+    return { id, sourceSide: chosen.source, targetSide: chosen.target, path: edge.data!.pathType, routeLength: sides.length, bends: sides.bends };
   }
 
   async updateEdge(input: { canvas: string; id: string; label?: string; style?: EdgeStyleInput; sourceSide?: Side; targetSide?: Side }) {
-    const { entry, repo } = await this.vault.openCanvas(input.canvas);
-    const edge = await repo.readEdge(input.id);
+    const { entry, repo, nodes } = await this.open(input.canvas);
+    const edges = await repo.readAllEdges();
+    const edge = edges.find((e) => e.id === input.id);
     if (!edge) throw new Error(`Edge "${input.id}" not found`);
-    const data = { ...(edge.data ?? {}) };
-    const s = input.style ?? {};
-    if (s.color || s.palette) {
-      const color = edgeLook(s, String(data.color ?? '#94a3b8')).color;
-      data.color = color;
-      data.labelColor = color;
-    }
-    if (s.path) data.pathType = s.path;
-    if (s.stroke) data.strokeStyle = s.stroke;
-    if (s.width) data.strokeWidth = s.width;
-    if (s.start) data.markerStart = s.start;
-    if (s.end) data.markerEnd = s.end;
-    if (s.animated !== undefined) data.animated = s.animated;
-    if (input.sourceSide || input.targetSide) data.fixedSides = true;
-
-    const pathType = String(data.pathType ?? 'bezier');
-    const next: StoredEdge = {
-      ...edge,
-      ...(input.label !== undefined ? { label: input.label } : {}),
-      ...(input.sourceSide ? { sourceHandle: `${input.sourceSide}-source` } : {}),
-      ...(input.targetSide ? { targetHandle: `${input.targetSide}-target` } : {}),
-      type: pathType === 'bezier' ? 'default' : pathType,
-      animated: !!data.animated,
-      data,
-    };
-    await repo.writeEdge(next);
+    if (input.label !== undefined) edge.label = input.label;
+    if (input.sourceSide) edge.sourceHandle = `${input.sourceSide}-source`;
+    if (input.targetSide) edge.targetHandle = `${input.targetSide}-target`;
+    if (input.sourceSide || input.targetSide) edge.data = { ...(edge.data ?? {}), fixedSides: true };
+    applyEdgeStyle(edge, input.style ?? {}, nodes, edges);
+    // New sides change the best automatic shape too.
+    if ((input.sourceSide || input.targetSide) && !edge.data?.fixedPath) setEdgePath(edge, autoPath(nodes, edges, edge), false);
+    await repo.writeEdge(edge);
     await this.vault.touchCanvas(entry);
-    return { id: next.id };
+    return { id: edge.id, path: edge.data?.pathType, from: handleSide(edge.sourceHandle), to: handleSide(edge.targetHandle) };
+  }
+
+  /** Applies one style to many edges: all of a canvas, or those matching ids, a node they touch or a label. */
+  async styleEdges(input: { canvas: string; edgeIds?: string[]; node?: string; label?: string; style: EdgeStyleInput }) {
+    const { entry, repo, nodes } = await this.open(input.canvas);
+    const edges = await repo.readAllEdges();
+    const label = input.label?.trim().toLowerCase();
+    const matches = edges.filter((e) =>
+      (!input.edgeIds || input.edgeIds.includes(e.id)) &&
+      (!input.node || e.source === input.node || e.target === input.node) &&
+      (!label || String(e.label ?? '').trim().toLowerCase() === label)
+    );
+    for (const e of matches) {
+      applyEdgeStyle(e, input.style, nodes, edges);
+      await repo.writeEdge(e);
+    }
+    await this.vault.touchCanvas(entry);
+    const paths: Record<string, number> = {};
+    for (const e of matches) paths[String(e.data?.pathType)] = (paths[String(e.data?.pathType)] ?? 0) + 1;
+    return { styled: matches.length, paths };
   }
 
   async deleteEdge(canvas: string, id: string) {
@@ -868,13 +920,11 @@ export class MosaicOps {
     }
 
     const edgeIds: string[] = [];
-    const explicitPaths = new Set<string>();
     const warnings: string[] = [];
     for (const e of edges) {
       try {
         const created = await this.connect({ canvas, source: ids.get(e.from)!, target: ids.get(e.to)!, label: e.label, style: e.style });
         edgeIds.push(created.id);
-        if (e.style?.path) explicitPaths.add(created.id);
       } catch (error) {
         warnings.push(`${e.from} -> ${e.to}: ${error instanceof Error ? error.message : String(error)}`);
       }
@@ -889,7 +939,7 @@ export class MosaicOps {
           if (!order.includes(id)) order.push(id);
         }
         for (const g of groups) if (!order.includes(ids.get(g.key)!)) order.push(ids.get(g.key)!);
-        await this.arrangePage(canvas, order, explicitPaths, input.layout ?? 'TB');
+        await this.arrangePage(canvas, order, input.layout ?? 'TB');
       } else {
         for (const g of groups) {
           if (input.nodes.filter((n) => n.group === g.key).length >= 2) {
@@ -916,9 +966,9 @@ export class MosaicOps {
    * 1. inside groups: a flow layout when members link to each other, otherwise rows;
    * 2. top-level blocks (groups and loose nodes) layered along their connections, unconnected blocks in a side column;
    * 3. members of link-free groups re-ordered to line up with what they connect to (fewer crossings);
-   * 4. every edge leaves from the side facing its partner; straight when aligned, step otherwise.
+   * 4. every edge gets the sides with the cleanest route and a shape from its geometry (unless the caller chose them).
    */
-  private async arrangePage(canvas: string, order: string[], explicitPaths: Set<string>, direction: 'LR' | 'TB') {
+  private async arrangePage(canvas: string, order: string[], direction: 'LR' | 'TB') {
     const { entry, repo, nodes } = await this.open(canvas);
     const edges = await repo.readAllEdges();
     const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -996,7 +1046,7 @@ export class MosaicOps {
 
     for (const gid of containers) await this.growToFit(repo, nodes, gid);
     for (const n of nodes) await repo.writeNode(n);
-    rerouteEdges(nodes, edges, () => true, (e) => !explicitPaths.has(e.id));
+    rerouteEdges(nodes, edges, () => true);
     for (const e of edges) await repo.writeEdge(e);
     await this.vault.touchCanvas(entry);
   }
@@ -1062,7 +1112,7 @@ export class MosaicOps {
     await this.growToFit(repo, nodes, parentId);
 
     // Re-pick handles for edges touching the moved nodes, now that they sit somewhere else.
-    const rerouted = rerouteEdges(nodes, edges, (e) => !!owner(e.source) || !!owner(e.target), () => false);
+    const rerouted = rerouteEdges(nodes, edges, (e) => !!owner(e.source) || !!owner(e.target));
     for (const e of rerouted) await repo.writeEdge(e);
     await this.vault.touchCanvas(entry);
     return { moved: targets.length, reroutedEdges: rerouted.length };

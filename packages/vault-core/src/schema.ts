@@ -44,7 +44,7 @@ export const DESIGN_GUIDE: DesignGuide = {
     'Put timelines on one horizontal row, oldest on the left; store dates at 12:00 UTC so they do not shift a day in other time zones.',
     'Keep edge labels to 1-3 words; colour edges by the target category.',
     'Edges that would cross a card are routed around it automatically; still leave 120-180px between columns and rows so lines and labels have a visible lane.',
-    'Pick the path type by geometry: straight for neighbours on the same row or column, step for vertical drops into a row below (person -> their year), smoothstep for cross-column links that must turn a corner, bezier for short diagonal hops.',
+    'Edge shapes are picked from the geometry when style.path is omitted (straight when aligned, step for a drop into a row, bezier for a short hop, smoothstep for longer routes). Force one with style.path, or restyle many edges at once with style_edges (path "auto" hands the choice back).',
     'Encode meaning in the stroke: solid = factual relation, dashed = reference/source, dotted + animated = sequence or flow (timeline "then" links), both-end arrows = mutual relation.',
     'Several edges leaving one node are spread over different handle sides automatically; run check_layout after building to confirm nothing overlaps or takes a detour.',
     'Order nodes so the main flow does not cross itself (e.g. people left-to-right in the same order as their dates on the timeline below).',

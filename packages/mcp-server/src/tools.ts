@@ -11,7 +11,10 @@ const edgeStyle = z
   .object({
     color: z.string().optional().describe('Stroke colour (hex). Defaults to the target node border colour.'),
     palette: palette.optional(),
-    path: z.enum(['bezier', 'straight', 'step', 'smoothstep']).optional(),
+    path: z
+      .enum(['auto', 'bezier', 'straight', 'step', 'smoothstep'])
+      .optional()
+      .describe('Edge shape. Omit or "auto" to pick from the geometry (straight when aligned, step for a drop into a row, bezier for a short hop, smoothstep otherwise); a named shape is kept through re-layouts.'),
     stroke: z.enum(['solid', 'dashed', 'dotted']).optional(),
     animated: z.boolean().optional(),
     start: z.enum(['none', 'arrow', 'arrowclosed']).optional(),
@@ -182,6 +185,19 @@ export function registerTools(server: McpServer, ops: MosaicOps) {
     inputSchema: { canvas, id: z.string(), label: z.string().optional(), sourceSide: side.optional(), targetSide: side.optional(), style: edgeStyle },
     annotations: write,
   }, (args) => run(() => ops.updateEdge(args)));
+
+  server.registerTool('style_edges', {
+    title: 'Style edges',
+    description: 'Apply one style (shape, stroke, colour, arrows, animation) to many edges at once: every edge of the canvas, or only edgeIds, edges touching node, or edges with a given label. Use path "auto" to let each edge pick its shape from the geometry again.',
+    inputSchema: {
+      canvas,
+      edgeIds: z.array(z.string()).optional(),
+      node: z.string().optional().describe('Only edges to or from this node id'),
+      label: z.string().optional().describe('Only edges with this label (case-insensitive)'),
+      style: edgeStyle.unwrap(),
+    },
+    annotations: write,
+  }, (args) => run(() => ops.styleEdges(args)));
 
   server.registerTool('delete_edge', {
     title: 'Delete edge',
