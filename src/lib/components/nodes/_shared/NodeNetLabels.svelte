@@ -5,8 +5,10 @@
   handle. Hovering lights the whole net and opens the list of its other labels.
 -->
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { netHover, netMembers, nodeNetLabels } from '$lib/stores/net-hover.svelte';
+  import { netLabelRects } from '$lib/stores/net-label-rects.svelte';
   import NetTag from './NetTag.svelte';
   import type { NodeNetLabel, NodeSide } from '$lib/types';
 
@@ -62,21 +64,28 @@
     const rr = root.getBoundingClientRect();
     const scale = scaleOf(root);
     const out: Record<string, { x: number; y: number }> = {};
+    const boxes: { x: number; y: number; width: number; height: number }[] = [];
     for (const el of root.querySelectorAll<HTMLElement>('[data-label-id]')) {
       const r = el.getBoundingClientRect();
       const side = el.dataset.side as NodeSide;
       const x = side === 'right' ? r.left : side === 'left' ? r.right : r.left + r.width / 2;
       const y = side === 'bottom' ? r.top : side === 'top' ? r.bottom : r.top + r.height / 2;
       out[el.dataset.labelId!] = { x: (x - rr.left) / scale, y: (y - rr.top) / scale };
+      // Widened by the tips (10px each side), which overflow the tag's box.
+      boxes.push({ x: (r.left - rr.left) / scale - 10, y: (r.top - rr.top) / scale, width: r.width / scale + 20, height: r.height / scale });
     }
     size = { w: root.offsetWidth, h: root.offsetHeight };
     anchors = out;
+    netLabelRects.set(nodeId, boxes);
   }
+
+  $effect(() => () => netLabelRects.set(nodeId, []));
 
   $effect(() => {
     void labels;
     void node?.width;
     void node?.height;
+    if (!labels.length) untrack(() => netLabelRects.set(nodeId, []));
     if (!root || !labels.length) return;
     const frame = requestAnimationFrame(measure);
     const observer = new ResizeObserver(() => measure());

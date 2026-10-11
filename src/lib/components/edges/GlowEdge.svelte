@@ -11,6 +11,7 @@
   import { settings } from '$lib/stores/settings.svelte';
   import { edgeObstacles } from '$lib/stores/edge-obstacles.svelte';
   import { netHover, netNameOf } from '$lib/stores/net-hover.svelte';
+  import { netLabelRects } from '$lib/stores/net-label-rects.svelte';
   import NetTag from '$lib/components/nodes/_shared/NetTag.svelte';
   import type { NetLabelEnd, NetLabelEndSide, NodeSide } from '$lib/types';
   import { hitsObstacle, roundedPath, routeOrthogonal, sampleBezier, sampleLine, type Point, type Side } from '@mosaicflow/vault-core';
@@ -121,6 +122,36 @@
   const labelX = $derived(routed?.mid.x ?? pathResult[1]);
   const labelY = $derived(routed?.mid.y ?? pathResult[2]);
 
+  // Node net labels win: a line's label slides along its path (or steps aside) until it clears them.
+  const LABEL_GAP = 6;
+  let measurer: SVGPathElement | undefined;
+  const labelPos = $derived.by(() => {
+    const base = { x: labelX, y: labelY };
+    const tags = netLabelRects.absolute;
+    if (!label || asLabels || !tags.length) return base;
+    const w = String(label).length * labelFontSize * 0.62 + 18;
+    const h = labelFontSize + 10;
+    const clear = (p: { x: number; y: number }) =>
+      !tags.some((r) =>
+        p.x - w / 2 < r.x + r.width + LABEL_GAP && r.x - LABEL_GAP < p.x + w / 2 &&
+        p.y - h / 2 < r.y + r.height + LABEL_GAP && r.y - LABEL_GAP < p.y + h / 2);
+    if (clear(base)) return base;
+    measurer ??= document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    measurer.setAttribute('d', edgePath);
+    const length = measurer.getTotalLength();
+    for (const t of [0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.12, 0.88]) {
+      const p = measurer.getPointAtLength(length * t);
+      if (clear(p)) return { x: p.x, y: p.y };
+    }
+    for (let step = 1; step <= 4; step++) {
+      for (const dir of [1, -1]) {
+        const p = { x: base.x, y: base.y + dir * step * (h + LABEL_GAP) };
+        if (clear(p)) return p;
+      }
+    }
+    return base;
+  });
+
   function stubEnd(x: number, y: number, side: string) {
     const [dx, dy] = DIRECTIONS[side] ?? [0, 0];
     return { x: x + dx * NET_STUB, y: y + dy * NET_STUB };
@@ -230,7 +261,7 @@
 
 <!-- Edge label using EdgeLabel for proper positioning -->
 {#if label && !reconnecting && !asLabels}
-  <EdgeLabel x={labelX} y={labelY} style={labelStyle} class="mf-edge-label" selectEdgeOnClick>
+  <EdgeLabel x={labelPos.x} y={labelPos.y} style={labelStyle} class="mf-edge-label" selectEdgeOnClick>
     <div 
       class="edge-label-content"
       style="background: {labelBgColor}; color: {labelColor}; font-size: {labelFontSize}px;"
