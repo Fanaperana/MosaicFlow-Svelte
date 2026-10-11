@@ -84,6 +84,8 @@ export interface AppSettings {
     keyboardNav: 'spatial' | 'connected';
     scrollFade: boolean;
     touchDragPans: boolean;
+    /** 'smart' routes edges around nodes instead of across them. */
+    edgeRouting: 'smart' | 'direct';
   };
   /** Command id -> chords; only commands the user changed are stored. */
   keybindings: Record<string, string[]>;
@@ -116,7 +118,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   canvas: {
     background: 'dots', gridSize: 20, snapToGrid: false, showMinimap: true, showControls: true, doubleClickInsert: true,
     propertiesOnSelect: 'wide', propertiesView: 'auto', peekOnAlt: true, escapeRestoresView: true, autoHidePagesOnNarrow: true,
-    pageOpenView: 'restore', keyboardNav: 'spatial', scrollFade: true, touchDragPans: true,
+    pageOpenView: 'restore', keyboardNav: 'spatial', scrollFade: true, touchDragPans: true, edgeRouting: 'smart',
   },
   keybindings: {},
   mcp: { enabled: false, port: 4317, key: '', requireKey: true, allowKeyInUrl: false },

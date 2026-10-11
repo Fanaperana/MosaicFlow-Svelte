@@ -370,6 +370,14 @@
             {@render toggle(s.canvas.doubleClickInsert, (v) => settings.update('canvas', { doubleClickInsert: v }), 'Double-click to insert')}
           </div>
           <div class="row">
+            <div class="text"><span>Edge routing</span><small>"Around nodes" bends edges around blocks instead of drawing them across.</small></div>
+            <div class="seg">
+              {#each [['smart', 'Around nodes'], ['direct', 'Direct']] as [value, label] (value)}
+                <button class:active={s.canvas.edgeRouting === value} onclick={() => settings.update('canvas', { edgeRouting: value as 'smart' | 'direct' })}>{label}</button>
+              {/each}
+            </div>
+          </div>
+          <div class="row">
             <div class="text"><span>Open properties on select</span><small>"Wide windows" keeps the canvas uncluttered on small screens. E or Ctrl+Shift+\ always toggles it.</small></div>
             <div class="seg">
               {#each [['always', 'Always'], ['wide', 'Wide windows'], ['never', 'Never']] as [value, label] (value)}

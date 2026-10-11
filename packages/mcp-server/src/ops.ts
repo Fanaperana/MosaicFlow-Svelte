@@ -10,6 +10,7 @@ import {
   importMermaid,
   boundsOf,
   buildEdge,
+  estimateTextSize,
   facingSides,
   findFreePosition,
   isPaletteName,
@@ -112,6 +113,17 @@ function uniqueId(base: string, taken: Set<string>): string {
 function edgeLook(style: EdgeStyleInput = {}, fallbackColor = '#94a3b8'): EdgeLook {
   const color = style.color ?? (style.palette && isPaletteName(style.palette) ? paletteColor(style.palette) : fallbackColor);
   return { color, path: style.path, stroke: style.stroke, animated: style.animated, start: style.start, end: style.end, width: style.width };
+}
+
+// Default sizes ignore the text, so long notes and code would be clipped and then grow over their neighbours in the app.
+function fitContent(base: { width: number; height: number }, data: Record<string, unknown> = {}) {
+  let height = base.height;
+  if (typeof data.content === 'string' && data.content) {
+    const diagrams = data.content.match(/```mermaid/g)?.length ?? 0;
+    height = Math.max(height, estimateTextSize(data.content, base.width).height + diagrams * 260);
+  }
+  if (typeof data.code === 'string' && data.code) height = Math.max(height, data.code.split('\n').length * 18 + 70);
+  return { width: base.width, height: Math.min(height, 1600) };
 }
 
 export class MosaicOps {
@@ -335,7 +347,7 @@ export class MosaicOps {
       throw new Error(`Unknown palette "${input.palette}". Use one of: ${Object.keys(DESIGN_GUIDE.palette).join(', ')}`);
     }
 
-    const size = input.size ?? schema?.defaultSize ?? FALLBACK_SIZE;
+    const size = input.size ?? fitContent(schema?.defaultSize ?? FALLBACK_SIZE, input.data);
     const container = await this.isContainer(input.type);
     const style = input.palette && isPaletteName(input.palette)
       ? (container ? paletteGroup(input.palette) : paletteCard(input.palette, { text: input.palette === 'amber' }))

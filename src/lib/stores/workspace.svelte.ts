@@ -383,6 +383,50 @@ class WorkspaceStore {
     }
   }
 
+  /**
+   * Makes a node taller without covering its neighbours: siblings it now overlaps move down (and the
+   * ones they then overlap), and enclosing groups grow and push their own siblings the same way.
+   */
+  growNode(id: string, height: number) {
+    const GAP = 20;
+    const GROUP_PAD_BOTTOM = 30;
+    const heightOf = (n: MosaicNode) => n.height ?? n.measured?.height ?? 0;
+    const node = this.getNode(id);
+    if (!node || height <= heightOf(node)) return;
+    this.updateNode(id, { height });
+
+    let current: string | undefined = id;
+    for (let depth = 0; current && depth < 10; depth++) {
+      this.pushOverlappedSiblings(current, GAP);
+      const parentId: string | undefined = this.getNode(current)?.parentId;
+      const parent: MosaicNode | undefined = parentId ? this.getNode(parentId) : undefined;
+      if (!parent) break;
+      const kids = this.nodes.filter((k) => k.parentId === parent.id);
+      const needed = Math.max(...kids.map((k) => k.position.y + heightOf(k))) + GROUP_PAD_BOTTOM;
+      if (needed <= heightOf(parent)) break;
+      this.updateNode(parent.id, { height: needed });
+      current = parent.id;
+    }
+  }
+
+  private pushOverlappedSiblings(id: string, gap: number) {
+    const widthOf = (n: MosaicNode) => n.width ?? n.measured?.width ?? 0;
+    const heightOf = (n: MosaicNode) => n.height ?? n.measured?.height ?? 0;
+    const queue = [id];
+    for (let guard = 0; queue.length && guard < 1000; guard++) {
+      const a = this.getNode(queue.shift()!);
+      if (!a) continue;
+      const bottom = a.position.y + heightOf(a);
+      for (const b of this.nodes) {
+        if (b.id === a.id || b.parentId !== a.parentId || b.position.y < a.position.y) continue;
+        const sideBySide = a.position.x < b.position.x + widthOf(b) && b.position.x < a.position.x + widthOf(a);
+        if (!sideBySide || b.position.y >= bottom) continue;
+        this.updateNode(b.id, { position: { x: b.position.x, y: bottom + gap } });
+        queue.push(b.id);
+      }
+    }
+  }
+
   // Update node data
   updateNodeData(id: string, dataUpdates: Partial<MosaicNodeData>) {
     if (this.settings.locked) return;

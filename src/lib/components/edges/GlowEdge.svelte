@@ -8,9 +8,14 @@
 <script lang="ts">
   import { BaseEdge, EdgeLabel, EdgeReconnectAnchor, getBezierPath, getStraightPath, getSmoothStepPath, type EdgeProps } from '@xyflow/svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
+  import { settings } from '$lib/stores/settings.svelte';
+  import { edgeObstacles } from '$lib/stores/edge-obstacles.svelte';
+  import { hitsObstacle, roundedPath, routeOrthogonal, sampleBezier, sampleLine, type Point, type Side } from '$lib/utils/edge-router';
 
   let {
     id,
+    source,
+    target,
     sourceX,
     sourceY,
     targetX,
@@ -66,9 +71,46 @@
     }
   });
 
-  const edgePath = $derived(pathResult[0]);
-  const labelX = $derived(pathResult[1]);
-  const labelY = $derived(pathResult[2]);
+  // Smart routing: step edges always go around nodes; curved and straight edges only when they would cross one.
+  // Computed after the canvas settles (not every drag frame); until then the plain path is drawn.
+  const ROUTE_DELAY = 120;
+  let routed = $state<{ path: string; mid: Point } | null>(null);
+  let routedFor = '';
+
+  function route(): { path: string; mid: Point } | null {
+    const obstacles = [...edgeObstacles.rects].filter(([nodeId]) => nodeId !== source && nodeId !== target).map(([, r]) => r);
+    const s = { x: sourceX, y: sourceY };
+    const t = { x: targetX, y: targetY };
+    const sSide = sourcePosition as Side;
+    const tSide = targetPosition as Side;
+    const orthogonal = pathType === 'step' || pathType === 'smoothstep';
+    if (!orthogonal) {
+      const samples = pathType === 'straight' ? sampleLine(s, t) : sampleBezier(s, sSide, t, tSide);
+      if (!hitsObstacle(samples, obstacles)) return null;
+    }
+    const points = routeOrthogonal(s, sSide, t, tSide, obstacles);
+    return points ? roundedPath(points, pathType === 'step' ? 0 : 10) : null;
+  }
+
+  $effect(() => {
+    const key = [sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, pathType].join();
+    void edgeObstacles.rects;
+    if (settings.current.canvas.edgeRouting !== 'smart') {
+      routed = null;
+      return;
+    }
+    // A moved end makes the old route wrong; other changes keep it until the new one is ready.
+    if (key !== routedFor) routed = null;
+    const timer = setTimeout(() => {
+      routed = route();
+      routedFor = key;
+    }, ROUTE_DELAY);
+    return () => clearTimeout(timer);
+  });
+
+  const edgePath = $derived(routed?.path ?? pathResult[0]);
+  const labelX = $derived(routed?.mid.x ?? pathResult[1]);
+  const labelY = $derived(routed?.mid.y ?? pathResult[2]);
   
   // Get edge properties from data
   const strokeWidth = $derived((data?.strokeWidth as number) || 2);

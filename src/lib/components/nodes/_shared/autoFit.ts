@@ -58,7 +58,7 @@ export function autoFit(element: HTMLElement, options: AutoFitOptions) {
     lastOverflow = overflow;
     const height = node.height ?? flowNode?.offsetHeight;
     if (!height || height >= MAX_AUTO_HEIGHT) return;
-    workspace.updateNode(nodeId, { height: Math.min(height + overflow, MAX_AUTO_HEIGHT) });
+    workspace.growNode(nodeId, Math.min(height + overflow, MAX_AUTO_HEIGHT));
   }
 
   function schedule() {
