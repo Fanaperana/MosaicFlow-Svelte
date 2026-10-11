@@ -1,7 +1,7 @@
 <script lang="ts">
   import { NodeToolbar, Position, useSvelteFlow } from '@xyflow/svelte';
   import { Trash2, Palette, ZoomIn, Settings2, Copy, Lock, Unlock, Pipette } from 'lucide-svelte';
-  import SimpleTooltip from '$lib/components/ui/SimpleTooltip.svelte';
+  import SimpleTooltip from '$lib/components/ui/AppTooltip.svelte';
   import { workspace } from '$lib/stores/workspace.svelte';
   import ColorPicker from 'svelte-awesome-color-picker';
 

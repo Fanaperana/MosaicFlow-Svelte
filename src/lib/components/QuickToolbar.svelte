@@ -5,7 +5,7 @@
   } from '$lib/kernel/registries/node-registry';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { findNonOverlappingPosition } from '$lib/utils/resolve-collisions';
-  import SimpleTooltip from '$lib/components/ui/SimpleTooltip.svelte';
+  import SimpleTooltip from '$lib/components/ui/AppTooltip.svelte';
   import { 
     MousePointer2, 
     Hand, 

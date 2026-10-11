@@ -24,7 +24,7 @@
   import { exportJsonCanvasDialog } from '$lib/services/interopService';
   import { workspace } from '$lib/stores/workspace.svelte';
   import { pageNav } from '$lib/stores/pages.svelte';
-  import SimpleTooltip from '$lib/components/ui/SimpleTooltip.svelte';
+  import SimpleTooltip from '$lib/components/ui/AppTooltip.svelte';
   import { keybindings } from '$lib/kernel/keybindings.svelte';
   import { getIconByName } from '$lib/kernel/registries/node-registry';
   import { panels } from '$lib/stores/panels.svelte';

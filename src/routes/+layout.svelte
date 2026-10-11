@@ -7,6 +7,8 @@
   import { settings } from '$lib/stores/settings.svelte';
   import { registerCoreCommands } from '$lib/commands/core';
   import { registerCoreThemes } from '$lib/services/themes';
+  import * as Tooltip from '$lib/components/ui/tooltip';
+  import GlobalTooltip from '$lib/components/ui/GlobalTooltip.svelte';
 
   let { children }: { children: Snippet } = $props();
   let pluginsReady = $state(false);
@@ -28,6 +30,9 @@
     style: 'background: #1a1a1a; border: 1px solid #333; color: #fff;',
   }}
 />
-{#if pluginsReady}
-  {@render children()}
-{/if}
+<Tooltip.Provider delayDuration={300} skipDelayDuration={400}>
+  {#if pluginsReady}
+    {@render children()}
+  {/if}
+</Tooltip.Provider>
+<GlobalTooltip />

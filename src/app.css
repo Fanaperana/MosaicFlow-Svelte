@@ -205,6 +205,47 @@ select option:disabled {
   color: var(--mf-text-3);
 }
 
+/* The one tooltip look: ui/tooltip, SimpleTooltip, FixedTooltip and title="" tooltips (GlobalTooltip). */
+.mf-tooltip {
+  position: relative;
+  z-index: 99999;
+  width: max-content;
+  max-width: 280px;
+  padding: 4px 8px;
+  border: 1px solid #2a2a3a;
+  border-radius: 6px;
+  background: #1a1a24;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  color: #fafafa;
+  font-family: var(--mf-font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: pre-line;
+  pointer-events: none;
+  animation: mf-tooltip-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes mf-tooltip-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: none; }
+}
+
+.mf-tooltip-arrow {
+  position: absolute;
+  z-index: -1;
+  width: 8px;
+  height: 8px;
+  border: 1px solid #2a2a3a;
+  background: #1a1a24;
+  transform: rotate(45deg);
+}
+
+.mf-tooltip[data-side='bottom'] > .mf-tooltip-arrow { top: -4.5px; left: calc(50% - 4px); border-right: none; border-bottom: none; }
+.mf-tooltip[data-side='top'] > .mf-tooltip-arrow { bottom: -4.5px; left: calc(50% - 4px); border-top: none; border-left: none; }
+.mf-tooltip[data-side='right'] > .mf-tooltip-arrow { left: -4.5px; top: calc(50% - 4px); border-top: none; border-right: none; }
+.mf-tooltip[data-side='left'] > .mf-tooltip-arrow { right: -4.5px; top: calc(50% - 4px); border-bottom: none; border-left: none; }
+
 /* Settings → Appearance → Reduce motion */
 html.reduce-motion *,
 html.reduce-motion *::before,
