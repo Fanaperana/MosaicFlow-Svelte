@@ -162,7 +162,7 @@ export function registerTools(server: McpServer, ops: MosaicOps) {
 
   server.registerTool('connect', {
     title: 'Connect nodes',
-    description: 'Add a labelled edge. Handle sides are chosen from the node positions unless given. Keep labels to 1-3 words.',
+    description: 'Add a labelled edge. Leave sourceSide/targetSide out: the server picks the handle sides with the shortest route around other nodes and spreads edges over unused sides (the result reports them). Pass sides only to force them; forced sides are kept on later re-layouts. Keep labels to 1-3 words.',
     inputSchema: {
       canvas,
       source: z.string(),
@@ -178,7 +178,7 @@ export function registerTools(server: McpServer, ops: MosaicOps) {
 
   server.registerTool('update_edge', {
     title: 'Update edge',
-    description: 'Change an edge label, sides or style.',
+    description: 'Change an edge label, sides or style. Setting a side pins both sides of the edge; otherwise they are re-picked when nodes move.',
     inputSchema: { canvas, id: z.string(), label: z.string().optional(), sourceSide: side.optional(), targetSide: side.optional(), style: edgeStyle },
     annotations: write,
   }, (args) => run(() => ops.updateEdge(args)));
@@ -210,6 +210,13 @@ export function registerTools(server: McpServer, ops: MosaicOps) {
     inputSchema: { canvas, parentId: z.string().optional(), nodeIds: z.array(z.string()).optional(), direction: z.enum(['LR', 'TB']).optional(), mode: z.enum(['layered', 'wrap']).optional() },
     annotations: write,
   }, (args) => run(() => ops.autoLayout(args)));
+
+  server.registerTool('check_layout', {
+    title: 'Check layout',
+    description: 'Review how a canvas looks: overlapping nodes, nodes sticking out of their group, and edges whose handle sides give a long or blocked route (with the suggested sides). Call it after building or editing a canvas; fix: true repairs everything it reports.',
+    inputSchema: { canvas, fix: z.boolean().optional() },
+    annotations: write,
+  }, ({ canvas: ref, fix }) => run(() => ops.checkLayout(ref, fix ?? false)));
 
   server.registerTool('import_mermaid', {
     title: 'Create canvas from Mermaid',

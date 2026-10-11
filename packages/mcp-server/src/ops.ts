@@ -10,8 +10,14 @@ import {
   importMermaid,
   boundsOf,
   buildEdge,
+  bestSides,
   estimateTextSize,
   facingSides,
+  handlePoint,
+  handleSide,
+  rectsOverlap,
+  routeCost,
+  routeScore,
   findFreePosition,
   isPaletteName,
   nodeText,
@@ -23,6 +29,8 @@ import {
   type NodeTypeSchema,
   type Rect,
   type Side,
+  type SideChoice,
+  type SideUsage,
   type StoredEdge,
   type StoredNode,
   type VaultRepository,
@@ -146,6 +154,67 @@ function fitContent(base: { width: number; height: number }, data: Record<string
   return { width: base.width, height: Math.min(height, 1600) };
 }
 
+/**
+ * Returns a function that picks handle sides for an edge: the pair with the shortest route around the other
+ * nodes, preferring sides that other edges of the same nodes don't use yet. Groups are not obstacles.
+ */
+function sidePicker(nodes: StoredNode[], edges: StoredEdge[]) {
+  const rects = absoluteRects(nodes, FALLBACK_SIZE);
+  const containers = new Set(nodes.filter((n) => n.type === 'group' || nodes.some((c) => c.parentId === n.id)).map((n) => n.id));
+  const usage = (id: string, skipEdge?: string): SideUsage => {
+    const used: SideUsage = {};
+    for (const e of edges) {
+      if (e.id === skipEdge) continue;
+      const side = e.source === id ? handleSide(e.sourceHandle) : e.target === id ? handleSide(e.targetHandle) : undefined;
+      if (side) used[side] = (used[side] ?? 0) + 1;
+    }
+    return used;
+  };
+  const obstaclesFor = (source: string, target: string) =>
+    nodes.filter((n) => !containers.has(n.id) && n.id !== source && n.id !== target).map((n) => rects.get(n.id)!);
+  const pick = (source: string, target: string, edgeId?: string): SideChoice => {
+    const a = rects.get(source)!;
+    const b = rects.get(target)!;
+    return bestSides(a, b, obstaclesFor(source, target), { source: usage(source, edgeId), target: usage(target, edgeId) }) ?? { ...facingSides(a, b), length: 0, bends: 0 };
+  };
+  return Object.assign(pick, { rects, obstaclesFor });
+}
+
+/** Straight when the two handles face each other on one line, a rounded step otherwise. */
+function pathFor(a: { x: number; y: number; width: number; height: number }, b: typeof a, sides: { source: Side; target: Side }) {
+  const p = handlePoint(a, sides.source);
+  const q = handlePoint(b, sides.target);
+  const horizontal = (sides.source === 'right' && sides.target === 'left') || (sides.source === 'left' && sides.target === 'right');
+  const vertical = (sides.source === 'bottom' && sides.target === 'top') || (sides.source === 'top' && sides.target === 'bottom');
+  const aligned = (horizontal && Math.abs(p.y - q.y) < 24) || (vertical && Math.abs(p.x - q.x) < 24);
+  return aligned ? 'straight' : 'smoothstep';
+}
+
+/** Re-picks the sides of edges (except ones whose sides were set explicitly); returns the changed edges. */
+function rerouteEdges(nodes: StoredNode[], edges: StoredEdge[], which: (e: StoredEdge) => boolean, setPath: (e: StoredEdge) => boolean) {
+  const changed: StoredEdge[] = [];
+  const rects = absoluteRects(nodes, FALLBACK_SIZE);
+  // Usage is read live, so each edge sees the sides already taken by the previous ones.
+  const pick = sidePicker(nodes, edges);
+  for (const e of edges) {
+    if (!which(e) || e.data?.fixedSides || !rects.has(e.source) || !rects.has(e.target)) continue;
+    const sides = pick(e.source, e.target, e.id);
+    const sourceHandle = `${sides.source}-source`;
+    const targetHandle = `${sides.target}-target`;
+    let dirty = e.sourceHandle !== sourceHandle || e.targetHandle !== targetHandle;
+    e.sourceHandle = sourceHandle;
+    e.targetHandle = targetHandle;
+    if (setPath(e)) {
+      const path = pathFor(rects.get(e.source)!, rects.get(e.target)!, sides);
+      if (e.data?.pathType !== path) dirty = true;
+      e.type = path;
+      e.data = { ...(e.data ?? {}), pathType: path };
+    }
+    if (dirty) changed.push(e);
+  }
+  return changed;
+}
+
 export class MosaicOps {
   constructor(private readonly vault: VaultRepository) {}
 
@@ -166,8 +235,8 @@ export class MosaicOps {
         'Create nodes with create_node; omit position to auto-place without overlap (use "near" to place beside a related node, "parentId" to put it inside a group).',
         'Size nodes so content is never clipped (see design.rules); start from the type defaultSize.',
         'Group related nodes with create_group and give each category one palette name.',
-        'Connect with connect; sides are picked automatically from node positions unless given.',
-        'Finish with set_story_order so the Story view walks the canvas in a sensible order, and auto_layout if the canvas got messy.',
+        'Connect with connect and leave the sides out: the server routes around other nodes and picks the best handle sides (read_canvas shows them as from/to).',
+        'Finish with set_story_order so the Story view walks the canvas in a sensible order, then check_layout (fix: true) so nothing overlaps and every edge takes a clean route; auto_layout if the canvas got messy.',
         'Link related notes with [[Node title]] in text and tag them with #tag; get_links shows outgoing links and backlinks.',
         'Rename a node with update_node (title); its id never changes, so links and edges keep working. Rename, retag, describe or lock a canvas with update_canvas.',
         'Changes are written to the vault and appear live in the MosaicFlow app.',
@@ -226,7 +295,7 @@ export class MosaicOps {
     const file = await this.vault.readCanvasFile(entry);
     return {
       canvas: { id: entry.id, name: entry.name, description: entry.description, tags: entry.tags, locked: !!file?.settings?.locked },
-      coordinates: 'x/y/width/height are absolute canvas coordinates; "position" is relative to "parent" when set.',
+      coordinates: 'x/y/width/height are absolute canvas coordinates; "position" is relative to "parent" when set. Edges leave the source from "from" side and enter the target on the "to" side.',
       nodes: nodes.map((n) => {
         const r = rects.get(n.id)!;
         const base = {
@@ -244,8 +313,88 @@ export class MosaicOps {
       edges: edges.map((e) => ({
         id: e.id, source: e.source, target: e.target,
         ...(e.label ? { label: e.label } : {}),
-        ...(detail === 'full' ? { sourceHandle: e.sourceHandle, targetHandle: e.targetHandle, type: e.type, data: e.data } : {}),
+        from: handleSide(e.sourceHandle), to: handleSide(e.targetHandle),
+        ...(detail === 'full' ? { type: e.type, data: e.data } : {}),
       })),
+    };
+  }
+
+  /**
+   * Finds what makes a canvas hard to read: overlapping nodes, children sticking out of their group, and
+   * edges whose sides make a longer or blocked route than the best available. With fix, repairs them.
+   */
+  async checkLayout(canvas: string, fix = false) {
+    const { entry, repo, nodes } = await this.open(canvas);
+    const edges = await repo.readAllEdges();
+    const pick = sidePicker(nodes, edges);
+    const rects = pick.rects;
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    const isAncestor = (a: string, b: string) => {
+      for (let p = byId.get(b)?.parentId, i = 0; p && i < 50; p = byId.get(p)?.parentId, i++) if (p === a) return true;
+      return false;
+    };
+    const contains = (outer: Rect, inner: Rect) =>
+      inner.x >= outer.x && inner.y >= outer.y && inner.x + inner.width <= outer.x + outer.width && inner.y + inner.height <= outer.y + outer.height;
+
+    const overlaps: { a: string; b: string }[] = [];
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const [a, b] = [nodes[i], nodes[j]];
+        if (isAncestor(a.id, b.id) || isAncestor(b.id, a.id)) continue;
+        if (rectsOverlap(rects.get(a.id)!, rects.get(b.id)!)) overlaps.push({ a: a.id, b: b.id });
+      }
+    }
+    const outside = nodes
+      .filter((n) => n.parentId && rects.has(n.parentId) && !contains(rects.get(n.parentId)!, rects.get(n.id)!))
+      .map((n) => ({ node: n.id, group: n.parentId! }));
+
+    const edgeIssues: { edge: string; from?: Side; to?: Side; suggested: { from: Side; to: Side }; reason: string }[] = [];
+    for (const e of edges) {
+      if (e.data?.fixedSides || !rects.has(e.source) || !rects.has(e.target)) continue;
+      const from = handleSide(e.sourceHandle);
+      const to = handleSide(e.targetHandle);
+      const best = pick(e.source, e.target, e.id);
+      const suggested = { from: best.source, to: best.target };
+      if (!from || !to) {
+        edgeIssues.push({ edge: e.id, suggested, reason: 'missing handle sides' });
+        continue;
+      }
+      if (from === best.source && to === best.target) continue;
+      const current = routeCost(rects.get(e.source)!, from, rects.get(e.target)!, to, pick.obstaclesFor(e.source, e.target));
+      if (!current) edgeIssues.push({ edge: e.id, from, to, suggested, reason: 'no clear route between these sides' });
+      else if (routeScore(current) > routeScore(best) * 1.25 + 80) {
+        edgeIssues.push({ edge: e.id, from, to, suggested, reason: `route ${current.length}px with ${current.bends} bends; suggested ${best.length}px with ${best.bends}` });
+      }
+    }
+
+    let fixed = 0;
+    if (fix) {
+      for (const { a, b } of overlaps) {
+        const [na, nb] = [byId.get(a)!, byId.get(b)!];
+        if (na.parentId !== nb.parentId) continue;
+        const upper = na.position.y <= nb.position.y ? na : nb;
+        for (const moved of pushOverlappedSiblings(nodes, upper.id)) {
+          await repo.writeNode(moved);
+          fixed++;
+        }
+      }
+      for (const { group } of outside) await this.growToFit(repo, nodes, group);
+      fixed += outside.length;
+      const flagged = new Set(edgeIssues.map((i) => i.edge));
+      for (const e of rerouteEdges(nodes, edges, (x) => flagged.has(x.id), () => false)) {
+        await repo.writeEdge(e);
+        fixed++;
+      }
+      await this.vault.touchCanvas(entry);
+    }
+
+    const cap = <T>(list: T[]) => list.slice(0, 40);
+    return {
+      ok: overlaps.length + outside.length + edgeIssues.length === 0,
+      overlaps: cap(overlaps),
+      outsideGroup: cap(outside),
+      edges: cap(edgeIssues),
+      ...(fix ? { fixed } : overlaps.length + outside.length + edgeIssues.length ? { hint: 'Call check_layout with fix: true to repair these.' } : {}),
     };
   }
 
@@ -479,6 +628,10 @@ export class MosaicOps {
     }
     await this.growToFit(repo, nodes, node.parentId);
     if (oldParent !== node.parentId) await this.growToFit(repo, nodes, oldParent);
+    if (input.size || input.position || input.parentId !== undefined) {
+      const edges = await repo.readAllEdges();
+      for (const e of rerouteEdges(nodes, edges, (e) => e.source === node.id || e.target === node.id, () => false)) await repo.writeEdge(e);
+    }
     await this.vault.touchCanvas(entry);
     return { id: node.id, ...absoluteRects(nodes, FALLBACK_SIZE).get(node.id)! };
   }
@@ -541,8 +694,7 @@ export class MosaicOps {
       throw new Error(`"${source.id}" is already connected to "${target.id}"; use update_edge to change it`);
     }
 
-    const rects = absoluteRects(nodes, FALLBACK_SIZE);
-    const sides = facingSides(rects.get(source.id)!, rects.get(target.id)!);
+    const sides = sidePicker(nodes, edges)(source.id, target.id);
     const taken = new Set(edges.map((e) => e.id));
     const id = input.id ?? uniqueId(`e-${source.id}-${target.id}`, taken);
     if (!SAFE_ID.test(id) || taken.has(id)) throw new Error(`Invalid or duplicate edge id "${id}"`);
@@ -554,9 +706,12 @@ export class MosaicOps {
       `${input.targetSide ?? sides.target}-target`,
       edgeLook(input.style, targetBorder)
     );
+    // Sides the caller chose stay put when nodes move or the page is re-laid out.
+    if (input.sourceSide || input.targetSide) edge.data = { ...edge.data, fixedSides: true };
     await repo.writeEdge(edge);
     await this.vault.touchCanvas(entry);
-    return { id, sourceHandle: edge.sourceHandle, targetHandle: edge.targetHandle };
+    const chosen = { source: handleSide(edge.sourceHandle)!, target: handleSide(edge.targetHandle)! };
+    return { id, sourceSide: chosen.source, targetSide: chosen.target, routeLength: sides.length, bends: sides.bends };
   }
 
   async updateEdge(input: { canvas: string; id: string; label?: string; style?: EdgeStyleInput; sourceSide?: Side; targetSide?: Side }) {
@@ -576,6 +731,7 @@ export class MosaicOps {
     if (s.start) data.markerStart = s.start;
     if (s.end) data.markerEnd = s.end;
     if (s.animated !== undefined) data.animated = s.animated;
+    if (input.sourceSide || input.targetSide) data.fixedSides = true;
 
     const pathType = String(data.pathType ?? 'bezier');
     const next: StoredEdge = {
@@ -838,26 +994,10 @@ export class MosaicOps {
       placeBlocks();
     }
 
-    const rects = absoluteRects(nodes, FALLBACK_SIZE);
-    for (const e of edges) {
-      const a = rects.get(e.source);
-      const b = rects.get(e.target);
-      if (!a || !b) continue;
-      const sides = facingSides(a, b);
-      e.sourceHandle = `${sides.source}-source`;
-      e.targetHandle = `${sides.target}-target`;
-      if (!explicitPaths.has(e.id)) {
-        const horizontal = sides.source === 'left' || sides.source === 'right';
-        const offset = horizontal ? (a.y + a.height / 2) - (b.y + b.height / 2) : (a.x + a.width / 2) - (b.x + b.width / 2);
-        const path = Math.abs(offset) < 24 ? 'straight' : 'smoothstep';
-        e.type = path;
-        e.data = { ...(e.data ?? {}), pathType: path };
-      }
-    }
-
-    for (const n of nodes) await repo.writeNode(n);
-    for (const e of edges) await repo.writeEdge(e);
     for (const gid of containers) await this.growToFit(repo, nodes, gid);
+    for (const n of nodes) await repo.writeNode(n);
+    rerouteEdges(nodes, edges, () => true, (e) => !explicitPaths.has(e.id));
+    for (const e of edges) await repo.writeEdge(e);
     await this.vault.touchCanvas(entry);
   }
 
@@ -921,20 +1061,10 @@ export class MosaicOps {
     }
     await this.growToFit(repo, nodes, parentId);
 
-    // Re-pick facing handles for edges between moved nodes.
-    const rects = absoluteRects(nodes, FALLBACK_SIZE);
-    let rerouted = 0;
-    for (const e of edges) {
-      if (!owner(e.source) || !owner(e.target)) continue;
-      const sides = facingSides(rects.get(e.source)!, rects.get(e.target)!);
-      const sourceHandle = `${sides.source}-source`;
-      const targetHandle = `${sides.target}-target`;
-      if (e.sourceHandle !== sourceHandle || e.targetHandle !== targetHandle) {
-        await repo.writeEdge({ ...e, sourceHandle, targetHandle });
-        rerouted++;
-      }
-    }
+    // Re-pick handles for edges touching the moved nodes, now that they sit somewhere else.
+    const rerouted = rerouteEdges(nodes, edges, (e) => !!owner(e.source) || !!owner(e.target), () => false);
+    for (const e of rerouted) await repo.writeEdge(e);
     await this.vault.touchCanvas(entry);
-    return { moved: targets.length, reroutedEdges: rerouted };
+    return { moved: targets.length, reroutedEdges: rerouted.length };
   }
 }

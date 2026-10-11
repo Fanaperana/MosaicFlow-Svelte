@@ -62,7 +62,7 @@ async function main() {
     assert(dup.id === 'ownership-2', 'duplicate titles get unique ids');
 
     const e = await call('connect', { canvas: 'MCP Test', source: a.id, target: b.id, label: 'enables' });
-    assert(e.sourceHandle === 'right-source' && e.targetHandle === 'left-target', 'facing handles picked automatically');
+    assert(e.sourceSide === 'right' && e.targetSide === 'left', 'facing handles picked automatically');
     assert(await callError('connect', { canvas: 'MCP Test', source: a.id, target: b.id }), 'duplicate edge rejected');
     assert(await callError('connect', { canvas: 'MCP Test', source: a.id, target: a.id }), 'self-loop rejected');
 
@@ -155,6 +155,9 @@ async function main() {
     const overlap = rects.some((r: { x: number; y: number; width: number; height: number }, i: number) =>
       rects.some((o: typeof r, j: number) => i !== j && r.x < o.x + o.width && o.x < r.x + r.width && r.y < o.y + o.height && o.y < r.y + r.height));
     assert(!overlap, 'build_knowledge lays out without overlaps');
+    assert(builtCanvas.edges.every((e: { from?: string; to?: string }) => e.from && e.to), 'read_canvas reports edge sides');
+    const layoutCheck = await call('check_layout', { canvas: 'Built Map' });
+    assert(layoutCheck.ok, `check_layout finds nothing on a fresh map (${JSON.stringify(layoutCheck).slice(0, 200)})`);
     const again = await call('build_knowledge', { canvas: 'Built Map', nodes: [{ key: 'x', type: 'note', title: 'Extra' }], layout: 'none', story: false });
     assert(again.created === 'added to existing canvas', 'build_knowledge adds to an existing canvas');
 

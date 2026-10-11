@@ -10,7 +10,7 @@
   import { workspace } from '$lib/stores/workspace.svelte';
   import { settings } from '$lib/stores/settings.svelte';
   import { edgeObstacles } from '$lib/stores/edge-obstacles.svelte';
-  import { hitsObstacle, roundedPath, routeOrthogonal, sampleBezier, sampleLine, type Point, type Side } from '$lib/utils/edge-router';
+  import { hitsObstacle, roundedPath, routeOrthogonal, sampleBezier, sampleLine, type Point, type Side } from '@mosaicflow/vault-core';
 
   let {
     id,

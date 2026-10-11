@@ -1,17 +1,10 @@
 // Orthogonal edge routing around nodes: A* over a sparse grid built from the obstacles' edges,
-// with a penalty per bend so routes stay simple. Pure functions; no Svelte or xyflow state.
+// with a penalty per bend so routes stay simple. Shared by the app (drawing) and the MCP server
+// (choosing which handle sides to connect).
 
-export type Side = 'left' | 'right' | 'top' | 'bottom';
-export interface Point {
-  x: number;
-  y: number;
-}
-export interface Rect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+import type { Point } from './types';
+import type { Rect } from './layout';
+import type { Side } from './builders';
 
 const DIR: Record<Side, Point> = { left: { x: -1, y: 0 }, right: { x: 1, y: 0 }, top: { x: 0, y: -1 }, bottom: { x: 0, y: 1 } };
 const MARGIN = 12;
@@ -220,4 +213,74 @@ export function roundedPath(points: Point[], radius = 10): { path: string; mid: 
     half -= lengths[k];
   }
   return { path: d, mid };
+}
+
+const SIDES: Side[] = ['right', 'left', 'bottom', 'top'];
+const SHARED_SIDE_COST = 120;
+
+/** The handle point (middle of a side) of a node rect. */
+export function handlePoint(r: Rect, side: Side): Point {
+  switch (side) {
+    case 'left':
+      return { x: r.x, y: r.y + r.height / 2 };
+    case 'right':
+      return { x: r.x + r.width, y: r.y + r.height / 2 };
+    case 'top':
+      return { x: r.x + r.width / 2, y: r.y };
+    case 'bottom':
+      return { x: r.x + r.width / 2, y: r.y + r.height };
+  }
+}
+
+/** Side of a handle id such as "right-source"; undefined for missing or unknown handles. */
+export function handleSide(handle: string | null | undefined): Side | undefined {
+  const side = handle?.split('-')[0];
+  return SIDES.includes(side as Side) ? (side as Side) : undefined;
+}
+
+export interface SideChoice {
+  source: Side;
+  target: Side;
+  /** Route length in canvas px. */
+  length: number;
+  bends: number;
+}
+
+export type SideUsage = Partial<Record<Side, number>>;
+
+/** Length and bends of the route between two given sides, or null when it can't be routed. */
+export function routeCost(a: Rect, sourceSide: Side, b: Rect, targetSide: Side, obstacles: Rect[]): { length: number; bends: number } | null {
+  const route = routeOrthogonal(handlePoint(a, sourceSide), sourceSide, handlePoint(b, targetSide), targetSide, obstacles);
+  if (!route) return null;
+  const length = route.slice(1).reduce((sum, p, k) => sum + Math.abs(p.x - route[k].x) + Math.abs(p.y - route[k].y), 0);
+  return { length: Math.round(length), bends: Math.max(0, route.length - 2) };
+}
+
+/** Comparable score of a route: length plus a penalty per bend. */
+export const routeScore = (cost: { length: number; bends: number }) => cost.length + cost.bends * BEND_COST;
+
+/**
+ * Picks handle sides for an edge from `a` to `b`: the pair whose route around `obstacles` is cheapest,
+ * counting length, bends and sides already used by other edges of the same nodes (so edges spread out).
+ * Returns null when no side pair can be routed.
+ */
+export function bestSides(a: Rect, b: Rect, obstacles: Rect[], used: { source?: SideUsage; target?: SideUsage } = {}): SideChoice | null {
+  const centre = (r: Rect) => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
+  // The side facing straight away from the other node never wins; skipping it saves a quarter of the routes.
+  const candidates = (from: Rect, to: Rect) => {
+    const [f, t] = [centre(from), centre(to)];
+    const facing = (s: Side) => DIR[s].x * (t.x - f.x) + DIR[s].y * (t.y - f.y);
+    return [...SIDES].sort((x, y) => facing(y) - facing(x)).slice(0, 3);
+  };
+  let best: (SideChoice & { score: number }) | null = null;
+  for (const s of candidates(a, b)) {
+    for (const t of candidates(b, a)) {
+      const cost = routeCost(a, s, b, t, obstacles);
+      if (!cost) continue;
+      const shared = (used.source?.[s] ?? 0) + (used.target?.[t] ?? 0);
+      const score = routeScore(cost) + shared * SHARED_SIDE_COST;
+      if (!best || score < best.score) best = { source: s, target: t, ...cost, score };
+    }
+  }
+  return best && { source: best.source, target: best.target, length: best.length, bends: best.bends };
 }

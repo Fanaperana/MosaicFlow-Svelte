@@ -1,9 +1,8 @@
 // Canvas-space rects of every non-container node, shared by all edges for obstacle-aware routing.
 
-import { absoluteRects } from '@mosaicflow/vault-core';
+import { absoluteRects, type Rect } from '@mosaicflow/vault-core';
 import { workspace } from './workspace.svelte';
 import { nodeRegistry } from '$lib/kernel/registries/node-registry';
-import type { Rect } from '$lib/utils/edge-router';
 
 class EdgeObstacles {
   rects = $derived.by(() => {

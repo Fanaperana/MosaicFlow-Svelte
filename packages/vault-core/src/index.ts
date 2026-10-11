@@ -9,4 +9,5 @@ export * from './vault';
 export * from './builders';
 export * from './knowledge';
 export * from './autolayout';
+export * from './routing';
 export * from './importers';

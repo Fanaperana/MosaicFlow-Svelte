@@ -317,6 +317,7 @@ VS Code uses `"servers"` with `"type": "stdio"` instead of `"mcpServers"`. The v
 | `create_node`, `update_node`, `delete_node` | Edit nodes (rename with `update_node`; ids never change) |
 | `connect`, `update_edge`, `delete_edge` | Edit edges |
 | `create_group`, `set_story_order`, `auto_layout`, `import_mermaid` | Structure and tidy a page |
+| `check_layout` | Reports overlapping nodes, nodes outside their group and edges with a poor route; `fix: true` repairs them |
 
 Open the vault in MosaicFlow once before connecting so `.mosaicflow/node-types.json` exists; it tells the assistant which node types and fields are available. Agents without MCP can edit the files directly by following [docs/VAULT_FORMAT.md](docs/VAULT_FORMAT.md).
 
