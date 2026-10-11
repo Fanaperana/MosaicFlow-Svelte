@@ -8,7 +8,7 @@
     AlignLeft, AlignCenter, AlignRight, Bold, Italic, Type, Baseline, Square, SquareRoundCorner,
     PaintBucket, Spline, Sparkles, MoveHorizontal, ArrowUpRight, CornerDownLeft, Tags, Text, Hash,
     List, Calendar, FileText, SquareCheck, RotateCw, FlipHorizontal2, FlipVertical2, Clock, Scan, Ungroup, Tag, ChevronUp, ArrowLeft,
-    ArrowLeftToLine, ArrowRightToLine, ArrowUpToLine, ArrowDownToLine
+    ArrowLeftToLine, ArrowRightToLine, ArrowUpToLine, ArrowDownToLine, Palette
   } from 'lucide-svelte';
   import { ColorInput } from '$lib/components/ui/color-picker';
   import { PropertyGroup } from '$lib/components/ui/property-group';
@@ -19,6 +19,8 @@
   import { openNode, openWikilink } from '$lib/services/navigation';
   import { extractTags } from '@mosaicflow/vault-core';
   import { nodeNetLabels, netMembers, netNameOf } from '$lib/stores/net-hover.svelte';
+  import { nodePresets } from '$lib/stores/node-presets.svelte';
+  import NodePresetPicker from '$lib/components/NodePresetPicker.svelte';
 
   // Helper: Convert hex + opacity to RGBA string
   function hexToRgba(hex: string, opacity: number): string {
@@ -1027,6 +1029,15 @@
 
       <PropertyGroup title="Appearance" bind:open={appearanceOpen}>
         <div class="prop">
+          <span class="prop-label"><Palette size={14} />Preset</span>
+          <NodePresetPicker
+            {data}
+            disabled={workspace.locked}
+            onApply={(preset) => nodePresets.apply(preset, [selectedNode.id])}
+            onSave={(name) => nodePresets.save({ fill: data.color || '#1e1e1e', border: data.borderColor || '#333333', text: data.textColor || '#e0e0e0' }, name)}
+          />
+        </div>
+        <div class="prop">
           <span class="prop-label"><PaintBucket size={14} />Fill</span>
           <span class="prop-value">
             <ColorInput
@@ -1647,6 +1658,7 @@
 
   .net-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 2px;
     padding: 1px 0 1px 6px;
@@ -1654,14 +1666,14 @@
   }
 
   .net-row .net-name {
-    flex: 1;
+    flex: 1 1 calc(100% - 24px);
     min-width: 0;
     margin-left: 4px;
   }
 
   .net-row .net-select {
-    flex: 0 0 76px;
-    width: 76px;
+    flex: 1 1 0;
+    min-width: 64px;
     text-transform: capitalize;
   }
 

@@ -9,6 +9,7 @@ import { packageDialogs } from '$lib/stores/packages.svelte';
 import { ui } from '$lib/stores/ui.svelte';
 import { registerCoreLayouts } from '$lib/services/contributions';
 import { selectInDirection } from '$lib/services/canvasNav';
+import { nodePresets } from '$lib/stores/node-presets.svelte';
 
 const emit = (name: string, detail?: unknown) => () => {
   window.dispatchEvent(new CustomEvent(name, { detail }));
@@ -101,9 +102,10 @@ const COMMANDS: CoreCommand[] = [
     handler: () => workspace.ungroupNode(workspace.selectedNodeIds[0]) },
 ];
 
-export const COMMAND_CATEGORIES = ['App', 'Pages', 'View', 'Canvas', 'Edit'];
+export const COMMAND_CATEGORIES = ['App', 'Pages', 'View', 'Canvas', 'Edit', 'Style'];
 
 export function registerCoreCommands() {
   for (const cmd of COMMANDS) commandRegistry.register({ ...cmd, pluginId: 'core' });
+  nodePresets.registerCommands();
   registerCoreLayouts();
 }

@@ -57,6 +57,8 @@
 }
 
 :root {
+  /* Native controls (select popups, scrollbars, date pickers) render in their dark variant. */
+  color-scheme: dark;
   /* MosaicFlow UI tokens (dark, Notion-like compact chrome) */
   --mf-font-ui: 'Space Grotesk Variable', 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mf-font-mono: 'PT Mono', 'Space Mono', ui-monospace, 'Consolas', monospace;
@@ -185,6 +187,22 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* Dropdown lists: the open popup draws the options, so give them the dark surfaces explicitly. */
+select option,
+select optgroup {
+  background-color: var(--mf-surface-2);
+  color: var(--mf-text);
+}
+
+select option:checked {
+  background-color: var(--mf-accent);
+  color: #ffffff;
+}
+
+select option:disabled {
+  color: var(--mf-text-3);
 }
 
 /* Settings → Appearance → Reduce motion */

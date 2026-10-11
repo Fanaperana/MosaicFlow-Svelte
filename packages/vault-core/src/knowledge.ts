@@ -22,13 +22,16 @@ export const STYLE_KEYS = new Set([
   'labelColor', 'locked', 'order', 'viewMode', 'labelBgColor', 'strokeWidth', 'strokeStyle', 'showHeader',
 ]);
 
+// Styling inside nested objects such as data.netLabels[].
+const NESTED_STYLE_KEYS = new Set(['id', 'bgColor', 'side', 'end', 'endSide']);
+
 function textOf(value: unknown, depth = 0): string {
   if (value == null || depth > 4) return '';
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   if (Array.isArray(value)) return value.map((v) => textOf(v, depth + 1)).join(' ');
   if (typeof value === 'object') {
-    return Object.entries(value).filter(([k]) => k !== 'id').map(([, v]) => textOf(v, depth + 1)).join(' ');
+    return Object.entries(value).filter(([k]) => !NESTED_STYLE_KEYS.has(k) && !STYLE_KEYS.has(k)).map(([, v]) => textOf(v, depth + 1)).join(' ');
   }
   return '';
 }
